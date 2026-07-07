@@ -33,21 +33,21 @@ router.get('/summary', authorizeRole('ADMIN'), asyncHandler(async (req, res) => 
 
   // All 11 queries on ONE connection — no pool exhaustion
   const results = await queryBatch([
-    ['SELECT COUNT(*) as total FROM files', []],
-    ["SELECT COUNT(*) as approved FROM files WHERE status = 'final_approved'", []],
-    ["SELECT COUNT(*) as pending FROM files WHERE status NOT IN ('final_approved','rejected_by_admin','rejected_by_team_leader')", []],
-    ["SELECT COUNT(*) as rejected FROM files WHERE status LIKE 'rejected%'", []],
-    ['SELECT file_type, COUNT(*) as count FROM files GROUP BY file_type ORDER BY count DESC', []],
+    ['SELECT COUNT(DISTINCT f.id) as total FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id', []],
+    ["SELECT COUNT(DISTINCT f.id) as approved FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status = 'final_approved'", []],
+    ["SELECT COUNT(DISTINCT f.id) as pending FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status NOT IN ('final_approved','rejected_by_admin','rejected_by_team_leader')", []],
+    ["SELECT COUNT(DISTINCT f.id) as rejected FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status LIKE 'rejected%'", []],
+    ['SELECT f.file_type, COUNT(DISTINCT f.id) as count FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id GROUP BY f.file_type ORDER BY count DESC', []],
     ['SELECT id, username, role, team, activity, timestamp FROM activity_logs ORDER BY timestamp DESC LIMIT 6', []],
-    ['SELECT COUNT(*) as total FROM files WHERE uploaded_at >= ? AND uploaded_at < ?', [prevStart, prevEnd]],
-    ["SELECT COUNT(*) as approved FROM files WHERE status = 'final_approved' AND uploaded_at >= ? AND uploaded_at < ?", [prevStart, prevEnd]],
-    ["SELECT COUNT(*) as pending FROM files WHERE status NOT IN ('final_approved','rejected_by_admin','rejected_by_team_leader') AND uploaded_at >= ? AND uploaded_at < ?", [prevStart, prevEnd]],
-    ["SELECT COUNT(*) as rejected FROM files WHERE status LIKE 'rejected%' AND uploaded_at >= ? AND uploaded_at < ?", [prevStart, prevEnd]],
-    [`SELECT DATE(uploaded_at) as date,
-        SUM(CASE WHEN status = 'final_approved' OR current_stage = 'published_to_public' THEN 1 ELSE 0 END) as approved,
-        SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
-      FROM files WHERE uploaded_at >= ?
-      GROUP BY DATE(uploaded_at) ORDER BY date ASC`, [trendDateStr]]
+    ['SELECT COUNT(DISTINCT f.id) as total FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.uploaded_at >= ? AND f.uploaded_at < ?', [prevStart, prevEnd]],
+    ["SELECT COUNT(DISTINCT f.id) as approved FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status = 'final_approved' AND f.uploaded_at >= ? AND f.uploaded_at < ?", [prevStart, prevEnd]],
+    ["SELECT COUNT(DISTINCT f.id) as pending FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status NOT IN ('final_approved','rejected_by_admin','rejected_by_team_leader') AND f.uploaded_at >= ? AND f.uploaded_at < ?", [prevStart, prevEnd]],
+    ["SELECT COUNT(DISTINCT f.id) as rejected FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status LIKE 'rejected%' AND f.uploaded_at >= ? AND f.uploaded_at < ?", [prevStart, prevEnd]],
+    [`SELECT DATE(f.uploaded_at) as date,
+        SUM(CASE WHEN f.status = 'final_approved' OR f.current_stage = 'published_to_public' THEN 1 ELSE 0 END) as approved,
+        SUM(CASE WHEN f.status LIKE 'rejected%' OR f.current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
+      FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.uploaded_at >= ?
+      GROUP BY DATE(f.uploaded_at) ORDER BY date ASC`, [trendDateStr]]
   ]);
 
   const [

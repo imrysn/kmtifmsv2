@@ -48,7 +48,7 @@ const groupFilesByFolder = (files) => {
   const folders = {};
   const individualFiles = [];
   if (!files || !Array.isArray(files)) return { folders, individualFiles };
-  
+
   const sortedFiles = [...files].sort((a, b) => {
     const nameA = (a.original_name || a.filename || '').toLowerCase();
     const nameB = (b.original_name || b.filename || '').toLowerCase();
@@ -89,27 +89,27 @@ const getAssignmentStatus = (assignment) => {
 const CHECKLIST_SECTIONS_2D = [
   {
     section: 'Drawing Views',
-    items: ['Origin','Alignment of Views','Line Attributes','Dimensions','Hole Properties','Chamfer/Radius','Machining Symbol','Welding Symbol','Geometric/Fitting Tolerances','Additional Views','Text Attributes'],
+    items: ['Origin', 'Alignment of Views', 'Line Attributes', 'Dimensions', 'Hole Properties', 'Chamfer/Radius', 'Machining Symbol', 'Welding Symbol', 'Geometric/Fitting Tolerances', 'Additional Views', 'Text Attributes'],
   },
   {
     section: 'Notes',
-    items: ['Standard Notes','Special Notes'],
+    items: ['Standard Notes', 'Special Notes'],
   },
   {
     section: 'Bill of Materials',
-    items: ['Material Type','Material Specification','Quantity','Material Weight','Remarks','Balloon','Numbering & Arrangement (Assy)'],
+    items: ['Material Type', 'Material Specification', 'Quantity', 'Material Weight', 'Remarks', 'Balloon', 'Numbering & Arrangement (Assy)'],
   },
   {
     section: 'Title Block',
-    items: ['Machine name','Part Name','Scale','Designed','Drawn','Quantity','Job Number','Cross Reference Number','Previous Drawing Number','Revision Details (if necessary)'],
+    items: ['Machine name', 'Part Name', 'Scale', 'Designed', 'Drawn', 'Quantity', 'Job Number', 'Cross Reference Number', 'Previous Drawing Number', 'Revision Details (if necessary)'],
   },
   {
     section: 'Isometric View',
-    items: ['Orientation','Scale','Location'],
+    items: ['Orientation', 'Scale', 'Location'],
   },
   {
     section: 'Others',
-    items: ['Tree View Properties / Link','Excel (Additional Info)'],
+    items: ['Tree View Properties / Link', 'Excel (Additional Info)'],
   },
 ];
 
@@ -190,7 +190,7 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
             <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-tertiary)' }}>
               Check items that are <span style={{ color: 'var(--status-rejected-text)', fontWeight: '600' }}>wrong</span> in this file
             </p>
-            
+
             {/* 2D / 3D Toggle */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
               <div style={{ display: 'inline-flex', background: 'var(--background-secondary)', borderRadius: '8px', padding: '4px' }}>
@@ -251,7 +251,7 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
                       >
                         {isWrong && (
                           <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 6l3 3 5-5" stroke="var(--background-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M2 6l3 3 5-5" stroke="var(--background-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         )}
                       </div>
@@ -273,7 +273,7 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
         <div style={{ padding: '0 24px 14px', borderTop: '1px solid var(--background-secondary)', paddingTop: '14px' }}>
           <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
             </svg>
             Additional Comment <span style={{ color: 'var(--text-tertiary)', fontWeight: '400' }}>(optional)</span>
           </label>
@@ -305,7 +305,7 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
             title="Mark this file as needing edits"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
             </svg>
             Mark as For Editing
           </button>
@@ -315,7 +315,7 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
             style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: 'var(--status-review-text)', color: 'var(--background-secondary)', fontSize: '14px', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
+              <polyline points="20 6 9 17 4 12" />
             </svg>
             Done Checking
           </button>
@@ -352,16 +352,16 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
   // Auto-detect the right checklist if any wrong items exist in 3D
   useEffect(() => {
     if (!isOpen || !file) return;
-    
+
     // We need to re-parse the wrong items here to do the detection since we moved this above the return.
     const note = file.checker_note !== undefined ? (file.checker_note || '') : resolvedNote;
     if (!note) return;
-    
+
     const noteBody = note.split('|')[0];
     const match = noteBody.match(/Wrong items?:\s*(.+)/i);
     let items = [];
     if (match) items = match[1].trim().split(',').map(s => s.trim()).filter(Boolean);
-    
+
     if (items.length > 0) {
       const has3D = items.some(item => CHECKLIST_SECTIONS_3D.some(sec => sec.items.includes(item)));
       setChecklistType(has3D ? '3D' : '2D');
@@ -408,14 +408,14 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke='var(--status-pending-text)' strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
               </svg>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>Checklist Results</h3>
             </div>
             <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>
               {filename}
             </p>
-            
+
             {/* 2D / 3D Toggle */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
               <div style={{ display: 'inline-flex', background: 'var(--background-secondary)', borderRadius: '8px', padding: '4px' }}>
@@ -435,7 +435,7 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
                 </button>
               </div>
             </div>
-            
+
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-tertiary)', lineHeight: 1, padding: '0', flexShrink: 0 }}>×</button>
         </div>
@@ -469,7 +469,7 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
         {!loading && additionalComment && (
           <div style={{ margin: '10px 22px 0', padding: '10px 14px', background: 'var(--status-pending)', border: '1px solid #fde68a', borderRadius: '8px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke='var(--status-pending-text)' strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '1px' }}>
-              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
             </svg>
             <div>
               <p style={{ margin: 0, fontSize: '11px', fontWeight: '700', color: 'var(--status-pending-text)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>Checker Note</p>
@@ -507,7 +507,7 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
                       }}>
                         {isWrong && (
                           <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 6l3 3 5-5" stroke="var(--background-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M2 6l3 3 5-5" stroke="var(--background-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         )}
                       </div>
@@ -592,7 +592,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
               File Details
             </button>
@@ -629,7 +629,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
               </svg>
               Checklist
             </button>
@@ -646,7 +646,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
               </svg>
               Checking
             </button>
@@ -666,7 +666,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" />
               </svg>
               {isFolder ? 'Delete Folder' : 'Delete File'}
             </button>
@@ -702,7 +702,7 @@ const AttachmentMoreMenu = memo(({ onDownload, onOpenPath, isFolder = false }) =
         title="More options"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+          <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" />
         </svg>
       </button>
       {open && (
@@ -724,7 +724,7 @@ const AttachmentMoreMenu = memo(({ onDownload, onOpenPath, isFolder = false }) =
               onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
               </svg>
               {isFolder ? 'Open Folder Path' : 'Open File Path'}
             </button>
@@ -740,9 +740,9 @@ const AttachmentMoreMenu = memo(({ onDownload, onOpenPath, isFolder = false }) =
             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
             {isFolder ? 'Download Folder' : 'Download'}
           </button>
@@ -755,7 +755,7 @@ AttachmentMoreMenu.displayName = 'AttachmentMoreMenu';
 
 const getFileStatusBadge = (status) => {
   const badges = {
-    new:      { bg: 'var(--status-review-text)', color: 'var(--background-secondary)', label: 'New', radius: '20px' },
+    new: { bg: 'var(--status-review-text)', color: 'var(--background-secondary)', label: 'New', radius: '20px' },
     uploaded: { bg: 'var(--status-review-text)', color: 'var(--background-secondary)', label: 'New', radius: '20px' },
     team_leader_approved: { bg: 'var(--status-pending)', color: 'var(--status-pending-text)', label: 'Pending Admin', radius: '20px' },
     final_approved: { bg: '#d1fae5', color: 'var(--status-approved-text)', label: '✓ APPROVED', radius: '4px', weight: '600' },
@@ -784,10 +784,10 @@ const getStatusBadge = (assignment, activeTab = 'my-tasks', userId = null) => {
   const mySubmittedFiles = activeTab === 'for-checking'
     ? assignment.submitted_files
     : (assignment.submitted_files || []).filter(f =>
-        !f.submitter_name
-        || (userId && String(f.user_id) === String(userId))
-        || (userId && String(f.submitter_username) === String(userId))
-      );
+      !f.submitter_name
+      || (userId && String(f.user_id) === String(userId))
+      || (userId && String(f.submitter_username) === String(userId))
+    );
   if (assignment.status === 'for_editing') {
     // For Checking tab: checker sees "FOR CHECKING"; My Tasks tab with submitted files: user sees "SUBMITTED"
     if (activeTab === 'for-checking') {
@@ -875,6 +875,8 @@ const TasksTab = memo(({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMode, setUploadMode] = useState('files');
   const [targetFolder, setTargetFolder] = useState(null);
+  const [isCreatingNewFolder, setIsCreatingNewFolder] = useState(false);
+  const [localCreatedFolders, setLocalCreatedFolders] = useState([]);
   const uploadAbortControllerRef = useRef(null); // ref to abort in-progress XHR upload
 
   // Delete modal
@@ -918,7 +920,7 @@ const TasksTab = memo(({
   // Warm up the server's path cache when a folder is expanded
   const prefetchFolderFiles = useCallback((files, type = 'file') => {
     if (!files || files.length === 0) return
-    
+
     // Use bulk prefetch to resolve all paths in one parallel request
     const fileIds = files.map(f => f.id).filter(Boolean);
     if (fileIds.length === 0) return;
@@ -926,7 +928,7 @@ const TasksTab = memo(({
     apiFetch('/api/files/bulk-path', {
       method: 'POST',
       body: JSON.stringify({ fileIds, type })
-    }).catch(() => {}); // Ignore prefetch errors
+    }).catch(() => { }); // Ignore prefetch errors
   }, []);
 
   // ─── Fetch helpers ─────────────────────────────────────────────────────────
@@ -1044,7 +1046,7 @@ const TasksTab = memo(({
         }, 500);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignments.length]);
 
   useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
@@ -1298,7 +1300,7 @@ const TasksTab = memo(({
 
   const handleOpenFile = useCallback(async () => {
     if (!fileToOpen) return;
-    
+
     // Close immediately for responsiveness
     const file = { ...fileToOpen };
     const type = openModalType;
@@ -1329,7 +1331,7 @@ const TasksTab = memo(({
         }
       } else {
         const ext = (pathData.filePath.split('.').pop() || '').toLowerCase();
-        const browserViewable = ['pdf','png','jpg','jpeg','gif','svg','webp','txt','html','css','js','json','xml','mp4','mp3'];
+        const browserViewable = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'txt', 'html', 'css', 'js', 'json', 'xml', 'mp4', 'mp3'];
         if (browserViewable.includes(ext)) {
           window.open(`${API_BASE_URL}/api/files/${file.id}/stream`, '_blank', 'noopener,noreferrer');
         } else {
@@ -1391,7 +1393,7 @@ const TasksTab = memo(({
         apiFetch(`/api/files/${fileId}`, {
           method: 'DELETE',
           body: JSON.stringify({ adminId: user.id, adminUsername: user.username, adminRole: user.role, team: user.team }),
-        }).catch(() => {});
+        }).catch(() => { });
         setSuccessModal({ isOpen: true, title: 'Removed', message: 'File removed successfully', type: 'error' });
         setTimeout(() => fetchAssignments(), 500);
       } else {
@@ -1594,24 +1596,24 @@ const TasksTab = memo(({
     const bySort = sortFilter === 'all' ? sorted : sorted.filter(a => getAssignmentStatus(a) === sortFilter);
     const byTeam = teamFilter === 'all' ? bySort : bySort.filter(a => (a.team || 'IT Dept') === teamFilter);
     if (!searchQuery.trim()) return byTeam;
-    
+
     const q = searchQuery.toLowerCase();
-    
+
     // Normalization helper to handle accents like ñ and common typos like Micheal/Michael
     const matchesQuery = (text) => {
       if (!text) return false;
       const normText = String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
       const normQuery = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      
+
       if (normText.includes(normQuery)) return true;
-      
+
       // Michael/Micheal typo tolerance
       const altQuery = normQuery.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
       if (normText.includes(altQuery)) return true;
-      
+
       const altText = normText.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
       if (altText.includes(normQuery) || altText.includes(altQuery)) return true;
-      
+
       return false;
     };
 
@@ -1626,12 +1628,12 @@ const TasksTab = memo(({
         matchesQuery(m.fullName) ||
         matchesQuery(m.username)
       ) ||
-      (a.attachments || []).some(f => 
+      (a.attachments || []).some(f =>
         matchesQuery(f.original_name) ||
         matchesQuery(f.file_name) ||
         matchesQuery(f.folder_name)
       ) ||
-      (a.submitted_files || a.recent_submissions || []).some(f => 
+      (a.submitted_files || a.recent_submissions || []).some(f =>
         matchesQuery(f.original_name) ||
         matchesQuery(f.file_name) ||
         matchesQuery(f.folder_name)
@@ -1749,12 +1751,12 @@ const TasksTab = memo(({
     // "TESTING!" folder should be processed as "New folder/file.pdf".
     const normalizedFiles = stripPrefix
       ? files.map(f => {
-          const file = f.file || f;
-          const rp = (file.relative_path || '').replace(/\\/g, '/');
-          const prefix = stripPrefix.replace(/\\/g, '/') + '/';
-          const stripped = rp.startsWith(prefix) ? rp.slice(prefix.length) : rp;
-          return { ...f, file: { ...file, relative_path: stripped } };
-        })
+        const file = f.file || f;
+        const rp = (file.relative_path || '').replace(/\\/g, '/');
+        const prefix = stripPrefix.replace(/\\/g, '/') + '/';
+        const stripped = rp.startsWith(prefix) ? rp.slice(prefix.length) : rp;
+        return { ...f, file: { ...file, relative_path: stripped } };
+      })
       : files;
 
     const { subfolders, rootFiles } = recursiveGroupByPath(normalizedFiles);
@@ -1778,16 +1780,16 @@ const TasksTab = memo(({
               <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
             ))}
             {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
-            
+
             <div
               className="submitted-file-card"
               onClick={(e) => {
                 e.stopPropagation();
                 setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }));
               }}
-              style={{ 
-                cursor: 'pointer', 
-                backgroundColor: isSubOpen ? 'var(--status-review)' : 'var(--background-secondary)', 
+              style={{
+                cursor: 'pointer',
+                backgroundColor: isSubOpen ? 'var(--status-review)' : 'var(--background-secondary)',
                 padding: '14px 20px',
                 flex: 1
               }}
@@ -1851,7 +1853,7 @@ const TasksTab = memo(({
               <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
             ))}
             {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
-            
+
             <div
               className="submitted-file-card nested-file-item"
               data-file-id={file.id}
@@ -1859,8 +1861,8 @@ const TasksTab = memo(({
                 e.stopPropagation();
                 confirmOpenFile({ ...file, isAttachment: true });
               }}
-              style={{ 
-                cursor: 'pointer', 
+              style={{
+                cursor: 'pointer',
                 backgroundColor: 'var(--background-secondary)',
                 padding: '14px 20px',
                 flex: 1
@@ -1886,7 +1888,7 @@ const TasksTab = memo(({
               <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
             ))}
             {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
-            
+
             <div
               className="submitted-file-card nested-file-item"
               data-file-id={file.id}
@@ -1894,8 +1896,8 @@ const TasksTab = memo(({
                 e.stopPropagation();
                 confirmOpenFile({ ...file, isAttachment: false });
               }}
-              style={{ 
-                cursor: 'pointer', 
+              style={{
+                cursor: 'pointer',
                 backgroundColor: 'var(--background-secondary)',
                 padding: '14px 20px',
                 flex: 1
@@ -1953,8 +1955,8 @@ const TasksTab = memo(({
               {activeTab === 'for-checking'
                 ? `${forCheckingAssignments.length} task${forCheckingAssignments.length !== 1 ? 's' : ''} to check`
                 : activeTab === 'done-tasks'
-                ? `${doneTaskAssignments.length} completed task${doneTaskAssignments.length !== 1 ? 's' : ''}`
-                : `${myTaskAssignments.length} active assignment${myTaskAssignments.length !== 1 ? 's' : ''}`}
+                  ? `${doneTaskAssignments.length} completed task${doneTaskAssignments.length !== 1 ? 's' : ''}`
+                  : `${myTaskAssignments.length} active assignment${myTaskAssignments.length !== 1 ? 's' : ''}`}
             </p>
           </div>
 
@@ -2124,11 +2126,11 @@ const TasksTab = memo(({
         if (teams.length < 2) return null
         const palette = [
           { bg: '#7c3aed', shadow: 'rgba(124,58,237,0.30)', dot: '#7c3aed' },
-          { bg: '#0284c7', shadow: 'rgba(2,132,199,0.30)',   dot: '#0284c7' },
-          { bg: 'var(--status-approved-text)', shadow: 'rgba(5,150,105,0.30)',   dot: 'var(--status-approved-text)' },
-          { bg: 'var(--status-pending-text)', shadow: 'rgba(217,119,6,0.30)',   dot: 'var(--status-pending-text)' },
-          { bg: 'var(--status-rejected-text)', shadow: 'rgba(220,38,38,0.30)',   dot: 'var(--status-rejected-text)' },
-          { bg: '#db2777', shadow: 'rgba(219,39,119,0.30)',  dot: '#db2777' },
+          { bg: '#0284c7', shadow: 'rgba(2,132,199,0.30)', dot: '#0284c7' },
+          { bg: 'var(--status-approved-text)', shadow: 'rgba(5,150,105,0.30)', dot: 'var(--status-approved-text)' },
+          { bg: 'var(--status-pending-text)', shadow: 'rgba(217,119,6,0.30)', dot: 'var(--status-pending-text)' },
+          { bg: 'var(--status-rejected-text)', shadow: 'rgba(220,38,38,0.30)', dot: 'var(--status-rejected-text)' },
+          { bg: '#db2777', shadow: 'rgba(219,39,119,0.30)', dot: '#db2777' },
         ]
         const filterOptions = [
           { value: 'all', label: 'All Teams', color: null },
@@ -2438,10 +2440,10 @@ const TasksTab = memo(({
                   const visibleFiles = activeTab === 'for-checking'
                     ? assignment.submitted_files
                     : assignment.submitted_files.filter(f =>
-                        !f.submitter_name // attachment-style files (no submitter_name) always show
-                        || String(f.user_id) === String(user.id)
-                        || String(f.submitter_username) === String(user.username)
-                      );
+                      !f.submitter_name // attachment-style files (no submitter_name) always show
+                      || String(f.user_id) === String(user.id)
+                      || String(f.submitter_username) === String(user.username)
+                    );
 
                   if (visibleFiles.length === 0) return null;
 
@@ -2502,13 +2504,13 @@ const TasksTab = memo(({
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                                   <FileMoreMenuInline
-                                  isFolder
-                                  onViewDetails={() => { const firstFile = folderFiles[0]; if (firstFile) openFileDetails(firstFile); }}
-                                  onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false, folderName, true)}
-                                  onDelete={() => {
-                                  setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
-                                  setShowDeleteModal(true);
-                                  }}
+                                    isFolder
+                                    onViewDetails={() => { const firstFile = folderFiles[0]; if (firstFile) openFileDetails(firstFile); }}
+                                    onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false, folderName, true)}
+                                    onDelete={() => {
+                                      setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
+                                      setShowDeleteModal(true);
+                                    }}
                                   />
                                 </div>
                               </div>
@@ -2761,29 +2763,95 @@ const TasksTab = memo(({
                   )}
                 </div>
               </div>
-              <button className="tasks-modal-close" onClick={() => { resetSubmitModal(); setShowSubmitModal(false); }}>×</button>
+              <button className="tasks-modal-close" onClick={() => { resetSubmitModal(); setShowSubmitModal(false); setLocalCreatedFolders([]); }}>×</button>
             </div>
 
             <div className="tasks-modal-body">
               <div className="tasks-file-selection">
                 <div className="upload-section">
                   {(() => {
-                    const existingFolders = [...new Set((currentAssignment.submitted_files || []).filter(f => f.folder_name).map(f => f.folder_name))];
+                    const existingFolders = [...new Set([
+                      ...((currentAssignment.submitted_files || []).filter(f => f.folder_name).map(f => f.folder_name)),
+                      ...localCreatedFolders
+                    ])];
                     return (
                       <div style={{ marginBottom: '16px', padding: '14px 16px', backgroundColor: 'var(--status-review)', borderRadius: '10px', border: '1px solid var(--status-review-text)' }}>
                         <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--status-review-text)', marginBottom: '8px', display: 'block' }}>📁 Group files into a folder (optional)</label>
-                        <input
-                          type="text"
-                          list="existing-folders"
-                          value={targetFolder || ''}
-                          onChange={e => setTargetFolder(e.target.value || null)}
-                          placeholder="Type a new folder name or select an existing one"
-                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', backgroundColor: 'var(--background-secondary)', color: 'var(--text-primary)', outline: 'none' }}
-                        />
-                        <datalist id="existing-folders">
-                          {existingFolders.map(fn => <option key={fn} value={fn} />)}
-                        </datalist>
-                        {targetFolder && <p style={{ fontSize: '12px', color: 'var(--status-review-text)', marginTop: '6px', margin: '6px 0 0' }}>✓ Files will be grouped under <strong>{targetFolder}</strong></p>}
+                        {!isCreatingNewFolder ? (
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <select
+                              value={targetFolder || ''}
+                              onChange={e => {
+                                if (e.target.value === '__CREATE_NEW__') {
+                                  setIsCreatingNewFolder(true);
+                                  setTargetFolder('');
+                                } else {
+                                  setTargetFolder(e.target.value || null);
+                                }
+                              }}
+                              style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', backgroundColor: 'var(--background-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                            >
+                              <option value="">None (Upload to main assignment)</option>
+                              {existingFolders.map(fn => <option key={fn} value={fn}>{fn}</option>)}
+                              <option value="__CREATE_NEW__" style={{ fontWeight: '600', color: 'var(--primary-color)' }}>+ Create New Folder</option>
+                            </select>
+                            {targetFolder && localCreatedFolders.includes(targetFolder) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setLocalCreatedFolders(prev => prev.filter(f => f !== targetFolder));
+                                  setTargetFolder(null);
+                                }}
+                                title="Delete this folder"
+                                style={{ padding: '8px', borderRadius: '8px', backgroundColor: '#fee2e2', border: '1px solid #fca5a5', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fecaca'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                              >
+                                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input
+                              type="text"
+                              value={targetFolder || ''}
+                              onChange={e => setTargetFolder(e.target.value)}
+                              placeholder="Type a new folder name..."
+                              autoFocus
+                              style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--status-review-text)', fontSize: '14px', backgroundColor: 'var(--background-secondary)', color: 'var(--text-primary)', outline: 'none', boxShadow: '0 0 0 2px rgba(59, 130, 246, 0.1)' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (targetFolder && targetFolder.trim() !== '') {
+                                  const folderName = targetFolder.trim();
+                                  setLocalCreatedFolders(prev => [...new Set([...prev, folderName])]);
+                                  setTargetFolder(folderName);
+                                  setIsCreatingNewFolder(false);
+                                }
+                              }}
+                              disabled={!targetFolder || targetFolder.trim() === ''}
+                              style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: (!targetFolder || targetFolder.trim() === '') ? 'var(--border-color)' : 'var(--primary-color)', border: 'none', color: (!targetFolder || targetFolder.trim() === '') ? 'var(--text-secondary)' : '#fff', cursor: (!targetFolder || targetFolder.trim() === '') ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500', transition: 'all 0.2s' }}
+                            >
+                              Create
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsCreatingNewFolder(false);
+                                setTargetFolder(null);
+                              }}
+                              style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '14px', fontWeight: '500', transition: 'all 0.2s' }}
+                              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--border-color)'}
+                              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--background-secondary)'}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+                        {targetFolder && !isCreatingNewFolder && <p style={{ fontSize: '12px', color: 'var(--status-review-text)', marginTop: '6px', margin: '6px 0 0' }}>✓ Files will be grouped under <strong>{targetFolder}</strong></p>}
+                        {isCreatingNewFolder && <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '6px', margin: '6px 0 0' }}>Type a name and click Create to add it to the list.</p>}
                       </div>
                     );
                   })()}
