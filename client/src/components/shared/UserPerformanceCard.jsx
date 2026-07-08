@@ -14,28 +14,6 @@ import PerfSparkline from './PerfSparkline';
  * @param {Object} [props.fallbackStats] - Optional fallback statistics if performance data is loading
  * @param {boolean} [props.isCollapsible] - Whether the card can be collapsed
  */
-// Radial arc mini chart — pure SVG, no library needed
-const RadialChart = ({ value = 0, max = 100, color = '#6366f1', size = 52, strokeWidth = 5 }) => {
-  const r = (size - strokeWidth) / 2;
-  const circ = 2 * Math.PI * r;
-  const pct = Math.min(1, Math.max(0, value / max));
-  const dash = pct * circ;
-  const cx = size / 2;
-  const cy = size / 2;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, transform: 'rotate(-90deg)' }}>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--background-secondary)" strokeWidth={strokeWidth} />
-      <circle
-        cx={cx} cy={cy} r={r} fill="none"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={`${dash} ${circ}`}
-        style={{ transition: 'stroke-dasharray 0.9s cubic-bezier(0.34,1.56,0.64,1)' }}
-      />
-    </svg>
-  );
-};
 
 const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isCollapsible = false, onPerformanceLoad, isLoading = false }) => {
   const [performance, setPerformance] = useState(performanceData || null);
@@ -338,80 +316,115 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
                 </>
               ) : (
                 <>
-                  {/* Speed */}
+                  {/* Speed (Weighted Efficiency) */}
                   <div className="perf-metric-item">
-                    <div className="perf-metric-text-group">
+                    <div className="perf-metric-top">
                       <span className="perf-metric-label">Speed</span>
                       <div className="perf-metric-value">
                         {displayTaskTotal > 0 ? formatHyperMetric(Math.round((performance?.efficiencyRatio || 0) * 100), '#10b981') : '100%'}
                       </div>
-                      <div className="perf-metric-footer">Speed vs Deadline</div>
                     </div>
-                    <RadialChart value={displayTaskTotal > 0 ? Math.min(100, (performance?.efficiencyRatio || 0) * 100) : 100} color="#10b981" />
+                    <div className="perf-mini-pill-container">
+                      <div
+                        className="perf-mini-pill-fill fill-green"
+                        style={{ width: `${displayTaskTotal > 0 ? Math.min(100, (performance?.efficiencyRatio || 0) * 100) : 100}%` }}
+                      ></div>
+                    </div>
+                    <div className="perf-metric-footer">Speed vs Deadline</div>
                   </div>
 
-                  {/* Quality */}
+                  {/* Quality (Accurate) */}
                   <div className="perf-metric-item">
-                    <div className="perf-metric-text-group">
+                    <div className="perf-metric-top">
                       <span className="perf-metric-label">Quality</span>
                       <div className="perf-metric-value">{displayFileTotal > 0 ? `${performance?.qualityFactor || 0}%` : '0%'}</div>
-                      <div className="perf-metric-footer">First-Pass Quality</div>
                     </div>
-                    <RadialChart value={displayFileTotal > 0 ? (performance?.qualityFactor || 0) : 0} color="#3b82f6" />
+                    <div className="perf-mini-pill-container">
+                      <div
+                        className="perf-mini-pill-fill fill-blue"
+                        style={{ width: `${displayFileTotal > 0 ? (performance?.qualityFactor || 0) : 0}%` }}
+                      ></div>
+                    </div>
+                    <div className="perf-metric-footer">First-Pass Quality</div>
                   </div>
 
                   {/* Rejections */}
                   <div className="perf-metric-item">
-                    <div className="perf-metric-text-group">
+                    <div className="perf-metric-top">
                       <span className="perf-metric-label">Rejections</span>
                       <div className="perf-metric-value" style={{ color: displayFileRejected > 0 ? '#f43f5e' : 'inherit' }}>
                         {displayFileRejected}
                       </div>
-                      <div className="perf-metric-footer">File Rejections</div>
                     </div>
-                    <RadialChart value={Math.min(100, displayFileRejected * 20)} max={100} color="#f43f5e" />
+                    <div className="perf-mini-pill-container">
+                      <div
+                        className="perf-mini-pill-fill fill-rose"
+                        style={{ width: `${Math.min(100, displayFileRejected * 20)}%`, opacity: displayFileRejected > 0 ? 1 : 0.2 }}
+                      ></div>
+                    </div>
+                    <div className="perf-metric-footer">File Rejections</div>
                   </div>
 
-                  {/* Reliability */}
+                  {/* Reliability (Accurate) */}
                   <div className="perf-metric-item">
-                    <div className="perf-metric-text-group">
+                    <div className="perf-metric-top">
                       <span className="perf-metric-label">Reliability</span>
                       <div className="perf-metric-value">{onTimeRate}%</div>
-                      <div className="perf-metric-footer">On-Time Delivery</div>
                     </div>
-                    <RadialChart value={onTimeRate} color="#f59e0b" />
+                    <div className="perf-mini-pill-container">
+                      <div
+                        className="perf-mini-pill-fill fill-amber"
+                        style={{ width: `${onTimeRate}%` }}
+                      ></div>
+                    </div>
+                    <div className="perf-metric-footer">On-Time Delivery</div>
                   </div>
 
                   {/* Overdue */}
                   <div className="perf-metric-item">
-                    <div className="perf-metric-text-group">
+                    <div className="perf-metric-top">
                       <span className="perf-metric-label">Overdue</span>
                       <div className="perf-metric-value" style={{ color: displayOverdue > 0 ? '#f43f5e' : 'inherit' }}>
                         {displayOverdue}
                       </div>
-                      <div className="perf-metric-footer">Awaiting Attention</div>
                     </div>
-                    <RadialChart value={Math.min(100, displayOverdue * 25)} color={displayOverdue > 0 ? '#f43f5e' : '#94a3b8'} />
+                    <div className="perf-mini-pill-container">
+                      <div
+                        className="perf-mini-pill-fill fill-rose"
+                        style={{ width: `${Math.min(100, displayOverdue * 25)}%`, opacity: displayOverdue > 0 ? 1 : 0.2 }}
+                      ></div>
+                    </div>
+                    <div className="perf-metric-footer">Awaiting Attention</div>
                   </div>
 
                   {/* Completion */}
                   <div className="perf-metric-item">
-                    <div className="perf-metric-text-group">
+                    <div className="perf-metric-top">
                       <span className="perf-metric-label">Completion</span>
                       <div className="perf-metric-value">{displayTaskSubmitted}/{displayTaskTotal}</div>
-                      <div className="perf-metric-footer">Tasks Finished</div>
                     </div>
-                    <RadialChart value={displayTaskTotal > 0 ? (displayTaskSubmitted / displayTaskTotal) * 100 : 0} color="#10b981" />
+                    <div className="perf-mini-pill-container">
+                      <div
+                        className="perf-mini-pill-fill fill-green"
+                        style={{ width: `${displayTaskTotal > 0 ? (displayTaskSubmitted / displayTaskTotal) * 100 : 0}%` }}
+                      ></div>
+                    </div>
+                    <div className="perf-metric-footer">Tasks Finished</div>
                   </div>
 
-                  {/* Checking */}
+                  {/* Checking Metric */}
                   <div className="perf-metric-item">
-                    <div className="perf-metric-text-group">
+                    <div className="perf-metric-top">
                       <span className="perf-metric-label">Checking</span>
                       <div className="perf-metric-value">{checkingCompleted}/{checkingAssigned}</div>
-                      <div className="perf-metric-footer">Files Checked</div>
                     </div>
-                    <RadialChart value={checkingCompletionRate} color="#06b6d4" />
+                    <div className="perf-mini-pill-container">
+                      <div
+                        className="perf-mini-pill-fill fill-emerald"
+                        style={{ width: `${checkingCompletionRate}%` }}
+                      ></div>
+                    </div>
+                    <div className="perf-metric-footer">Files Checked</div>
                   </div>
                 </>
               )}

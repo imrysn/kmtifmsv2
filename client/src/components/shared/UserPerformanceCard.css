@@ -275,19 +275,9 @@
   border-radius: 8px;
   padding: 12px;
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 8px;
   transition: all 0.2s ease;
-}
-
-.perf-metric-text-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
 }
 
 .perf-metric-item:hover {
