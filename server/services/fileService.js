@@ -970,6 +970,8 @@ async function approveByTeamLeader(fileId, teamLeader, comments = '') {
       team_leader_username: teamLeader.username,
       team_leader_comments: comments
     });
+    // Remove penalty once approved
+    await query('UPDATE files SET penalty_percentage = 0 WHERE id = ?', [fileId]);
   }
 
   logFileStatusChange(db, fileId, file.status, newStatus, currentStage, newStage,
@@ -1116,6 +1118,8 @@ async function approveByAdmin(fileId, admin, comments = '') {
       admin_username: admin.username,
       admin_comments: comments
     });
+    // Remove penalty once final approved
+    await query('UPDATE files SET penalty_percentage = 0 WHERE id = ?', [fileId]);
   }
 
   if (!isAttachment) {

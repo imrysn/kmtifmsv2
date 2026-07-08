@@ -11,6 +11,7 @@ const { uploadsDir } = require('../config/middleware');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { createAdminNotification, pushToUser } = require('./notifications');
 const { decodeUTF8Filename, ensureDirectory, moveToUserFolder } = require('../utils/fileUtils');
+const { invalidateCache } = require('../utils/cacheUtils');
 
 // ── Ensure ot_dates column exists (one-time silent migration) ──────────────────────────────
 let otDatesColumnReady = false;
@@ -2049,7 +2050,7 @@ router.put('/:assignmentId/assign-checker', authenticateToken, authorizeRole(['T
 router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
-    const { checkerName, checkerId, note, fileId } = req.body;
+    const { checkerName, checkerId, note, fileId, penaltyPercentage } = req.body;
 
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
     if (!assignment) {
@@ -2058,11 +2059,15 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
+    // Use explicit manual penalty percentage instead of counting mistakes automatically
+    const penalty = penaltyPercentage ? parseInt(penaltyPercentage, 10) : 0;
+
     if (fileId) {
       // Per-file revision: only mark the specific file, keep assignment status as-is
+      // Add new penalty to any existing penalty for cumulative effect
       await query(
-        'UPDATE files SET status = \'revision\', checker_note = ?, updated_at = ? WHERE id = ?',
-        [note || null, now, fileId]
+        'UPDATE files SET status = \'revision\', checker_note = ?, penalty_percentage = COALESCE(penalty_percentage, 0) + ?, updated_at = ? WHERE id = ?',
+        [note || null, penalty, now, fileId]
       );
     } else {
       // Whole-assignment revision: update assignment status and ALL submitted files
@@ -2070,11 +2075,12 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       await query(
         `UPDATE files f
          JOIN assignment_submissions asub ON asub.file_id = f.id
-         SET f.status = 'revision', f.checker_note = ?, f.updated_at = ?
+         SET f.status = 'revision', f.checker_note = ?, f.penalty_percentage = COALESCE(f.penalty_percentage, 0) + ?, f.updated_at = ?
          WHERE asub.assignment_id = ?`,
-        [note || null, now, assignmentId]
+        [note || null, penalty, now, assignmentId]
       );
     }
+    invalidateCache();
 
     // Notify every member assigned to this task that their submission needs revision
     const members = await query(
@@ -2091,9 +2097,16 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       ...(submitters || []).map(s => s.user_id)
     ]);
 
+    const penaltyStr = penalty > 0 ? ` (Score Given: ${100 - penalty}%)` : '';
+    let targetFileName = '';
+    if (fileId) {
+      const targetFile = await queryOne('SELECT original_name FROM files WHERE id = ?', [fileId]);
+      if (targetFile) targetFileName = ` "${targetFile.original_name}"`;
+    }
+
     const notifMsg = note
-      ? `Your file${fileId ? '' : ' submission'} for "${assignment.title}" requires editing. Note: ${note.replace(/^Comment:\s*/i, '')}`
-      : `Your ${fileId ? 'file' : 'submission'} for "${assignment.title}" requires editing/revision. Please make the necessary changes and resubmit.`;
+      ? `Your file${targetFileName} for "${assignment.title}" requires editing. Note: ${note.replace(/^Comment:\s*/i, '')}${penaltyStr}`
+      : `Your ${fileId ? `file${targetFileName}` : 'submission'} for "${assignment.title}" requires editing/revision. Please make the necessary changes and resubmit.${penaltyStr}`;
 
     for (const uid of allUserIds) {
       // Skip the checker who performed the action — they already know what they marked.
@@ -2105,7 +2118,7 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       try {
         await query(
           'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
-          [uid, assignmentId, null, 'revision_request', 'Submission Needs Editing',
+          [uid, assignmentId, fileId || null, 'revision_request', 'Submission Needs Editing',
             notifMsg, checkerId, checkerName, req.user?.role || 'TEAM_LEADER']
         );
         pushToUser(uid);
@@ -2239,7 +2252,8 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     // Mark this single file as checked (record who checked it and save any note)
-    await query('UPDATE files SET status = ?, checked_by = ?, checker_note = ?, updated_at = ? WHERE id = ?', ['checked', checkerName, checkerNote || null, now, fileId]);
+    await query('UPDATE files SET status = ?, checked_by = ?, checker_note = ?, penalty_percentage = 0, updated_at = ? WHERE id = ?', ['checked', checkerName, checkerNote || null, now, fileId]);
+    invalidateCache();
 
     // Notify the file submitter that their file was checked
     if (submission) {
@@ -2520,6 +2534,8 @@ router.delete('/:assignmentId', authenticateToken, authorizeRole(['TEAM_LEADER',
     // Delete the NAS project folder for this task
     try {
       const { projectsDataPath } = require('../config/database');
+      const { getBusinessHoursDiff } = require('../utils/performanceUtils');
+      const { invalidateCache } = require('../utils/cacheUtils');
       const { sanitizeFilename } = require('../utils/fileUtils');
 
       // Try stored path first, fall back to reconstructing from title

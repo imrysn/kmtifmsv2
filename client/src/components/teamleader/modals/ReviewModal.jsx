@@ -3,6 +3,7 @@ import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentDetailsModal.css'
 import { getDisplayFileType } from '../../../utils/fileTypeUtils'
 import { ConfirmationModal, FileOpenModal } from '../../shared'
+import { ChecklistViewModal } from '../../user/TasksTab-Enhanced'
 
 const ReviewModal = ({
   showReviewModal,
@@ -34,6 +35,7 @@ const ReviewModal = ({
 
   const [isOpeningFile, setIsOpeningFile] = useState(false)
   const [showRejectConfirmation, setShowRejectConfirmation] = useState(false)
+  const [showChecklist, setShowChecklist] = useState(false)
 
   const [showOpenConfirmation, setShowOpenConfirmation] = useState(false)
 
@@ -119,7 +121,33 @@ const ReviewModal = ({
     <div className="modal-overlay" onClick={handleClose}>
       <div className="file-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>File Details</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <h3>File Details</h3>
+            {selectedFile.checker_note && (
+              <button
+                type="button"
+                onClick={() => setShowChecklist(true)}
+                style={{ 
+                  background: 'var(--status-pending)', 
+                  color: 'var(--status-pending-text)', 
+                  border: '1px solid #fde68a', 
+                  borderRadius: '20px',
+                  padding: '6px 16px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                </svg>
+                Checklist Results
+              </button>
+            )}
+          </div>
           <button onClick={handleClose} className="modal-close">×</button>
         </div>
 
@@ -238,50 +266,56 @@ const ReviewModal = ({
               </div>
             )}
 
-          {/* Actions Section */}
-          <div className="actions-section">
-            <div className="action-buttons-large">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  // Pass the action directly to handleReviewSubmit
-                  handleReviewSubmit({ preventDefault: () => { } }, 'approve')
-                }}
-                className="btn btn-success-large"
-                disabled={isProcessing || selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Approve
-              </button>
-              <button
-                type="button"
-                onClick={handleRejectClick}
-                className="btn btn-danger-large"
-                disabled={isProcessing || selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Reject
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenFileClick}
-                className="btn btn-secondary-large"
-                disabled={isProcessing || isOpeningFile}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M10 2.5V10M10 10V17.5M10 10H17.5M10 10H2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                {isOpeningFile ? 'Opening...' : 'Open File'}
-              </button>
-            </div>
+        </div>
+
+        {/* Actions Section / Modal Footer */}
+        <div className="actions-section" style={{ borderTop: '1px solid var(--border-color)', margin: 0, padding: '20px', background: 'var(--background-secondary)', flexShrink: 0 }}>
+          <div className="action-buttons-large">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                handleReviewSubmit({ preventDefault: () => { } }, 'approve')
+              }}
+              className="btn btn-success-large"
+              disabled={isProcessing || selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Approve
+            </button>
+            <button
+              type="button"
+              onClick={handleRejectClick}
+              className="btn btn-danger-large"
+              disabled={isProcessing || selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Reject
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenFileClick}
+              className="btn btn-primary"
+              disabled={isProcessing || isOpeningFile}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2.5V10M10 10V17.5M10 10H17.5M10 10H2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {isOpeningFile ? 'Opening...' : 'Open File'}
+            </button>
           </div>
         </div>
       </div>
+
+      <ChecklistViewModal
+        isOpen={showChecklist}
+        onClose={() => setShowChecklist(false)}
+        file={selectedFile}
+      />
 
       {/* Reject without reason confirmation modal */}
       <ConfirmationModal

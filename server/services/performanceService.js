@@ -40,21 +40,27 @@ async function calculateAllUserPerformance(teamId = null) {
       WHERE ${userFilter} AND a.due_date IS NOT NULL
       GROUP BY u.id`, params],
 
-    // 3. Global Overdue
+    // 3. Global Overdue — counts permanently: tasks past due (submitted late OR never submitted)
     [`SELECT u.id as user_id, COUNT(DISTINCT a.id) as overdue
       FROM users u
       LEFT JOIN assignment_members am ON u.id = am.user_id
       LEFT JOIN assignments a ON (a.id = am.assignment_id OR (a.assigned_to = 'all' AND a.team = u.team))
       WHERE ${userFilter} AND a.due_date IS NOT NULL
-        AND (am.status IS NULL OR am.status != 'submitted')
-        AND a.due_date < NOW()
+        AND (
+          (am.status IS NULL OR am.status != 'submitted') AND a.due_date < NOW()
+          OR
+          (am.status = 'submitted' AND am.submitted_at > a.due_date)
+        )
       GROUP BY u.id`, params],
 
-    // 4. Global Quality
-    [`SELECT user_id, COUNT(*) as total,
+    // 4. Global Quality (- penalty_percentage per file)
+    [`SELECT user_id, 
+        COUNT(*) as total,
         SUM(CASE WHEN status = 'final_approved' THEN 1 ELSE 0 END) as approved,
-        SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
+        SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected,
+        AVG(GREATEST(0, 100 - COALESCE(penalty_percentage, 0))) as avg_quality_score
       FROM files 
+      WHERE checked_by IS NOT NULL OR status IN ('final_approved', 'revision', 'checked', 'rejected_by_team_leader', 'rejected_by_admin')
       GROUP BY user_id`, []],
 
     // 5. Global Speed Data (Weighted by File Count)
@@ -83,10 +89,25 @@ async function calculateAllUserPerformance(teamId = null) {
       FROM users u
       JOIN files f ON u.team = f.user_team
       WHERE u.role = 'TEAM_LEADER' AND f.current_stage = 'pending_team_leader'
+      GROUP BY u.id`, []],
+
+    // 8. Checking Metrics
+    [`SELECT 
+        u.id as user_id, 
+        COUNT(f.id) as checking_assigned, 
+        SUM(CASE WHEN f.checked_by IN (u.username, u.fullName) THEN 1 ELSE 0 END) as checking_completed 
+      FROM users u 
+      JOIN assignments a ON (
+        a.checker_ids IS NOT NULL 
+        AND a.checker_ids != '[]' 
+        AND CONCAT(',', REPLACE(REPLACE(REPLACE(a.checker_ids,'[',''),']',''),'"',''), ',') LIKE CONCAT('%,', u.id, ',%')
+      ) 
+      JOIN assignment_submissions asub ON asub.assignment_id = a.id
+      JOIN files f ON f.id = asub.file_id 
       GROUP BY u.id`, []]
   ]);
 
-  const [taskStats, reliabilityStats, overdueStats, qualityStats, speedRaw, managementStats, managementQueue] = results;
+  const [taskStats, reliabilityStats, overdueStats, qualityStats, speedRaw, managementStats, managementQueue, checkingStats] = results;
 
   // Group speed data by user
   const speedMap = {};
@@ -112,21 +133,31 @@ async function calculateAllUserPerformance(teamId = null) {
     const totalFilesVolume = stat.total_files || 0;
     const submittedFilesVolume = stat.submitted_files || 0;
 
-    // Reliability (File-Weighted)
+    // Reliability (File-Weighted) — overdue tasks count as "late" submissions
     const totalFilesWithDeadline = rStat.total_files_with_deadline || 0;
     const onTimeFiles = rStat.on_time_files || 0;
-    const onTimeRate = totalFilesWithDeadline > 0 ? Math.round((onTimeFiles / totalFilesWithDeadline) * 100) : 100;
+    const overdueCount = parseInt(oStat.overdue) || 0;
+    // Each overdue task reduces reliability as if it were a late file
+    const effectiveTotalForReliability = totalFilesWithDeadline + overdueCount;
+    const onTimeRate = effectiveTotalForReliability > 0
+      ? Math.round((onTimeFiles / effectiveTotalForReliability) * 100)
+      : 100;
     const reliabilityScore = onTimeRate / 100;
 
-    // Quality
+    // Quality — rejection penalty applied via avg_quality_score (already in DB)
     const fileTotal = qStat.total || 0;
     const fileApproved = qStat.approved || 0;
     const fileRejected = qStat.rejected || 0;
     const processedFiles = fileApproved + fileRejected;
-    const qualityFactor = processedFiles > 0 ? (fileApproved / processedFiles) : (fileTotal > 0 ? 0.5 : 0);
-    const qualityScore = Math.max(0, qualityFactor - (fileRejected * 0.01));
+    // avg_quality_score is AVG(100 - penalty_percentage) per file from DB query
+    // On top of that, each rejection reduces score: if 1 out of 10 files rejected = 10% penalty
+    const baseQualityScore = qStat.avg_quality_score != null ? qStat.avg_quality_score : (fileTotal > 0 ? 50 : 0);
+    // Extra rejection ratio penalty: rejected/(total) reduces quality further
+    const rejectionRatio = fileTotal > 0 ? (fileRejected / fileTotal) : 0;
+    const adjustedQualityScore = Math.max(0, baseQualityScore * (1 - rejectionRatio));
+    const qualityScore = adjustedQualityScore / 100;
 
-    // Speed (File-Weighted)
+    // Speed (File-Weighted) — overdue tasks apply a direct speed penalty
     let totalWeightedSpeedFactor = 0;
     let totalFilesWeight = 0;
     sData.forEach(task => {
@@ -139,7 +170,12 @@ async function calculateAllUserPerformance(teamId = null) {
         totalFilesWeight += weight;
       }
     });
-    const avgSpeedFactor = totalFilesWeight > 0 ? (totalWeightedSpeedFactor / totalFilesWeight) : 0;
+    let avgSpeedFactor = totalFilesWeight > 0 ? (totalWeightedSpeedFactor / totalFilesWeight) : 0;
+    // Each overdue task reduces speed by 5% (capped at 50% total deduction)
+    if (overdueCount > 0 && totalFilesVolume > 0) {
+      const speedPenalty = Math.min(0.50, overdueCount * 0.05);
+      avgSpeedFactor = avgSpeedFactor * (1 - speedPenalty);
+    }
     const speedScore = Math.min(1.5, avgSpeedFactor);
 
     // Final WPI
@@ -150,17 +186,24 @@ async function calculateAllUserPerformance(teamId = null) {
 
     const mStat = managementStats.find(m => m.user_id === userId) || {};
     const mqStat = managementQueue.find(mq => mq.user_id === userId) || {};
+    const cStat = checkingStats.find(c => c.user_id === userId) || {};
+    const checkingAssigned = parseInt(cStat.checking_assigned) || 0;
+    const checkingCompleted = parseInt(cStat.checking_completed) || 0;
+    const checkingCompletionRate = checkingAssigned > 0 ? Math.round((checkingCompleted / checkingAssigned) * 100) : 0;
 
     performanceMap[userId] = {
       taskTotal: totalFilesVolume,
       taskSubmitted: submittedFilesVolume,
       taskPending: totalFilesVolume - submittedFilesVolume,
       onTimeRate,
-      overdue: oStat.overdue || 0,
+      overdue: overdueCount,
       fileTotal,
       fileApproved,
       fileRejected,
       overallScore,
+      checkingAssigned,
+      checkingCompleted,
+      checkingCompletionRate,
       efficiencyRatio: Math.round(avgSpeedFactor * 100) / 100,
       qualityFactor: Math.round(qualityScore * 100),
       management: {

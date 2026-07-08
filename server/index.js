@@ -390,6 +390,20 @@ async function startServer() {
       } catch (notifierErr) {
         console.warn('⚠️ Due-date notifier could not start:', notifierErr.message);
       }
+
+      // 6. Warm up performance cache in background so first user request is instant
+      setTimeout(async () => {
+        try {
+          const { calculateAllUserPerformance } = require('./services/performanceService');
+          const { setCache } = require('./utils/cacheUtils');
+          console.log('🔥 Warming up performance cache in background...');
+          const map = await calculateAllUserPerformance();
+          setCache(map);
+          console.log('✅ Performance cache warmed up — dashboard will load instantly.');
+        } catch (warmupErr) {
+          console.warn('⚠️ Performance cache warm-up failed (will calculate on first request):', warmupErr.message);
+        }
+      }, 3000); // wait 3s for pool to fully settle before firing the heavy query
     });
 
   } catch (error) {

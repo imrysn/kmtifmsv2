@@ -275,11 +275,20 @@
   border-radius: 8px;
   padding: 12px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
   transition: all 0.2s ease;
 }
 
+.perf-metric-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
 
 .perf-metric-item:hover {
   border-color: #e2e8f0;
@@ -311,7 +320,7 @@
   color: var(--text-primary);
 }
 
-/* Mini Progress Pill */
+/* Mini Progress Pill — kept for any legacy use */
 .perf-mini-pill-container {
   height: 4px;
   background: #e2e8f0;

@@ -85,7 +85,7 @@
 
 .user-notification-component .delete-all-btn {
   padding: 12px 24px;
-  background-color: var(--status-rejected-text);
+  background-color: #dc2626;
   color: white;
   border: none;
   border-radius: 8px;
@@ -101,7 +101,7 @@
 }
 
 .user-notification-component .delete-all-btn:hover {
-  background-color: var(--status-rejected-text);
+  background-color: #b91c1c;
 }
 
 .user-notification-component .notifications-container {

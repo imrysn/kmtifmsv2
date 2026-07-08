@@ -138,9 +138,11 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
   const [additionalComment, setAdditionalComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checklistType, setChecklistType] = useState('2D');
+  const [showPenaltySelector, setShowPenaltySelector] = useState(false);
+  const [selectedPenalty, setSelectedPenalty] = useState(90);
 
   useEffect(() => {
-    if (isOpen) { setCheckedItems({}); setAdditionalComment(''); setChecklistType('2D'); }
+    if (isOpen) { setCheckedItems({}); setAdditionalComment(''); setChecklistType('2D'); setShowPenaltySelector(false); setSelectedPenalty(90); }
   }, [isOpen, file?.id]);
 
   if (!isOpen || !file) return null;
@@ -150,9 +152,14 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
     .map(([k]) => k);
 
   const handleMarkForEditing = async () => {
+    if (!showPenaltySelector) {
+      setShowPenaltySelector(true);
+      return;
+    }
     setIsSubmitting(true);
     try {
-      await onMarkForEditing(file.id, wrongItems, additionalComment.trim());
+      const penaltyToApply = 100 - selectedPenalty;
+      await onMarkForEditing(file.id, wrongItems, additionalComment.trim(), penaltyToApply);
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -214,80 +221,117 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-tertiary)', lineHeight: 1, padding: '0', flexShrink: 0 }}>×</button>
         </div>
 
-        {/* Wrong items summary */}
-        {wrongItems.length > 0 && (
-          <div style={{ margin: '0 24px 0', padding: '10px 14px', background: 'var(--status-rejected)', border: '1px solid var(--status-rejected-text)', borderRadius: '8px', marginTop: '14px' }}>
-            <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: 'var(--status-rejected-text)' }}>
-              ⚠ {wrongItems.length} item{wrongItems.length !== 1 ? 's' : ''} marked as wrong: {wrongItems.join(', ')}
+        {!showPenaltySelector ? (
+          <>
+            {/* Wrong items summary */}
+            {wrongItems.length > 0 && (
+              <div style={{ margin: '0 24px 0', padding: '10px 14px', background: 'var(--status-rejected)', border: '1px solid var(--status-rejected-text)', borderRadius: '8px', marginTop: '14px' }}>
+                <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: 'var(--status-rejected-text)' }}>
+                  ⚠ {wrongItems.length} item{wrongItems.length !== 1 ? 's' : ''} marked as wrong: {wrongItems.join(', ')}
+                </p>
+              </div>
+            )}
+
+            {/* Checklist */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '16px 24px' }}>
+              {(checklistType === '2D' ? CHECKLIST_SECTIONS_2D : CHECKLIST_SECTIONS_3D).map(({ section, items }) => (
+                <div key={section} style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px', background: 'var(--background-secondary)', borderRadius: '6px', marginBottom: '6px' }}>
+                    {section}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {items.map(item => {
+                      const isWrong = !!checkedItems[item];
+                      return (
+                        <label
+                          key={item}
+                          onClick={() => toggleItem(item)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', background: isWrong ? 'var(--status-rejected)' : 'transparent', border: isWrong ? '1px solid #fecaca' : '1px solid transparent', transition: 'all 0.12s', userSelect: 'none' }}
+                        >
+                          {/* Custom white checkbox */}
+                          <div
+                            style={{
+                              width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0, cursor: 'pointer',
+                              border: isWrong ? '2px solid #dc2626' : '2px solid #d1d5db',
+                              background: isWrong ? 'var(--status-rejected-text)' : 'var(--background-secondary)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transition: 'all 0.12s',
+                            }}
+                          >
+                            {isWrong && (
+                              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                                <path d="M2 6l3 3 5-5" stroke="var(--background-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </div>
+                          <span style={{ fontSize: '13.5px', color: isWrong ? 'var(--status-rejected-text)' : 'var(--text-secondary)', fontWeight: isWrong ? '600' : '400' }}>
+                            {item}
+                          </span>
+                          {isWrong && (
+                            <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--status-rejected-text)', fontWeight: '600', background: 'var(--status-rejected)', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>Wrong</span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Additional Comment */}
+            <div style={{ padding: '0 24px 14px', borderTop: '1px solid var(--background-secondary)', paddingTop: '14px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                </svg>
+                Additional Comment <span style={{ color: 'var(--text-tertiary)', fontWeight: '400' }}>(optional)</span>
+              </label>
+              <textarea
+                value={additionalComment}
+                onChange={e => setAdditionalComment(e.target.value)}
+                placeholder="Add any other remarks or notes for the user..."
+                rows={2}
+                disabled={isSubmitting}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', outline: 'none', color: 'var(--text-secondary)', background: 'var(--background-secondary)', transition: 'border-color 0.12s' }}
+                onFocus={e => { e.target.style.borderColor = 'var(--status-pending-text)'; }}
+                onBlur={e => { e.target.style.borderColor = 'var(--border-color)'; }}
+              />
+            </div>
+          </>
+        ) : (
+          <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <h4 style={{ margin: '0 0 16px', fontSize: '18px', color: 'var(--text-primary)' }}>Select Completion Percentage</h4>
+            <p style={{ margin: '0 0 24px', fontSize: '14px', color: 'var(--text-secondary)', textAlign: 'center', maxWidth: '400px', lineHeight: '1.5' }}>
+              You are returning this file for editing with <b>{wrongItems.length} wrong items</b>.<br />
+              What is the completion percentage for this file? A lower percentage results in a larger quality deduction.
             </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', justifyContent: 'center', width: '100%', maxWidth: '420px' }}>
+              {(user?.role === 'TEAM_LEADER' || user?.role === 'ADMIN'
+                ? [85, 90, 95, 100]
+                : Array.from({ length: 16 }, (_, i) => (i + 1) * 5)
+              ).map(pct => (
+                <button
+                  key={pct}
+                  onClick={() => setSelectedPenalty(pct)}
+                  style={{
+                    padding: '10px 0',
+                    borderRadius: '8px',
+                    border: selectedPenalty === pct ? '2px solid var(--status-rejected-text)' : '1px solid var(--border-color)',
+                    background: selectedPenalty === pct ? 'var(--status-rejected)' : 'var(--background-secondary)',
+                    color: selectedPenalty === pct ? 'var(--status-rejected-text)' : 'var(--text-primary)',
+                    fontWeight: selectedPenalty === pct ? '700' : '500',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    width: '100%',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {pct}%
+                </button>
+              ))}
+            </div>
           </div>
         )}
-
-        {/* Checklist */}
-        <div style={{ overflowY: 'auto', flex: 1, padding: '16px 24px' }}>
-          {(checklistType === '2D' ? CHECKLIST_SECTIONS_2D : CHECKLIST_SECTIONS_3D).map(({ section, items }) => (
-            <div key={section} style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px', background: 'var(--background-secondary)', borderRadius: '6px', marginBottom: '6px' }}>
-                {section}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {items.map(item => {
-                  const isWrong = !!checkedItems[item];
-                  return (
-                    <label
-                      key={item}
-                      onClick={() => toggleItem(item)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', background: isWrong ? 'var(--status-rejected)' : 'transparent', border: isWrong ? '1px solid #fecaca' : '1px solid transparent', transition: 'all 0.12s', userSelect: 'none' }}
-                    >
-                      {/* Custom white checkbox */}
-                      <div
-                        style={{
-                          width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0, cursor: 'pointer',
-                          border: isWrong ? '2px solid #dc2626' : '2px solid #d1d5db',
-                          background: isWrong ? 'var(--status-rejected-text)' : 'var(--background-secondary)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          transition: 'all 0.12s',
-                        }}
-                      >
-                        {isWrong && (
-                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 6l3 3 5-5" stroke="var(--background-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </div>
-                      <span style={{ fontSize: '13.5px', color: isWrong ? 'var(--status-rejected-text)' : 'var(--text-secondary)', fontWeight: isWrong ? '600' : '400' }}>
-                        {item}
-                      </span>
-                      {isWrong && (
-                        <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--status-rejected-text)', fontWeight: '600', background: 'var(--status-rejected)', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>Wrong</span>
-                      )}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Additional Comment */}
-        <div style={{ padding: '0 24px 14px', borderTop: '1px solid var(--background-secondary)', paddingTop: '14px' }}>
-          <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-            </svg>
-            Additional Comment <span style={{ color: 'var(--text-tertiary)', fontWeight: '400' }}>(optional)</span>
-          </label>
-          <textarea
-            value={additionalComment}
-            onChange={e => setAdditionalComment(e.target.value)}
-            placeholder="Add any other remarks or notes for the user..."
-            rows={2}
-            disabled={isSubmitting}
-            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', outline: 'none', color: 'var(--text-secondary)', background: 'var(--background-secondary)', transition: 'border-color 0.12s' }}
-            onFocus={e => { e.target.style.borderColor = 'var(--status-pending-text)'; }}
-            onBlur={e => { e.target.style.borderColor = 'var(--border-color)'; }}
-          />
-        </div>
 
         {/* Footer */}
         <div style={{ padding: '12px 24px 16px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '10px', justifyContent: 'flex-end', background: 'var(--background-secondary)' }}>
@@ -301,24 +345,35 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
           <button
             onClick={handleMarkForEditing}
             disabled={isSubmitting}
-            style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: 'var(--status-pending-text)', color: 'var(--background-secondary)', fontSize: '14px', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#f59e0b', color: '#ffffff', fontSize: '14px', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
             title="Mark this file as needing edits"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-            </svg>
-            Mark as For Editing
+            {showPenaltySelector ? (
+               <>
+                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10"/></svg>
+                 Confirm
+               </>
+            ) : (
+               <>
+                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                   <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                 </svg>
+                 For Editing (Select Percentage)
+               </>
+            )}
           </button>
-          <button
-            onClick={handleDoneChecking}
-            disabled={isSubmitting}
-            style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: 'var(--status-review-text)', color: 'var(--background-secondary)', fontSize: '14px', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            Done Checking
-          </button>
+          {!showPenaltySelector && (
+            <button
+              onClick={handleDoneChecking}
+              disabled={isSubmitting}
+              style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: 'var(--status-review-text)', color: 'var(--background-secondary)', fontSize: '14px', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Done Checking
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -328,15 +383,22 @@ CheckingModal.displayName = 'CheckingModal';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 // ─── Checklist View Modal (read-only wrong items viewer) ──────────────────────
-const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
+export const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
   const [resolvedNote, setResolvedNote] = useState(null);
   const [loading, setLoading] = useState(false);
   const [checklistType, setChecklistType] = useState('2D');
 
+  const [fileScore, setFileScore] = useState(null);
+
   useEffect(() => {
-    if (!isOpen || !file) { setResolvedNote(null); setLoading(false); return; }
+    if (!isOpen || !file) { setResolvedNote(null); setFileScore(null); setLoading(false); return; }
+    
+    if (file.penalty_percentage !== undefined) {
+      setFileScore(100 - file.penalty_percentage);
+    }
+
     // If checker_note is already on the file object, use it directly
-    if (file.checker_note !== undefined) {
+    if (file.checker_note !== undefined && file.penalty_percentage !== undefined) {
       setResolvedNote(file.checker_note || '');
       setLoading(false);
       return;
@@ -344,10 +406,16 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
     // Otherwise fetch the full file details to get checker_note
     setLoading(true);
     apiFetch(`/api/files/${file.id}`)
-      .then(data => setResolvedNote((data.file || data)?.checker_note || ''))
+      .then(data => {
+        const fileData = data.file || data;
+        setResolvedNote(fileData?.checker_note || '');
+        if (fileData?.penalty_percentage !== undefined) {
+          setFileScore(100 - fileData.penalty_percentage);
+        }
+      })
       .catch(() => setResolvedNote(''))
       .finally(() => setLoading(false));
-  }, [isOpen, file?.id]);
+  }, [isOpen, file]);
 
   // Auto-detect the right checklist if any wrong items exist in 3D
   useEffect(() => {
@@ -411,6 +479,19 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
                 <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
               </svg>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>Checklist Results</h3>
+              {fileScore !== null && (
+                <span style={{ 
+                  background: fileScore === 100 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  color: fileScore === 100 ? '#22c55e' : '#ef4444',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  marginLeft: '8px'
+                }}>
+                  {fileScore}% Score
+                </span>
+              )}
             </div>
             <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>
               {filename}
@@ -967,12 +1048,12 @@ const TasksTab = memo(({
   }, [user.id, showError]);
 
   // ─── Checker actions (must be after fetchAssignments & showError) ────────────
-  const handleMarkForEditing = useCallback(async (assignment, fileId = null, note = null) => {
+  const handleMarkForEditing = useCallback(async (assignment, fileId = null, note = null, penaltyPercentage = null) => {
     setCheckerMenuOpen(null);
     try {
       const data = await apiFetch(`/api/assignments/${assignment.id}/mark-for-editing`, {
         method: 'PUT',
-        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username, fileId, note }),
+        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username, fileId, note, penaltyPercentage }),
       });
       if (data.success) {
         setSuccessModal({ isOpen: true, title: 'Status Updated', message: 'Marked as For Editing — user has been notified.', type: 'success' });
@@ -2704,12 +2785,12 @@ const TasksTab = memo(({
         onClose={() => setCheckingModal({ isOpen: false, file: null, assignment: null })}
         file={checkingModal.file}
         assignment={checkingModal.assignment}
-        onMarkForEditing={async (fileId, wrongItems, additionalComment) => {
+        onMarkForEditing={async (fileId, wrongItems, additionalComment, penaltyPercentage) => {
           const parts = [];
           if (wrongItems.length > 0) parts.push(`Wrong items: ${wrongItems.join(', ')}`);
           if (additionalComment) parts.push(`Comment: ${additionalComment}`);
           const note = parts.length > 0 ? parts.join(' | ') : 'Marked for editing by checker.';
-          await handleMarkForEditing(checkingModal.assignment, fileId, note);
+          await handleMarkForEditing(checkingModal.assignment, fileId, note, penaltyPercentage);
           setCheckingModal({ isOpen: false, file: null, assignment: null });
         }}
         onDoneChecking={async (fileId, additionalComment) => {

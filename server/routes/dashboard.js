@@ -262,7 +262,7 @@ router.get('/user-quickstats/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'AD
     [`SELECT
         COUNT(DISTINCT a.id) as total,
         SUM(CASE WHEN am.status = 'submitted' THEN 1 ELSE 0 END) as submitted,
-        SUM(CASE WHEN a.due_date < NOW() AND (am.status IS NULL OR am.status != 'submitted') AND a.status != 'completed' THEN 1 ELSE 0 END) as overdue
+        SUM(CASE WHEN ((a.due_date < NOW() AND (am.status IS NULL OR am.status != 'submitted') AND a.status != 'completed') OR (am.status = 'submitted' AND am.submitted_at > a.due_date)) THEN 1 ELSE 0 END) as overdue
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
       WHERE (a.assigned_to = 'all' AND a.team = ?) OR (a.assigned_to = 'specific' AND am.user_id = ?)`,
@@ -319,7 +319,7 @@ router.get('/bulk-performance', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHa
 
   // 0. Check Cache First
   const cached = getCache();
-  if (!teamId && cached) {
+  if (!teamId && cached && !cached.isDirty) {
     return res.json({
       success: true,
       performanceMap: cached.data,
@@ -348,9 +348,9 @@ router.get('/user-performance/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'A
     return res.status(403).json({ success: false, message: 'Access denied' });
   }
 
-  // 1. Serve stale cache immediately if available (stale-while-revalidate)
+  // 1. Serve valid cache immediately if available
   const cached = getCache();
-  if (cached) {
+  if (cached && !cached.isDirty) {
     const performanceData = (cached.data || {})[userId] || {};
     const taskTotal     = performanceData.taskTotal     || 0;
     const taskSubmitted = performanceData.taskSubmitted  || 0;
@@ -360,16 +360,6 @@ router.get('/user-performance/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'A
     const taskCompletionRate = taskTotal > 0 ? Math.round((taskSubmitted / taskTotal) * 100) : 0;
     const onTimeRate    = performanceData.onTimeRate     ?? 100;
     const onTimeCount   = Math.round((onTimeRate / 100) * taskTotal);
-
-    // Trigger background recompute if dirty but don't wait for it
-    if (cached.isDirty && !getRecomputePromise()) {
-      const p = calculateAllUserPerformance()
-        .then(map => setCache(map))
-        .catch(err => {
-          console.error('Background perf recompute failed:', err); setRecomputePromise(null);
-        });
-      setRecomputePromise(p);
-    }
 
     return res.json({
       success: true,

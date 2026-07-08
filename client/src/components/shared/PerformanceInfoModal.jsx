@@ -5,6 +5,17 @@ import './PerformanceInfoModal.css';
 const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
   if (!isOpen) return null;
 
+  const overallScore = performance?.overallScore ?? 0;
+  const qualityFactor = performance?.qualityFactor ?? 0;
+  const efficiencyRatio = performance?.efficiencyRatio ?? 0;
+  const onTimeRate = performance?.onTimeRate ?? 0;
+  const fileRejected = performance?.fileRejected ?? 0;
+  const overdue = performance?.overdue ?? 0;
+
+  const qualityPts = Math.round(qualityFactor * 0.45);
+  const speedPts = Math.round(Math.min(150, efficiencyRatio * 100) * 0.35);
+  const reliabilityPts = Math.round(onTimeRate * 0.20);
+
   const modalContent = (
     <div className="perf-modal-overlay" onClick={onClose}>
       <div className="perf-modal-container" onClick={(e) => e.stopPropagation()}>
@@ -28,13 +39,20 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
           }}>
             <div>
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Your Current Score</span>
-              <div style={{ fontSize: '28px', fontWeight: '900', color: 'var(--text-primary)' }}>{performance.overallScore}%</div>
+              <div style={{ fontSize: '28px', fontWeight: '900', color: 'var(--text-primary)' }}>{overallScore}%</div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Formula Breakdown</span>
               <div style={{ fontSize: '14px', fontWeight: '700', color: '#6366f1' }}>
-                {Math.round(performance.qualityFactor * 0.45)} + {Math.round(performance.efficiencyRatio * 100 * 0.35)} + {Math.round(performance.onTimeRate * 0.20)} pts
+                {qualityPts} + {speedPts} + {reliabilityPts} pts
               </div>
+              {(fileRejected > 0 || overdue > 0) && (
+                <div style={{ fontSize: '12px', color: '#f43f5e', fontWeight: '600', marginTop: '4px' }}>
+                  {fileRejected > 0 && <span>⚠ {fileRejected} rejection{fileRejected > 1 ? 's' : ''} penalizing Quality</span>}
+                  {fileRejected > 0 && overdue > 0 && <span> · </span>}
+                  {overdue > 0 && <span>⚠ {overdue} overdue penalizing Speed &amp; Reliability</span>}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -45,34 +63,36 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
             <div className="perf-pillar-card">
               <h3 className="perf-pillar-name">🎯 Quality (45%)</h3>
               <div className="perf-pillar-math">
-                (Approved Records / All Submission Records) × 45%
+                (Base Quality Score × Rejection Penalty) × 45%
               </div>
               <p className="perf-pillar-text">
-                Every file submission starts with a <strong>100% Quality baseline</strong>. When a file is rejected, that rejection is permanently logged as a record.
-                If you resubmit (replace) that file, it creates a <strong>new submission record</strong> — but the old rejected record remains.
-                This means fewer rejections across your entire history equals a higher Quality score.
+                Every file starts with a <strong>100% Quality baseline</strong>. When a file is rejected,
+                it lowers your quality in two ways: the file's own <strong>penalty score</strong> drops, 
+                and the <strong>rejection ratio</strong> (rejected ÷ total files) applies an additional
+                multiplier. Fewer rejections = higher Quality score.
               </p>
             </div>
 
             <div className="perf-pillar-card">
               <h3 className="perf-pillar-name">⚡ Speed (35%)</h3>
               <div className="perf-pillar-math">
-                (Allocated Time / Time Taken to Submit) × 35%
+                (Submission Speed Factor − Overdue Penalty) × 35%
               </div>
               <p className="perf-pillar-text">
-                The calculation starts from the <strong>Task Posted Date</strong> and stops when you <strong>Submit</strong>. Only business hours (Mon–Fri) are counted — nights and weekends are excluded.
-                Submitting faster than allocated boosts your score above 100%, capped at a <strong>1.5× Bonus</strong> to keep rankings fair.
+                The calculation starts from the <strong>Task Posted Date</strong> and stops when you <strong>Submit</strong>. 
+                Submitting faster than allocated boosts your score (capped at <strong>1.5× Bonus</strong>).
+                <strong> Each overdue task reduces your Speed score by 5%</strong>, up to a max of −50%.
               </p>
             </div>
 
             <div className="perf-pillar-card">
               <h3 className="perf-pillar-name">📅 Reliability (20%)</h3>
               <div className="perf-pillar-math">
-                (On-Time File Weight / Total File Weight) × 20%
+                (On-Time Files / (Total Files + Overdue)) × 20%
               </div>
               <p className="perf-pillar-text">
-                At the moment you click <strong>Submit</strong>, the system checks if your timestamp is on or before the <strong>Due Date</strong>. Each submission is weighted by its file count — a batch of 10 files counts 10× more than a single file.
-                Only assignments <strong>with a due date</strong> are counted. Tasks with no deadline are excluded from this.
+                At the moment you click <strong>Submit</strong>, the system checks if your timestamp is on or before the <strong>Due Date</strong>.
+                <strong> Each overdue task also counts as a missed deadline</strong>, directly reducing your Reliability rate alongside your on-time submissions.
               </p>
             </div>
           </div>
@@ -81,8 +101,31 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
             <div className="perf-formula-main">Performance = Quality + Speed + Reliability</div>
           </div>
 
+          {/* Penalty Summary */}
           <div style={{
-            marginTop: '24px',
+            marginTop: '16px',
+            padding: '16px',
+            background: 'rgba(244, 63, 94, 0.05)',
+            borderRadius: '12px',
+            border: '1px solid rgba(244, 63, 94, 0.15)',
+          }}>
+            <h4 style={{ margin: '0 0 8px 0', color: '#f43f5e', fontSize: '14px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              ⚠ Penalty Rules
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                <strong style={{ color: 'var(--text-primary)' }}>Rejections → Quality ↓</strong><br />
+                Each rejected file lowers your quality score through a rejection ratio multiplier. The more rejections you accumulate, the lower your quality.
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                <strong style={{ color: 'var(--text-primary)' }}>Overdue → Speed ↓ &amp; Reliability ↓</strong><br />
+                Each overdue task cuts Speed by 5% (max −50%) and is counted as a missed deadline in your Reliability rate.
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            marginTop: '16px',
             padding: '16px',
             background: 'rgba(99, 102, 241, 0.05)',
             borderRadius: '12px',
@@ -108,7 +151,7 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
           </div>
 
           <div className="perf-modal-star-note">
-            <strong>Performance Tip:</strong> Exceed 100% via early submissions while maintaining perfect quality.
+            <strong>Performance Tip:</strong> Avoid overdue tasks and rejections — submit on time with high quality to maximize all three scores.
           </div>
         </div>
 

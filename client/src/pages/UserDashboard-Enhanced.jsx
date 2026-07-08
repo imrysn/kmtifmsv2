@@ -48,7 +48,7 @@ const UserDashboard = ({ user, onLogout }) => {
       if (data.success) {
         startTransition(() => setNotificationCount(data.count || 0))
       }
-    } catch (_) {}
+    } catch (_) { }
   }, [user.id])
 
   // SSE — instant badge + flash when a new notification arrives (runs regardless of active tab)
@@ -77,7 +77,7 @@ const UserDashboard = ({ user, onLogout }) => {
             if (data.type === 'broadcast') {
               setActiveBroadcast({ title: data.title, message: data.message });
             }
-          } catch(e) {}
+          } catch (e) { }
         }
       }
       es.onerror = () => {
@@ -241,7 +241,7 @@ const UserDashboard = ({ user, onLogout }) => {
       f.status === 'team_leader_approved' ||
       f.status === 'final_approved'
     ).length
-  , [files])
+    , [files])
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -363,9 +363,9 @@ const UserDashboard = ({ user, onLogout }) => {
       </div>
 
       {activeBroadcast && (
-        <BroadcastAlert 
-          broadcast={activeBroadcast} 
-          onClose={() => setActiveBroadcast(null)} 
+        <BroadcastAlert
+          broadcast={activeBroadcast}
+          onClose={() => setActiveBroadcast(null)}
         />
       )}
     </Suspense>
