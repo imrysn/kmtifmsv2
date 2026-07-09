@@ -133,16 +133,18 @@ const CHECKLIST_SECTIONS_3D = [
 ];
 
 // ─── Checking Modal ───────────────────────────────────────────────────────────
-const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditing, onDoneChecking }) => {
+const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditing, onDoneChecking, user }) => {
   const [checkedItems, setCheckedItems] = useState({});
   const [additionalComment, setAdditionalComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checklistType, setChecklistType] = useState('2D');
   const [showPenaltySelector, setShowPenaltySelector] = useState(false);
-  const [selectedPenalty, setSelectedPenalty] = useState(90);
+  const [selectedPenalty, setSelectedPenalty] = useState(5);
+  const [customItems, setCustomItems] = useState([]);
+  const [newItemInput, setNewItemInput] = useState('');
 
   useEffect(() => {
-    if (isOpen) { setCheckedItems({}); setAdditionalComment(''); setChecklistType('2D'); setShowPenaltySelector(false); setSelectedPenalty(90); }
+    if (isOpen) { setCheckedItems({}); setAdditionalComment(''); setChecklistType('2D'); setShowPenaltySelector(false); setSelectedPenalty(5); setCustomItems([]); setNewItemInput(''); }
   }, [isOpen, file?.id]);
 
   if (!isOpen || !file) return null;
@@ -158,7 +160,7 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
     }
     setIsSubmitting(true);
     try {
-      const penaltyToApply = 100 - selectedPenalty;
+      const penaltyToApply = selectedPenalty;
       await onMarkForEditing(file.id, wrongItems, additionalComment.trim(), penaltyToApply);
       onClose();
     } finally {
@@ -178,6 +180,18 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
 
   const toggleItem = (item) =>
     setCheckedItems(prev => ({ ...prev, [item]: !prev[item] }));
+
+  const addCustomItem = () => {
+    const trimmed = newItemInput.trim();
+    if (!trimmed) return;
+    setCustomItems(prev => [...prev, trimmed]);
+    setNewItemInput('');
+  };
+
+  const removeCustomItem = (item) => {
+    setCustomItems(prev => prev.filter(i => i !== item));
+    setCheckedItems(prev => { const n = { ...prev }; delete n[item]; return n; });
+  };
 
   return (
     <div
@@ -276,6 +290,83 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
                   </div>
                 </div>
               ))}
+
+              {/* Custom Items Section */}
+              {customItems.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px', background: 'var(--background-secondary)', borderRadius: '6px', marginBottom: '6px' }}>
+                    Custom Items
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {customItems.map(item => {
+                      const isWrong = !!checkedItems[item];
+                      return (
+                        <div
+                          key={item}
+                          onClick={() => toggleItem(item)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', background: isWrong ? 'var(--status-rejected)' : 'transparent', border: isWrong ? '1px solid #fecaca' : '1px solid transparent', transition: 'all 0.12s', userSelect: 'none' }}
+                        >
+                          <div
+                            style={{
+                              width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0,
+                              border: isWrong ? '2px solid #dc2626' : '2px solid #d1d5db',
+                              background: isWrong ? 'var(--status-rejected-text)' : 'var(--background-secondary)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transition: 'all 0.12s',
+                            }}
+                          >
+                            {isWrong && (
+                              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                                <path d="M2 6l3 3 5-5" stroke="var(--background-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </div>
+                          <span style={{ fontSize: '13.5px', color: isWrong ? 'var(--status-rejected-text)' : 'var(--text-secondary)', fontWeight: isWrong ? '600' : '400', flex: 1 }}>
+                            {item}
+                          </span>
+                          {isWrong && (
+                            <span style={{ fontSize: '11px', color: 'var(--status-rejected-text)', fontWeight: '600', background: 'var(--status-rejected)', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>Wrong</span>
+                          )}
+                          <button
+                            onClick={e => { e.stopPropagation(); removeCustomItem(item); }}
+                            title="Remove this item"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: '18px', lineHeight: 1, padding: '0 4px', flexShrink: 0 }}
+                          >×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Add New Item Row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0 4px' }}>
+                <input
+                  type="text"
+                  value={newItemInput}
+                  onChange={e => setNewItemInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomItem(); } }}
+                  placeholder="Add new checklist item..."
+                  style={{
+                    flex: 1, padding: '7px 12px', fontSize: '13px', border: '1px dashed var(--border-color)',
+                    borderRadius: '7px', background: 'transparent', color: 'var(--text-secondary)',
+                    fontFamily: 'inherit', outline: 'none', transition: 'border-color 0.15s'
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'var(--status-pending-text)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
+                />
+                <button
+                  onClick={addCustomItem}
+                  disabled={!newItemInput.trim()}
+                  title="Add item"
+                  style={{
+                    padding: '7px 16px', borderRadius: '7px', border: 'none', flexShrink: 0,
+                    background: newItemInput.trim() ? 'var(--status-review-text)' : 'var(--border-color)',
+                    color: '#fff', fontSize: '13px', fontWeight: '600', cursor: newItemInput.trim() ? 'pointer' : 'not-allowed',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s', whiteSpace: 'nowrap'
+                  }}
+                >Add</button>
+              </div>
             </div>
 
             {/* Additional Comment */}
@@ -303,13 +394,10 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
             <h4 style={{ margin: '0 0 16px', fontSize: '18px', color: 'var(--text-primary)' }}>Select Completion Percentage</h4>
             <p style={{ margin: '0 0 24px', fontSize: '14px', color: 'var(--text-secondary)', textAlign: 'center', maxWidth: '400px', lineHeight: '1.5' }}>
               You are returning this file for editing with <b>{wrongItems.length} wrong items</b>.<br />
-              What is the completion percentage for this file? A lower percentage results in a larger quality deduction.
+              This percentage represents how much will be deducted from the user's performance based on their files.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', justifyContent: 'center', width: '100%', maxWidth: '420px' }}>
-              {(user?.role === 'TEAM_LEADER' || user?.role === 'ADMIN'
-                ? [85, 90, 95, 100]
-                : Array.from({ length: 16 }, (_, i) => (i + 1) * 5)
-              ).map(pct => (
+              {Array.from({ length: 12 }, (_, i) => (i + 1) * 5).map(pct => (
                 <button
                   key={pct}
                   onClick={() => setSelectedPenalty(pct)}
@@ -2785,6 +2873,7 @@ const TasksTab = memo(({
         onClose={() => setCheckingModal({ isOpen: false, file: null, assignment: null })}
         file={checkingModal.file}
         assignment={checkingModal.assignment}
+        user={user}
         onMarkForEditing={async (fileId, wrongItems, additionalComment, penaltyPercentage) => {
           const parts = [];
           if (wrongItems.length > 0) parts.push(`Wrong items: ${wrongItems.join(', ')}`);

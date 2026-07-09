@@ -2097,7 +2097,7 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       ...(submitters || []).map(s => s.user_id)
     ]);
 
-    const penaltyStr = penalty > 0 ? ` (Score Given: ${100 - penalty}%)` : '';
+    const penaltyStr = penalty > 0 ? ` (Deducted: ${penalty}%)` : '';
     let targetFileName = '';
     if (fileId) {
       const targetFile = await queryOne('SELECT original_name FROM files WHERE id = ?', [fileId]);

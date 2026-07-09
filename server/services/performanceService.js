@@ -58,7 +58,13 @@ async function calculateAllUserPerformance(teamId = null) {
         COUNT(*) as total,
         SUM(CASE WHEN status = 'final_approved' THEN 1 ELSE 0 END) as approved,
         SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected,
-        AVG(GREATEST(0, 100 - COALESCE(penalty_percentage, 0))) as avg_quality_score
+        AVG(
+          CASE 
+            WHEN status = 'final_approved' THEN GREATEST(0, 100 - COALESCE(penalty_percentage, 0))
+            WHEN status IN ('checked', 'team_leader_approved', 'pending_team_leader') THEN LEAST(60, GREATEST(0, 100 - COALESCE(penalty_percentage, 0)))
+            ELSE GREATEST(0, 100 - COALESCE(penalty_percentage, 0))
+          END
+        ) as avg_quality_score
       FROM files 
       WHERE checked_by IS NOT NULL OR status IN ('final_approved', 'revision', 'checked', 'rejected_by_team_leader', 'rejected_by_admin')
       GROUP BY user_id`, []],
