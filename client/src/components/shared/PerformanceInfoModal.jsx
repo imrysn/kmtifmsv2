@@ -65,11 +65,12 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
               <div className="perf-pillar-math">
                 (Base Quality Score × Rejection Penalty) × 45%
               </div>
-              <p className="perf-pillar-text">
-                Every file starts with a <strong>100% Quality baseline</strong>. When a file is rejected,
-                it lowers your quality in two ways: the file's own <strong>penalty score</strong> drops, 
-                and the <strong>rejection ratio</strong> (rejected ÷ total files) applies an additional
-                multiplier. Fewer rejections = higher Quality score.
+              <p className="perf-pillar-text" style={{ fontSize: '12.5px', lineHeight: '1.6' }}>
+                Every file starts with a <strong>100% Quality baseline</strong>. When a file is returned for editing, the checker assigns a <strong>specific deduction percentage</strong> (e.g., −10%, −35%). This is <strong>directly subtracted</strong> from the file's perfect score.
+                <br/><br/>
+                Your overall quality drops in two ways: 
+                <br/>• The <strong>direct deduction</strong> lowers the file's base score.
+                <br/>• The <strong>rejection ratio</strong> (rejected ÷ total files) applies an extra penalty multiplier.
               </p>
             </div>
 
