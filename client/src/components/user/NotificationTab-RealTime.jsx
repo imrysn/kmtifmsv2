@@ -130,10 +130,8 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
       let assignmentId = notification.assignment_id || null;
       let fileStatus = notification.file_status || null;
 
-      // submission/file_submitted sent to a checker → open the For Checking tab
-      const isCheckerSubmission =
-        (notification.type === 'submission' || notification.type === 'file_submitted') &&
-        notification.title === 'New File Submitted for Checking';
+      // submission/file_submitted sent to a checker or TL → open the For Checking tab
+      const isCheckerSubmission = notification.type === 'submission' || notification.type === 'file_submitted';
 
       // If assignment_id wasn't stored on the notification, look it up live
       if (!assignmentId) {

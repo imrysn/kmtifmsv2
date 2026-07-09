@@ -2811,18 +2811,33 @@ const TasksTab = memo(({
                 <p style={{ fontSize: '15px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.6' }}>
                   {fileToDelete.isFolderDelete
                     ? `Are you sure you want to delete all ${fileToDelete.folderFiles?.length} files in this folder?`
-                    : 'Are you sure you want to permanently delete this file?'}
+                    : 'Do you really want to delete this file, or would you like to resubmit a new file instead?'}
                 </p>
                 <div style={{ backgroundColor: 'var(--status-rejected)', border: '1px solid var(--status-rejected-text)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
                   <span style={{ fontSize: '14px', fontWeight: '500', color: 'var(--status-rejected-text)' }}>{fileToDelete.fileName}</span>
                 </div>
-                <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', margin: 0 }}>This action is permanent and cannot be undone.</p>
+                <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', margin: 0 }}>Deleting is permanent. Resubmitting allows you to upload a new version.</p>
               </div>
             </div>
             <div className="tasks-modal-footer" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <button onClick={() => setShowDeleteModal(false)} style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--background-secondary)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}>
                 Cancel
               </button>
+              {!fileToDelete.isFolderDelete && (
+                <button
+                  onClick={() => {
+                    const assignment = assignments.find(a => a.id === fileToDelete.assignmentId);
+                    if (assignment) {
+                      setShowDeleteModal(false);
+                      setFileToDelete(null);
+                      handleSubmit(assignment);
+                    }
+                  }}
+                  style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--primary-color)', color: '#ffffff', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  Resubmit
+                </button>
+              )}
               <button
                 onClick={async () => {
                   if (fileToDelete.isFolderDelete) {
@@ -2845,9 +2860,9 @@ const TasksTab = memo(({
                     handleRemoveSubmittedFile(fileToDelete.assignmentId, fileToDelete.fileId);
                   }
                 }}
-                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--status-rejected-text)', color: 'var(--background-secondary)', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: '#ef4444', color: '#ffffff', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                🗑 {fileToDelete.isFolderDelete ? 'Delete Folder' : 'Delete File'}
+                {fileToDelete.isFolderDelete ? 'Delete Folder' : 'Delete Anyway'}
               </button>
             </div>
           </div>
