@@ -144,7 +144,22 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
   const [newItemInput, setNewItemInput] = useState('');
 
   useEffect(() => {
-    if (isOpen) { setCheckedItems({}); setAdditionalComment(''); setChecklistType('2D'); setShowPenaltySelector(false); setSelectedPenalty(5); setCustomItems([]); setNewItemInput(''); }
+    if (isOpen) { 
+      setCheckedItems({}); 
+      setAdditionalComment(''); 
+      setChecklistType('2D'); 
+      setShowPenaltySelector(false); 
+      setSelectedPenalty(5); 
+      
+      let savedCustom = [];
+      try { 
+        savedCustom = JSON.parse(localStorage.getItem('kmtifms_custom_checklist_items')) || []; 
+      } catch(e) {}
+      
+      // Ensure it's an array and unique
+      setCustomItems([...new Set(savedCustom)]); 
+      setNewItemInput(''); 
+    }
   }, [isOpen, file?.id]);
 
   if (!isOpen || !file) return null;
@@ -184,12 +199,21 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
   const addCustomItem = () => {
     const trimmed = newItemInput.trim();
     if (!trimmed) return;
-    setCustomItems(prev => [...prev, trimmed]);
+    setCustomItems(prev => {
+      const newItems = [...new Set([...prev, trimmed])];
+      localStorage.setItem('kmtifms_custom_checklist_items', JSON.stringify(newItems));
+      return newItems;
+    });
+    setCheckedItems(prev => ({ ...prev, [trimmed]: true }));
     setNewItemInput('');
   };
 
   const removeCustomItem = (item) => {
-    setCustomItems(prev => prev.filter(i => i !== item));
+    setCustomItems(prev => {
+      const newItems = prev.filter(i => i !== item);
+      localStorage.setItem('kmtifms_custom_checklist_items', JSON.stringify(newItems));
+      return newItems;
+    });
     setCheckedItems(prev => { const n = { ...prev }; delete n[item]; return n; });
   };
 

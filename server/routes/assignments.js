@@ -2082,20 +2082,31 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
     }
     invalidateCache();
 
-    // Notify every member assigned to this task that their submission needs revision
-    const members = await query(
-      'SELECT DISTINCT am.user_id FROM assignment_members am WHERE am.assignment_id = ?',
-      [assignmentId]
-    );
-    // Also include users who submitted files
-    const submitters = await query(
-      'SELECT DISTINCT user_id FROM assignment_submissions WHERE assignment_id = ?',
-      [assignmentId]
-    );
-    const allUserIds = new Set([
-      ...(members || []).map(m => m.user_id),
-      ...(submitters || []).map(s => s.user_id)
-    ]);
+    // Determine who to notify
+    const allUserIds = new Set();
+    
+    if (fileId) {
+      // Per-file rejection: Notify ONLY the specific user who submitted this file
+      const fileSub = await query(
+        'SELECT user_id FROM assignment_submissions WHERE file_id = ?',
+        [fileId]
+      );
+      if (fileSub && fileSub.length > 0) {
+        allUserIds.add(fileSub[0].user_id);
+      }
+    } else {
+      // Whole-assignment rejection: Notify every member assigned to this task and all submitters
+      const members = await query(
+        'SELECT DISTINCT am.user_id FROM assignment_members am WHERE am.assignment_id = ?',
+        [assignmentId]
+      );
+      const submitters = await query(
+        'SELECT DISTINCT user_id FROM assignment_submissions WHERE assignment_id = ?',
+        [assignmentId]
+      );
+      (members || []).forEach(m => allUserIds.add(m.user_id));
+      (submitters || []).forEach(s => allUserIds.add(s.user_id));
+    }
 
     const penaltyStr = penalty > 0 ? ` (Deducted: ${penalty}%)` : '';
     let targetFileName = '';
