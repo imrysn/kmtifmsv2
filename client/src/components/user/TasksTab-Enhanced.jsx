@@ -601,7 +601,7 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
                   fontWeight: '700',
                   marginLeft: '8px'
                 }}>
-                  {fileScore}% Score
+                  {fileScore === 100 ? '100%' : `-${100 - fileScore}%`}
                 </span>
               )}
             </div>
