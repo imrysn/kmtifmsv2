@@ -12,6 +12,7 @@ const { validate, schemas, validateId } = require('../middleware/validation');
 const { asyncHandler, DatabaseError, NotFoundError } = require('../middleware/errorHandler');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { secret } = require('../config/jwt');
+const { createNotification } = require('./notifications');
 
 // ── Profile picture storage (memory → save to disk manually) ─────────────────
 const profilePicUpload = multer({
@@ -264,23 +265,25 @@ async function attachFileCounts(db, members) {
   return members;
 }
 
-// Get all users (Admin only) with caching
-router.get('/', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
-  const cacheKey = 'all_users';
-  const cachedUsers = getCache(cacheKey);
+// Get all users (Admin & Team Leader)
+router.get('/', authorizeRole(['ADMIN', 'TEAM_LEADER']), asyncHandler(async (req, res) => {
+  const isTeamLeader = req.user.role === 'TEAM_LEADER';
+  const teamCacheKey = 'all_users';
+  const cachedUsers = getCache(teamCacheKey);
 
   if (cachedUsers) {
     console.log('✅ Retrieved users from cache');
     return res.json({ success: true, users: cachedUsers });
   }
 
-  console.log('📈 Getting all users...');
+  console.log('📈 Getting users...');
   try {
+    // Fetch all users regardless of role (Both Admin and Team Leader can see all users)
     const users = await dbQuery(
       'SELECT id, fullName, username, email, role, team, profile_picture, created_at FROM users ORDER BY created_at DESC'
     );
     console.log(`✅ Retrieved ${users.length} users`);
-    setCache(cacheKey, users);
+    setCache(teamCacheKey, users);
     res.json({ success: true, users });
   } catch (err) {
     console.error('❌ Database error getting users:', err);
@@ -292,12 +295,19 @@ router.get('/', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
   }
 }));
 
-// Create new user (Admin only)
-router.post('/', authorizeRole('ADMIN'), validate(schemas.createUser), asyncHandler(async (req, res) => {
+// Create new user (Admin & Team Leader)
+router.post('/', authorizeRole(['ADMIN', 'TEAM_LEADER']), validate(schemas.createUser), asyncHandler(async (req, res) => {
   const { fullName, username, email, password, adminId, adminUsername, adminRole, adminTeam } = req.body;
   let { role = 'USER', team = 'General' } = req.body;
   role = (role || 'USER').toString().trim().toUpperCase();
   team = (team || 'General').toString().trim();
+  
+  // Enforce restrictions for TEAM_LEADER
+  if (req.user.role === 'TEAM_LEADER') {
+    role = 'USER'; // Team leaders can only create normal users
+    team = req.body.team || req.user.team; // Allow Team Leader to set the team
+  }
+
   logInfo('Creating new user', { fullName, username, email, role, team });
 
   const hashedPassword = bcrypt.hashSync(password, 10);
@@ -353,8 +363,8 @@ router.post('/', authorizeRole('ADMIN'), validate(schemas.createUser), asyncHand
   res.status(201).json({ success: true, message: 'User created successfully', userId: newUserId });
 }));
 
-// Update user (Admin only)
-router.put('/:id', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
+// Update user (Admin & Team Leader)
+router.put('/:id', authorizeRole(['ADMIN', 'TEAM_LEADER']), asyncHandler(async (req, res) => {
   const userId = req.params.id;
   const { fullName, username, email, adminId, adminUsername, adminRole, adminTeam } = req.body;
   let { role, team } = req.body;
@@ -369,6 +379,18 @@ router.put('/:id', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
   const currentUser = await dbQueryOne('SELECT * FROM users WHERE id = ?', [userId]);
   if (!currentUser) {
     return res.status(404).json({ success: false, message: 'User not found' });
+  }
+
+  if (req.user.role === 'TEAM_LEADER') {
+    if (currentUser.role === 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Access denied: You cannot edit ADMIN accounts' });
+    }
+    if (req.body.role === 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Access denied: You cannot elevate a user to ADMIN' });
+    }
+    // Team Leaders cannot elevate to ADMIN, but they can move them to another team or change to TEAM_LEADER
+    role = req.body.role || currentUser.role;
+    team = req.body.team || currentUser.team;
   }
 
   try {
@@ -390,6 +412,36 @@ router.put('/:id', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
 
   clearCache('all_users');
   console.log(`✅ User ${userId} updated — ${currentUser.role}→${role}, ${currentUser.team}→${team}`);
+
+  if (currentUser.team !== team || currentUser.role !== role) {
+    let title = 'Account Updated';
+    let message = `Your account has been updated by ${adminUsername || req.user.username}.`;
+    
+    if (currentUser.team !== team && currentUser.role !== role) {
+      message = `Your team has been changed from ${currentUser.team} to ${team}, and your role changed to ${role}.`;
+    } else if (currentUser.team !== team) {
+      title = 'Team Assignment Changed';
+      message = `You have been reassigned to team: ${team}.`;
+    } else if (currentUser.role !== role) {
+      title = 'Role Updated';
+      message = `Your role has been changed to ${role}.`;
+    }
+
+    try {
+      await createNotification(
+        userId,
+        null,
+        'system',
+        title,
+        message,
+        adminId || req.user.id,
+        adminUsername || req.user.username,
+        adminRole || req.user.role
+      );
+    } catch (notifErr) {
+      console.error('⚠️ Failed to send account update notification:', notifErr);
+    }
+  }
 
   // Handle Team Leader assignment changes
   try {
@@ -429,11 +481,18 @@ router.put('/:id', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
   });
 }));
 
-// Reset user password (Admin only)
-router.put('/:id/password', authorizeRole('ADMIN'), validateId(), validate(schemas.resetPassword), asyncHandler(async (req, res) => {
+// Reset user password (Admin & Team Leader)
+router.put('/:id/password', authorizeRole(['ADMIN', 'TEAM_LEADER']), validateId(), validate(schemas.resetPassword), asyncHandler(async (req, res) => {
   const userId = req.params.id;
   const { password, adminId, adminUsername, adminRole, adminTeam } = req.body;
   logInfo('Resetting password for user', { userId });
+
+  if (req.user.role === 'TEAM_LEADER') {
+    const targetUser = await dbQueryOne('SELECT role FROM users WHERE id = ?', [userId]);
+    if (!targetUser || targetUser.role === 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Access denied: You cannot reset passwords for ADMIN accounts' });
+    }
+  }
 
   const hashedPassword = bcrypt.hashSync(password, 10);
 
@@ -528,15 +587,19 @@ router.put('/:id/password', authorizeRole('ADMIN'), validateId(), validate(schem
   });
 }));
 
-// Delete user (Admin only)
-router.delete('/:id', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
+// Delete user (Admin & Team Leader)
+router.delete('/:id', authorizeRole(['ADMIN', 'TEAM_LEADER']), asyncHandler(async (req, res) => {
   const userId = req.params.id;
   const { adminId, adminUsername, adminRole, adminTeam } = req.body;
   console.log(`🗑️ Deleting user ${userId}`);
 
-  const user = await dbQueryOne('SELECT fullName, email FROM users WHERE id = ?', [userId]);
+  const user = await dbQueryOne('SELECT fullName, email, role, team FROM users WHERE id = ?', [userId]);
   if (!user) {
     return res.status(404).json({ success: false, message: 'User not found' });
+  }
+
+  if (req.user.role === 'TEAM_LEADER' && user.role === 'ADMIN') {
+    return res.status(403).json({ success: false, message: 'Access denied: You cannot delete ADMIN accounts' });
   }
 
   try {

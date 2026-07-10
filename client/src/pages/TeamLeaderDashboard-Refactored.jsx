@@ -6,6 +6,7 @@ import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage } from '../components/shared'
 import OnlineMembersPanel from '../components/shared/OnlineMembersPanel'
 import BroadcastAlert from '../components/shared/BroadcastAlert'
+import { AuthProvider, NetworkProvider } from '../contexts'
 
 // Sync unread count to Electron taskbar badge + icon flash
 const syncElectronBadge = (count) => {
@@ -1417,9 +1418,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   return (
-    <Suspense fallback={<SkeletonLoader type="teamleader" />}>
-      <div className="tl-dashboard">
-        <Sidebar
+    <AuthProvider initialUser={user}>
+      <NetworkProvider>
+        <Suspense fallback={<SkeletonLoader type="teamleader" />}>
+          <div className="tl-dashboard">
+            <Sidebar
           activeTab={activeTab}
           setActiveTab={switchTab}
           clearMessages={clearMessages}
@@ -1593,6 +1596,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         )}
       </div>
     </Suspense>
+    </NetworkProvider>
+  </AuthProvider>
   )
 }
 

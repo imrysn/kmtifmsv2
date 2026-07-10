@@ -141,7 +141,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
             assignmentId = data.assignment_id;
             fileStatus = data.file_status || fileStatus;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       if (assignmentId) {
@@ -171,7 +171,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
           try {
             const data = await apiFetch(`/api/assignments/${assignmentId}/revision-file`);
             if (data.success && data.file_id) fileId = data.file_id;
-          } catch (_) {}
+          } catch (_) { }
         }
         if (onNavigate) onNavigate('tasks', { assignmentId, fileId, fileStatus: 'revision' });
         return;
@@ -476,9 +476,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
               <div className="delete-warning">
                 <span className="warning-icon">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="24" height="24">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
                 </span>
                 <div className="warning-content">

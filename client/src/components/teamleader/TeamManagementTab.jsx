@@ -3,6 +3,8 @@ import { useState, useMemo, useCallback, useEffect, memo } from 'react'
 import { apiFetch } from '@/config/api'
 import UserPerformanceCard from '../shared/UserPerformanceCard'
 import Avatar from '../shared/Avatar'
+import UserManagement from '../admin/UserManagement'
+import { useAuth } from '../../contexts'
 
 const MemberCard = memo(({ member, bulkPerformance, memberScores, handleScoreLoad }) => {
   const score = memberScores[member.id] || 0;
@@ -72,6 +74,7 @@ const TeamManagementTab = ({
   teamMembers,
   fetchMemberFiles
 }) => {
+  const { user } = useAuth()
 
   const [viewMode, setViewMode] = useState('performance') // 'table' or 'performance'
   const [searchQuery, setSearchQuery] = useState('')
@@ -213,12 +216,29 @@ const TeamManagementTab = ({
             >
               Members List
             </button>
+            <button
+              onClick={() => setViewMode('users')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                background: viewMode === 'users' ? 'var(--background-primary)' : 'transparent',
+                color: viewMode === 'users' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                boxShadow: viewMode === 'users' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+              }}
+            >
+              Users
+            </button>
           </div>
         </div>
       </div>
 
       {/* Global Controls */}
-      {!isLoadingTeam && teamMembers.length > 0 && (
+      {viewMode !== 'users' && !isLoadingTeam && teamMembers.length > 0 && (
         <div className="file-controls" style={{ marginBottom: '24px' }}>
           <div className="file-search">
             <input
@@ -257,6 +277,16 @@ const TeamManagementTab = ({
         <div className="tl-table-container">
           <LoadingTable rows={6} columns={6} />
         </div>
+      ) : viewMode === 'users' ? (
+        <UserManagement 
+          user={user} 
+          clearMessages={() => {}} 
+          error="" 
+          success="" 
+          setError={() => {}} 
+          setSuccess={() => {}} 
+          contextData={{}} 
+        />
       ) : filteredMembers.length > 0 ? (
         viewMode === 'performance' ? (
           /* Performance Cards Grid */
@@ -344,7 +374,7 @@ const TeamManagementTab = ({
       )}
 
       {/* No results after filtering */}
-      {!isLoadingTeam && teamMembers.length > 0 && filteredMembers.length === 0 && (
+      {viewMode !== 'users' && !isLoadingTeam && teamMembers.length > 0 && filteredMembers.length === 0 && (
         <div className="tl-empty" style={{ marginTop: '1rem' }}>
           <h3>No results found</h3>
           <p>Try adjusting your search or filters.</p>

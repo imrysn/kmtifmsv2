@@ -112,8 +112,9 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const [showUserDeleteModal, setShowUserDeleteModal] = useState(false)
   const [showPerformanceModal, setShowPerformanceModal] = useState(false)
   const [userToDelete, setUserToDelete] = useState(null)
-  const [viewMode, setViewMode] = useState('performance') // 'performance' by default
-  const [sortBy, setSortBy] = useState('performance-desc') // 'performance-desc' by default
+  const isTeamLeader = authUser?.role === 'TEAM_LEADER'
+  const [viewMode, setViewMode] = useState(isTeamLeader ? 'list' : 'performance') // 'performance' by default for Admin
+  const [sortBy, setSortBy] = useState(isTeamLeader ? 'name-asc' : 'performance-desc') // 'performance-desc' by default for Admin
   const [memberScores, setMemberScores] = useState({})
   const [bulkPerformance, setBulkPerformance] = useState({})
   const [isBulkLoading, setIsBulkLoading] = useState(false)
@@ -541,68 +542,74 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
               }}
               className="sort-select"
             >
-              <option value="performance-desc">Top Performer</option>
-              <option value="performance-asc">Low Performer</option>
+              {authUser?.role !== 'TEAM_LEADER' && (
+                <>
+                  <option value="performance-desc">Top Performer</option>
+                  <option value="performance-asc">Low Performer</option>
+                </>
+              )}
               <option value="name-asc">Name (A-Z)</option>
               <option value="date-desc">Newest Members</option>
               <option value="date-asc">Oldest Members</option>
             </select>
           </div>
 
-          <div className="view-mode-toggle" style={{
-            display: 'flex',
-            background: 'var(--background-secondary)',
-            padding: '4px',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <button
-              onClick={() => setViewMode('performance')}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                background: viewMode === 'performance' ? 'var(--background-primary)' : 'transparent',
-                color: viewMode === 'performance' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: viewMode === 'performance' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z" />
-              </svg>
-              Performance
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                background: viewMode === 'list' ? 'var(--background-primary)' : 'transparent',
-                color: viewMode === 'list' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: viewMode === 'list' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-              </svg>
-              User List
-            </button>
-          </div>
+          {authUser?.role !== 'TEAM_LEADER' && (
+            <div className="view-mode-toggle" style={{
+              display: 'flex',
+              background: 'var(--background-secondary)',
+              padding: '4px',
+              borderRadius: '10px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <button
+                onClick={() => setViewMode('performance')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: viewMode === 'performance' ? 'var(--background-primary)' : 'transparent',
+                  color: viewMode === 'performance' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: viewMode === 'performance' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z" />
+                </svg>
+                Performance
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: viewMode === 'list' ? 'var(--background-primary)' : 'transparent',
+                  color: viewMode === 'list' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: viewMode === 'list' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                </svg>
+                User List
+              </button>
+            </div>
+          )}
           <button
             className="btn btn-primary"
             onClick={openAddModal}
@@ -675,6 +682,9 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                     const roleClass = roleToClass(userData.role)
                     // Normalise role → display label (always use space format)
                     const roleLabel = roleToLabel(userData.role)
+                    const isEditableByAuthUser = 
+                      authUser?.role === 'ADMIN' || 
+                      (authUser?.role === 'TEAM_LEADER' && userData.role !== 'ADMIN')
                     return (
                       <tr key={userData.id} className="user-row" data-user-id={userData.id}>
                         <td>
@@ -689,13 +699,15 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                         <td>
                           <div className="password-cell">
                             <span className="password-hidden">••••••••</span>
-                            <button
-                              className="password-reset-btn"
-                              onClick={() => openPasswordModal(userData)}
-                              title="Reset Password"
-                            >
-                              Reset
-                            </button>
+                            {isEditableByAuthUser && (
+                              <button
+                                className="password-reset-btn"
+                                onClick={() => openPasswordModal(userData)}
+                                title="Reset Password"
+                              >
+                                Reset
+                              </button>
+                            )}
                           </div>
                         </td>
                         <td>
@@ -709,23 +721,25 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                           </span>
                         </td>
                         <td>
-                          <div className="action-buttons">
-                            <button
-                              className="action-btn edit-btn"
-                              onClick={() => openEditModal(userData)}
-                              title="Edit User"
-                            >
-                              Edit
-                            </button>
+                          {isEditableByAuthUser && (
+                            <div className="action-buttons">
+                              <button
+                                className="action-btn edit-btn"
+                                onClick={() => openEditModal(userData)}
+                                title="Edit User"
+                              >
+                                Edit
+                              </button>
 
-                            <button
-                              className="action-btn delete-btn"
-                              onClick={() => openUserDeleteModal(userData)}
-                              title="Delete User"
-                            >
-                              Delete
-                            </button>
-                          </div>
+                              <button
+                                className="action-btn delete-btn"
+                                onClick={() => openUserDeleteModal(userData)}
+                                title="Delete User"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )

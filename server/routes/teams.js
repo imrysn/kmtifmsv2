@@ -1,5 +1,5 @@
 const express = require('express');
-const { db } = require('../config/database');
+const { db, query: dbQuery } = require('../config/database');
 const { logActivity } = require('../utils/logger');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
@@ -9,54 +9,59 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Get all teams (Admin and Team Leader)
-router.get('/', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req, res) => {
+router.get('/', authorizeRole(['TEAM_LEADER', 'ADMIN']), async (req, res) => {
   console.log('🏢 Getting all teams...');
 
-  // First get all teams
-  db.all('SELECT * FROM teams ORDER BY created_at DESC', [], (err, teams) => {
-    if (err) {
-      console.error('❌ Database error getting teams:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to fetch teams'
-      });
-    }
-
-    // For each team, get its leaders
-    const teamPromises = teams.map(team => {
-      return new Promise((resolve) => {
-        db.all(
-          `SELECT tl.user_id, tl.username, u.fullName 
-           FROM team_leaders tl 
-           LEFT JOIN users u ON tl.user_id = u.id 
-           WHERE tl.team_id = ?`,
-          [team.id],
-          (err, leaders) => {
-            if (err) {
-              console.error(`❌ Error getting leaders for team ${team.id}:`, err);
-              team.leaders = [];
-            } else {
-              team.leaders = leaders || [];
-            }
-            // Keep backward compatibility
-            if (team.leaders.length > 0) {
-              team.leader_id = team.leaders[0].user_id;
-              team.leader_username = team.leaders[0].username;
-            }
-            resolve(team);
-          }
-        );
+  try {
+    // 1. Get all teams from SQLite
+    const teams = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM teams ORDER BY created_at DESC', [], (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows || []);
+        }
       });
     });
 
-    Promise.all(teamPromises).then(teamsWithLeaders => {
-      console.log(`✅ Retrieved ${teamsWithLeaders.length} teams`);
-      res.json({
-        success: true,
-        teams: teamsWithLeaders
-      });
+    // 2. Get all team leaders from MySQL users table
+    const teamLeaders = await dbQuery('SELECT id, username, fullName, team FROM users WHERE role = ?', ['TEAM_LEADER']);
+
+    // 3. Map leaders to their respective teams
+    const teamsWithLeaders = teams.map(team => {
+      const leadersForTeam = teamLeaders.filter(leader => leader.team === team.name);
+      
+      const mappedLeaders = leadersForTeam.map(leader => ({
+        user_id: leader.id,
+        username: leader.username,
+        fullName: leader.fullName
+      }));
+
+      team.leaders = mappedLeaders;
+      
+      // Keep backward compatibility
+      if (mappedLeaders.length > 0) {
+        team.leader_id = mappedLeaders[0].user_id;
+        team.leader_username = mappedLeaders[0].username;
+      } else {
+        team.leader_id = null;
+        team.leader_username = null;
+      }
+      return team;
     });
-  });
+
+    console.log(`✅ Retrieved ${teamsWithLeaders.length} teams`);
+    res.json({
+      success: true,
+      teams: teamsWithLeaders
+    });
+  } catch (error) {
+    console.error('❌ Error getting teams:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch teams'
+    });
+  }
 });
 
 // Create new team (Admin only)
