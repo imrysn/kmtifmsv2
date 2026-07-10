@@ -1097,8 +1097,8 @@ const AssignmentsTab = ({
             Tasks
             <span style={{
               marginLeft: '7px', fontSize: '12px', fontWeight: '700',
-              background: activeTaskTab === 'tasks' ? 'var(--status-review)' : '#e5e7eb',
-              color: activeTaskTab === 'tasks' ? '#4338ca' : 'var(--text-tertiary)',
+              background: activeTaskTab === 'tasks' ? 'var(--status-review)' : 'var(--background-secondary)',
+              color: activeTaskTab === 'tasks' ? 'var(--status-review-text)' : 'var(--text-tertiary)',
               padding: '1px 8px', borderRadius: '10px'
             }}>
               {assignments.filter(a => a.status !== 'completed' && (teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter)).length}
@@ -1120,7 +1120,7 @@ const AssignmentsTab = ({
             Done Tasks
             <span style={{
               marginLeft: '7px', fontSize: '12px', fontWeight: '700',
-              background: activeTaskTab === 'done' ? 'var(--status-approved)' : '#e5e7eb',
+              background: activeTaskTab === 'done' ? 'var(--status-approved)' : 'var(--background-secondary)',
               color: activeTaskTab === 'done' ? 'var(--status-approved-text)' : 'var(--text-tertiary)',
               padding: '1px 8px', borderRadius: '10px'
             }}>
@@ -1198,14 +1198,14 @@ const AssignmentsTab = ({
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '8px 28px 8px 28px',
-              border: '1.5px solid #e8eaed', borderRadius: '8px',
+              border: '1.5px solid var(--border-color)', borderRadius: '8px',
               fontSize: '13.5px', color: 'var(--text-secondary)',
               outline: 'none', background: 'var(--background-secondary)',
               transition: 'border-color 0.15s',
               boxShadow: 'none'
             }}
-            onFocus={e => e.target.style.borderColor = '#c4c9d4'}
-            onBlur={e => e.target.style.borderColor = '#e8eaed'}
+            onFocus={e => e.target.style.borderColor = 'var(--text-tertiary)'}
+            onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
           />
           {searchQuery && (
             <button

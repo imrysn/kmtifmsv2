@@ -1289,9 +1289,9 @@
 }
 
 .tl-assignment-status-badge.completed {
-  background: #D1FAE5;
+  background: var(--status-approved);
   color: var(--status-approved-text);
-  border: 1px solid #34D399;
+  border: 1px solid var(--status-approved-text);
 }
 
 /* Members Modal Styles */
