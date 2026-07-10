@@ -254,7 +254,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
             right: `${panelPos.right}px`,
             zIndex: 99999,
             background: 'var(--background-secondary)',
-            border: '1px solid #e5e7eb',
+            border: '1px solid var(--border-color)',
             borderRadius: '16px',
             boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
             minWidth: '260px',
