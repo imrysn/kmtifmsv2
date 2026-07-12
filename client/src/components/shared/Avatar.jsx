@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { apiFetch, API_BASE_URL } from '../../config/api';
 import useStore from '../../store/useStore';
 import './Avatar.css';
@@ -18,6 +19,7 @@ import './Avatar.css';
 const Avatar = ({ user, size = 'md', editable = false, onUpdate }) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError]         = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const fileInputRef              = useRef(null);
   const updateUser                = useStore((s) => s.updateUser);
 
@@ -71,6 +73,7 @@ const Avatar = ({ user, size = 'md', editable = false, onUpdate }) => {
       setTimeout(() => setError(null), 4000);
     } finally {
       setUploading(false);
+      setShowModal(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }, [updateUser, onUpdate]);
@@ -92,6 +95,7 @@ const Avatar = ({ user, size = 'md', editable = false, onUpdate }) => {
       setTimeout(() => setError(null), 4000);
     } finally {
       setUploading(false);
+      setShowModal(false);
     }
   }, [updateUser, onUpdate]);
 
@@ -141,58 +145,83 @@ const Avatar = ({ user, size = 'md', editable = false, onUpdate }) => {
           />
         )}
 
-        {/* Spinner overlay while uploading */}
-        {uploading && (
+        {/* Spinner overlay while uploading (hidden from main avatar if modal is open, since modal will handle it) */}
+        {uploading && !showModal && (
           <div className="av-spinner-overlay">
             <div className="av-spinner" />
           </div>
         )}
 
-        {/* ── Editable hover overlays (both inside the circle) ── */}
-        {editable && !uploading && !hasPhoto && (
-          /* No photo: full circle = click to upload */
+        {/* ── Editable hover overlay ── */}
+        {editable && !uploading && (
           <div
             className="av-overlay av-overlay-full"
-            onClick={() => fileInputRef.current?.click()}
-            title="Upload photo"
+            onClick={() => setShowModal(true)}
+            title="Edit photo"
           >
-            {/* Camera icon */}
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-              <circle cx="12" cy="13" r="4"/>
+            {/* Pencil icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
             </svg>
           </div>
         )}
-
-        {editable && !uploading && hasPhoto && (
-          /* Has photo: split top (change) / bottom (remove) */
-          <>
-            {/* Top half — change photo */}
-            <div
-              className="av-overlay av-overlay-top"
-              onClick={() => fileInputRef.current?.click()}
-              title="Change photo"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                <circle cx="12" cy="13" r="4"/>
-              </svg>
-            </div>
-            {/* Bottom half — remove photo */}
-            <div
-              className="av-overlay av-overlay-bottom"
-              onClick={handleRemove}
-              title="Remove photo"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                <path d="M10 11v6M14 11v6"/>
-              </svg>
-            </div>
-          </>
-        )}
       </div>
+
+      {/* ── Modal Portal ── */}
+      {showModal && ReactDOM.createPortal(
+        <div className="av-modal-backdrop" onClick={() => !uploading && setShowModal(false)}>
+          <div className="av-modal-content" onClick={(e) => e.stopPropagation()}>
+            {uploading && (
+              <div className="av-modal-uploading-overlay">
+                <div className="av-spinner" style={{ width: '24px', height: '24px', borderWidth: '3px' }} />
+                <span style={{ marginTop: '12px', fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)' }}>Uploading...</span>
+              </div>
+            )}
+            
+            <div className="av-modal-header">
+              <h3>Profile Picture</h3>
+              <button className="av-modal-close" onClick={() => !uploading && setShowModal(false)} disabled={uploading}>✕</button>
+            </div>
+            <div className="av-modal-body">
+              {/* Modal Avatar Preview */}
+              <div className="av-modal-preview">
+                <div className="av-circle av-modal-preview-circle" style={{ '--av-hue': hue }}>
+                  <span className="av-initials">{initials}</span>
+                  {hasPhoto && (
+                    <img
+                      src={imageUrl}
+                      alt="Preview"
+                      className="av-img"
+                      onLoad={(e) => { e.target.style.display = 'block'; }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  )}
+                </div>
+              </div>
+
+              <button className={`av-modal-btn av-btn-primary ${uploading ? 'btn-loading' : ''}`} disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                {hasPhoto ? 'Change Photo' : 'Upload Photo'}
+              </button>
+              {hasPhoto && (
+                <button className={`av-modal-btn av-btn-danger ${uploading ? 'btn-loading' : ''}`} disabled={uploading} onClick={handleRemove}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                  </svg>
+                  Remove Photo
+                </button>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Inline error */}
       {error && <div className="av-error-inline">{error}</div>}
