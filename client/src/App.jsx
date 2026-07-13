@@ -96,20 +96,19 @@ function App() {
     logger.logStateUpdate('User authenticated and saved')
   }
 
-  // Handle logout — mark offline BEFORE clearing the token so the DELETE request is authenticated
-  const handleLogout = async () => {
+  // Handle logout — mark offline in the background, then clear the session immediately
+  const handleLogout = () => {
     logger.logLogout()
     const { token } = useStore.getState()
     if (token) {
-      try {
-        await fetch(`${API_BASE_URL}/api/presence/ping`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          keepalive: true, // ensures the request completes even if the page navigates away
-        })
-      } catch { /* non-critical */ }
+      // Fire-and-forget — keepalive ensures it completes even after the page navigates away
+      fetch(`${API_BASE_URL}/api/presence/ping`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        keepalive: true,
+      }).catch(() => { /* non-critical */ })
     }
-    logout()
+    logout() // instant — don't wait for the presence request
   }
 
   // Get the appropriate dashboard component based on user's panel type

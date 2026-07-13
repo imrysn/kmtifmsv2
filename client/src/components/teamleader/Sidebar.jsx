@@ -42,6 +42,8 @@ const Sidebar = memo(({
     const newTeam = e.target.value
     if (!newTeam || newTeam === user?.team) return
     setIsChangingTeam(true)
+    // Safety: always reset the overlay after 10s if reload never fires
+    const safetyTimer = setTimeout(() => setIsChangingTeam(false), 10000)
     try {
       const data = await apiFetch('/api/users/profile/team', {
         method: 'PUT',
@@ -56,10 +58,12 @@ const Sidebar = memo(({
           window.location.reload()
         }, 150)
       } else {
+        clearTimeout(safetyTimer)
         setIsChangingTeam(false)
       }
     } catch (err) {
       console.error('Error changing team:', err)
+      clearTimeout(safetyTimer)
       setIsChangingTeam(false)
     }
   }
