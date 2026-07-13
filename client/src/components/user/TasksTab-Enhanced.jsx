@@ -3075,7 +3075,13 @@ const TasksTab = memo(({
                   <div className="file-upload-wrapper">
                     <input ref={fileInputRef} type="file" multiple onChange={e => {
                       const files = Array.from(e.target.files);
-                      if (files.length) { setUploadedFiles(prev => [...prev, ...files.map(f => ({ file: f, relativePath: f.name, folderName: null }))]); setUploadMode('files'); }
+                      if (files.length) {
+                        const inheritedFolder = targetFolder || uploadedFiles.find(f => f.folderName)?.folderName || null;
+                        setUploadedFiles(prev => [...prev, ...files.map(f => inheritedFolder
+                          ? { file: f, relativePath: `${inheritedFolder}/${f.name}`, folderName: inheritedFolder }
+                          : { file: f, relativePath: f.name, folderName: null })]);
+                        setUploadMode(inheritedFolder ? 'folder' : 'files');
+                      }
                       e.target.value = '';
                     }} style={{ display: 'none' }} disabled={isUploading} />
                     <input ref={folderInputRef} type="file" webkitdirectory="" directory="" onChange={e => {
@@ -3103,7 +3109,11 @@ const TasksTab = memo(({
                             const entry = i.webkitGetAsEntry?.();
                             if (entry) return readAllFilesFromEntry(entry);
                             const file = i.getAsFile();
-                            return file ? [{ file, relativePath: file.name, folderName: null }] : [];
+                            if (!file) return [];
+                            const inheritedFolder = targetFolder || uploadedFiles.find(f => f.folderName)?.folderName || null;
+                            return [inheritedFolder
+                              ? { file, relativePath: `${inheritedFolder}/${file.name}`, folderName: inheritedFolder }
+                              : { file, relativePath: file.name, folderName: null }];
                           })
                         )).flat();
                         if (allFiles.length) {
