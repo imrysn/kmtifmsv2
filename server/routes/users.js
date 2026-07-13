@@ -41,7 +41,7 @@ router.get('/profile/picture/:userId', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid user id' });
   }
 
-  const profilePicsDir = path.join(networkDataPath, 'uploads', 'Profile');
+  const profilePicsDir = path.join(networkDataPath, 'profile_pictures');
   const extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
   const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
 
@@ -119,52 +119,56 @@ router.get('/profile', asyncHandler(async (req, res) => {
  * Upload / replace the current user's profile picture.
  * Saves to <uploadsDir>/Profile/<userId>.<ext>  (inside the NAS uploads folder)
  */
-router.post('/profile/picture', profilePicUpload.single('profilePicture'), asyncHandler(async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, message: 'No image file provided' });
-  }
-
-  const userId = req.user.id;
-  const ext = req.file.mimetype === 'image/jpeg' || req.file.mimetype === 'image/jpg'
-    ? 'jpg'
-    : req.file.mimetype === 'image/png'
-      ? 'png'
-      : req.file.mimetype === 'image/webp'
-        ? 'webp'
-        : 'gif';
-
-  // Ensure the Profile directory exists inside the NAS uploads folder
-  const profilePicsDir = path.join(networkDataPath, 'uploads', 'Profile');
+router.post('/profile/picture', profilePicUpload.single('profilePicture'), async (req, res) => {
   try {
-    await fs.promises.mkdir(profilePicsDir, { recursive: true });
-  } catch (_) { /* already exists */ }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No image file provided' });
+    }
 
-  // Remove any existing picture for this user (clean up old extension variants)
-  const possibleExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-  await Promise.all(
-    possibleExts.map(e => fs.promises.unlink(path.join(profilePicsDir, `${userId}.${e}`)).catch(() => {}))
-  );
+    const userId = req.user.id;
+    const ext = req.file.mimetype === 'image/jpeg' || req.file.mimetype === 'image/jpg'
+      ? 'jpg'
+      : req.file.mimetype === 'image/png'
+        ? 'png'
+        : req.file.mimetype === 'image/webp'
+          ? 'webp'
+          : 'gif';
 
-  // Save new file
-  const filename = `${userId}.${ext}`;
-  const filepath = path.join(profilePicsDir, filename);
-  await fs.promises.writeFile(filepath, req.file.buffer);
+    // Ensure the Profile directory exists inside the NAS root folder
+    const profilePicsDir = path.join(networkDataPath, 'profile_pictures');
+    try {
+      await fs.promises.mkdir(profilePicsDir, { recursive: true });
+    } catch (_) { /* already exists */ }
 
-  // Store relative URL in the database
-  const pictureUrl = `/api/users/profile/picture/${userId}?t=${Date.now()}`;
-  await dbQuery(
-    'UPDATE users SET profile_picture = ? WHERE id = ?',
-    [pictureUrl, userId]
-  );
+    // Remove any existing picture for this user (clean up old extension variants)
+    const possibleExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    await Promise.all(
+      possibleExts.map(e => fs.promises.unlink(path.join(profilePicsDir, `${userId}.${e}`)).catch(() => {}))
+    );
 
-  logInfo('Profile picture updated', { userId });
+    // Save new file
+    const filename = `${userId}.${ext}`;
+    const filepath = path.join(profilePicsDir, filename);
+    await fs.promises.writeFile(filepath, req.file.buffer);
 
-  res.json({
-    success: true,
-    message: 'Profile picture updated successfully',
-    profilePictureUrl: pictureUrl
-  });
-}));
+    // Store relative URL in the database
+    const pictureUrl = `/api/users/profile/picture/${userId}?t=${Date.now()}`;
+    await dbQuery(
+      'UPDATE users SET profile_picture = ? WHERE id = ?',
+      [pictureUrl, userId]
+    );
+
+    logInfo('Profile picture updated', { userId });
+
+    res.json({
+      success: true,
+      message: 'Profile picture updated successfully',
+      profilePictureUrl: pictureUrl
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: `Detailed Error: ${error.message}` });
+  }
+});
 
 /**
  * GET /api/users/profile/picture/:userId
@@ -178,7 +182,7 @@ router.post('/profile/picture', profilePicUpload.single('profilePicture'), async
  */
 router.delete('/profile/picture', asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  const profilePicsDir = path.join(networkDataPath, 'uploads', 'Profile');
+  const profilePicsDir = path.join(networkDataPath, 'profile_pictures');
 
   // Delete file(s) for this user
   const possibleExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
