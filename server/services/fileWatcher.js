@@ -10,6 +10,7 @@ const { query } = require('../config/database');
 let watcher = null;
 let isStarted = false;
 let watchPathsList = [];
+let restartScheduled = false;
 const watcherLog = [];  // keep last 50 events for debug endpoint
 
 function logEvent(msg) {
@@ -288,9 +289,26 @@ function startWatcher(watchPaths) {
     .on('unlink',    handleFileDeletion)
     .on('unlinkDir', handleDirectoryDeletion)
     .on('error', (err) => {
-      console.error('❌ [Watcher] Error:', err.message);
+      // Transient NAS/SMB errors happen constantly on network shares — a handle
+      // goes stale because a file was moved/renamed/locked by another process
+      // (including our own NAS-move background job) at the exact moment chokidar
+      // tried to stat it. These are per-file hiccups, not a dead watcher, so we
+      // must NOT tear down and restart the whole watcher for them — that just
+      // creates a recurring 30s blind spot for real deletion events.
+      const TRANSIENT_CODES = ['EBADF', 'EPERM', 'EBUSY', 'ENOENT', 'ENOTEMPTY', 'UNKNOWN'];
+      if (err && TRANSIENT_CODES.includes(err.code)) {
+        logEvent(`⚠️  [Watcher] Transient ${err.code} (ignored, watcher stays up): ${err.message}`);
+        return;
+      }
+
+      console.error('❌ [Watcher] Fatal error:', err.message);
+      if (restartScheduled) {
+        return;
+      }
+      restartScheduled = true;
       isStarted = false;
       setTimeout(() => {
+        restartScheduled = false;
         stopWatcher().then(() => startWatcher(watchPathsList));
       }, 30000);
     })
