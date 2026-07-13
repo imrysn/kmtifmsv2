@@ -40,17 +40,15 @@ async function calculateAllUserPerformance(teamId = null) {
       WHERE ${userFilter} AND a.due_date IS NOT NULL
       GROUP BY u.id`, params],
 
-    // 3. Global Overdue — counts permanently: tasks past due (submitted late OR never submitted)
+    // 3. Global Overdue — counts distinct assignments per user that are overdue
     [`SELECT u.id as user_id, COUNT(DISTINCT a.id) as overdue
       FROM users u
-      LEFT JOIN assignment_members am ON u.id = am.user_id
-      LEFT JOIN assignments a ON (a.id = am.assignment_id OR (a.assigned_to = 'all' AND a.team = u.team))
-      WHERE ${userFilter} AND a.due_date IS NOT NULL
-        AND (
-          (am.status IS NULL OR am.status != 'submitted') AND a.due_date < NOW()
-          OR
-          (am.status = 'submitted' AND am.submitted_at > a.due_date)
-        )
+      LEFT JOIN assignments a ON a.due_date IS NOT NULL AND a.due_date < NOW() AND (
+         EXISTS (SELECT 1 FROM assignment_members am WHERE am.assignment_id = a.id AND am.user_id = u.id AND (am.status != 'submitted' OR am.submitted_at > a.due_date))
+         OR
+         (a.assigned_to = 'all' AND a.team = u.team AND NOT EXISTS (SELECT 1 FROM assignment_members am WHERE am.assignment_id = a.id AND am.user_id = u.id AND am.status = 'submitted' AND am.submitted_at <= a.due_date))
+      )
+      WHERE ${userFilter} AND a.id IS NOT NULL
       GROUP BY u.id`, params],
 
     // 4. Global Quality (- penalty_percentage per file)
@@ -139,12 +137,17 @@ async function calculateAllUserPerformance(teamId = null) {
     const totalFilesVolume = stat.total_files || 0;
     const submittedFilesVolume = stat.submitted_files || 0;
 
-    // Reliability (File-Weighted) — overdue tasks count as "late" submissions
+    // Reliability (File-Weighted)
     const totalFilesWithDeadline = rStat.total_files_with_deadline || 0;
     const onTimeFiles = rStat.on_time_files || 0;
     const overdueCount = parseInt(oStat.overdue) || 0;
-    // Each overdue task reduces reliability as if it were a late file
-    const effectiveTotalForReliability = totalFilesWithDeadline + overdueCount;
+    
+    // totalFilesWithDeadline already includes late submissions. We only add overdueCount if it exceeds
+    // the known late files, to account for 'all' tasks the user never started (which wouldn't be in totalFilesWithDeadline).
+    const knownLateFiles = totalFilesWithDeadline - onTimeFiles;
+    const unstartedOverdueTasks = Math.max(0, overdueCount - knownLateFiles);
+    
+    const effectiveTotalForReliability = totalFilesWithDeadline + unstartedOverdueTasks;
     const onTimeRate = effectiveTotalForReliability > 0
       ? Math.round((onTimeFiles / effectiveTotalForReliability) * 100)
       : 100;
@@ -155,13 +158,11 @@ async function calculateAllUserPerformance(teamId = null) {
     const fileApproved = qStat.approved || 0;
     const fileRejected = qStat.rejected || 0;
     const processedFiles = fileApproved + fileRejected;
-    // avg_quality_score is AVG(100 - penalty_percentage) per file from DB query
-    // On top of that, each rejection reduces score: if 1 out of 10 files rejected = 10% penalty
+    
+    // avg_quality_score is AVG(100 - penalty_percentage) per file from DB query.
+    // This ALREADY accounts for rejections. We don't apply an extra rejection ratio penalty to avoid double dipping.
     const baseQualityScore = qStat.avg_quality_score != null ? qStat.avg_quality_score : (fileTotal > 0 ? 50 : 0);
-    // Extra rejection ratio penalty: rejected/(total) reduces quality further
-    const rejectionRatio = fileTotal > 0 ? (fileRejected / fileTotal) : 0;
-    const adjustedQualityScore = Math.max(0, baseQualityScore * (1 - rejectionRatio));
-    const qualityScore = adjustedQualityScore / 100;
+    const qualityScore = baseQualityScore / 100;
 
     // Speed (File-Weighted) — overdue tasks apply a direct speed penalty
     let totalWeightedSpeedFactor = 0;
@@ -186,9 +187,12 @@ async function calculateAllUserPerformance(teamId = null) {
 
     // Final WPI
     const hasActivity = submittedFilesVolume > 0 || processedFiles > 0;
-    const overallScore = (totalFilesVolume > 0 && hasActivity) ? Math.max(0, Math.round(
+    let overallScore = (totalFilesVolume > 0 && hasActivity) ? Math.max(0, Math.round(
       (qualityScore * 45) + (speedScore * 35) + (reliabilityScore * 20)
     )) : 0;
+    
+    // Cap at 100 to prevent scores like 117 due to a high speedScore factor
+    overallScore = Math.min(100, overallScore);
 
     const mStat = managementStats.find(m => m.user_id === userId) || {};
     const mqStat = managementQueue.find(mq => mq.user_id === userId) || {};
