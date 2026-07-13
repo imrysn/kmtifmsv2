@@ -1,3 +1,15 @@
+// Increase the libuv threadpool BEFORE anything else runs. Every async fs
+// call in Node (multer writing uploads to disk, the NAS file watcher's
+// recursive lstat/readdir calls, streamCopy during background NAS moves)
+// shares the same small pool of OS threads — default is only 4. The file
+// watcher recursively scans the exact same NAS folders that uploads write
+// into, and NAS/SMB calls are slow (network round-trip per call), so during
+// an active folder upload those 4 threads can get fully saturated by the
+// watcher's NAS traffic, starving multer's local disk writes and stalling
+// the incoming upload stream. Must be set before any other require() that
+// performs I/O.
+process.env.UV_THREADPOOL_SIZE = '16';
+
 const express = require('express');
 require('dotenv').config();
 const path = require('path');
