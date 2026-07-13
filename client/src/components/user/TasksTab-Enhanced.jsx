@@ -966,7 +966,7 @@ const getFileStatusBadge = (status) => {
   );
 };
 
-const getStatusBadge = (assignment, activeTab = 'my-tasks', userId = null) => {
+const getStatusBadge = (assignment, activeTab = 'my-tasks', user = null) => {
   if (assignment.status === 'completed') {
     return <span style={{ backgroundColor: 'var(--status-approved)', color: 'var(--status-approved-text)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ COMPLETED</span>;
   }
@@ -978,8 +978,8 @@ const getStatusBadge = (assignment, activeTab = 'my-tasks', userId = null) => {
     ? assignment.submitted_files
     : (assignment.submitted_files || []).filter(f =>
       !f.submitter_name
-      || (userId && String(f.user_id) === String(userId))
-      || (userId && String(f.submitter_username) === String(userId))
+      || (user?.id && String(f.user_id) === String(user.id))
+      || (user?.username && f.submitter_username === user.username)
     );
   if (assignment.status === 'for_editing') {
     // For Checking tab: checker sees "FOR CHECKING"; My Tasks tab with submitted files: user sees "SUBMITTED"
@@ -2372,6 +2372,13 @@ const TasksTab = memo(({
           {filteredAssignments.map((assignment) => {
             const assignmentComments = comments[assignment.id] || [];
             const isCompleted = assignment.status === 'completed';
+            const mySubmittedFiles = activeTab === 'for-checking'
+              ? assignment.submitted_files
+              : assignment.submitted_files?.filter(f => 
+                !f.submitter_name
+                || (user?.id && String(f.user_id) === String(user?.id))
+                || (user?.username && f.submitter_username === user.username)
+              );
 
             return (
               <div
@@ -2461,7 +2468,7 @@ const TasksTab = memo(({
                             </div>
                           ) : null}
                         </>
-                      ) : assignment.submitted_files?.length > 0 ? (
+                      ) : mySubmittedFiles?.length > 0 ? (
                         <>
                           <div style={{ backgroundColor: 'var(--status-approved)', color: 'var(--status-approved-text)', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>
                             ✓ Submitted
@@ -2484,7 +2491,7 @@ const TasksTab = memo(({
                           ) : null}
                         </>
                       )
-                    ) : assignment.submitted_files?.length > 0 ? (
+                    ) : mySubmittedFiles?.length > 0 ? (
                       activeTab === 'for-checking' ? (
                         <>
                           <div style={{ backgroundColor: 'transparent', color: 'var(--status-pending-text)', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
@@ -2537,7 +2544,7 @@ const TasksTab = memo(({
                 )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  {getStatusBadge(assignment, activeTab, user.id)}
+                  {getStatusBadge(assignment, activeTab, user)}
                 </div>
 
                 {/* Team Leader Attachments */}
