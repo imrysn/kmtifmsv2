@@ -874,6 +874,35 @@ const AssignmentsTab = ({
             setTimeout(() => folderEl.classList.remove('tl-assignment-folder-highlighted'), 3000);
           };
           setTimeout(tryHighlightFolder, 80);
+        } else {
+          // 3. Poll until the file is in the DOM
+          let attempts = 0;
+          const MAX = 30;
+          console.log(`Starting to poll for standalone file highlight with fid=${fid}`);
+          const tryHighlightFile = () => {
+            const fileEl = document.querySelector(`[data-file-id="${fid}"]`);
+            if (!fileEl) {
+              console.log(`Attempt ${attempts + 1}: fileEl with data-file-id="${fid}" NOT found.`);
+              if (++attempts < MAX) setTimeout(tryHighlightFile, 100);
+              return;
+            }
+            console.log(`FOUND fileEl with data-file-id="${fid}". Applying scroll and highlight.`);
+            fileEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            fileEl.classList.add('tl-assignment-folder-highlighted');
+            // Adding a distinct background inline just to be absolutely certain it flashes, in case the CSS class doesn't override correctly.
+            const originalBg = fileEl.style.backgroundColor;
+            const originalTransition = fileEl.style.transition;
+            fileEl.style.transition = 'background-color 0.3s ease, border-color 0.3s ease';
+            fileEl.style.backgroundColor = 'var(--status-pending)';
+            fileEl.style.borderColor = 'var(--status-pending-text)';
+            setTimeout(() => {
+                fileEl.classList.remove('tl-assignment-folder-highlighted');
+                fileEl.style.backgroundColor = originalBg;
+                fileEl.style.borderColor = '';
+                setTimeout(() => { fileEl.style.transition = originalTransition; }, 300);
+            }, 3000);
+          };
+          setTimeout(tryHighlightFile, 80);
         }
         break;
       }

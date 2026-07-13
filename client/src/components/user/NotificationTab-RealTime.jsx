@@ -173,7 +173,16 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
             if (data.success && data.file_id) fileId = data.file_id;
           } catch (_) { }
         }
-        if (onNavigate) onNavigate('tasks', { assignmentId, fileId, fileStatus: 'revision' });
+        
+        // If it's a for_editing notification sent to TL/Checker, open the For Checking tab
+        // The modal will auto-open because fileStatus is 'revision'
+        const isForEditing = notification.type === 'for_editing';
+        if (onNavigate) onNavigate('tasks', { 
+            assignmentId, 
+            fileId, 
+            fileStatus: 'revision',
+            ...(isForEditing && { initialTab: 'for-checking' }) 
+        });
         return;
       }
     }

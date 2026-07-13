@@ -174,6 +174,7 @@ export function parseNotification(notification, role) {
                 targetTab: tabs.tasks,
                 context: {
                     assignmentId: notification.assignment_id,
+                    fileId: notification.file_id || null,
                     shouldOpenComments: false
                 },
                 notificationType: 'revision_request'

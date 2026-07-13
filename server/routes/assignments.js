@@ -2140,7 +2140,7 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
 
     // Notify the Team Leader that the checker flagged this submission for editing
     const tlId = assignment.team_leader_id;
-    if (tlId && String(tlId) !== String(checkerId)) {
+    if (tlId) {
       try {
         const tlMsg = note
           ? `${checkerName} marked ${fileId ? 'a file' : 'the submission'} for "${assignment.title}" as needing editing. Note: ${note}`
@@ -2280,7 +2280,7 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
             [submitterRow.user_id, assignmentId, fileId, 'checker_done',
               'File Checked',
               `Your file has been checked by ${checkerName} on task: "${assignment.title}"`,
-              checkerId, checkerName, 'USER']
+              checkerId, checkerName, req.user ? req.user.role : 'USER']
           );
           pushToUser(submitterRow.user_id);
         } catch (e) {
@@ -2302,6 +2302,7 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
     );
 
     const allChecked = totalRow?.total > 0 && checkedRow?.checked_count >= totalRow?.total;
+    const userRole = req.user ? req.user.role : 'USER';
 
     if (allChecked) {
       // Promote assignment status to 'checked'
@@ -2315,7 +2316,7 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
             'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
             [tlId, assignmentId, fileId, 'checker_done', 'Review Completed',
               `All files checked by: ${checkerName}. Task: "${assignment.title}"`,
-              checkerId, checkerName, 'USER']
+              checkerId, checkerName, userRole]
           );
           pushToUser(tlId);
         } catch (e) {
@@ -2325,7 +2326,7 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
     } else {
       // Notify the Team Leader — progress update (not all files done yet)
       const tlId = assignment.team_leader_id;
-      if (tlId && String(tlId) !== String(checkerId)) {
+      if (tlId) {
         try {
           const fileRow = await queryOne('SELECT original_name FROM files WHERE id = ?', [fileId]);
           const fileName = fileRow?.original_name || 'a file';
@@ -2333,7 +2334,7 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
             'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
             [tlId, assignmentId, fileId, 'checker_done', 'File Checked',
               `${checkerName} checked "${fileName}" in task: "${assignment.title}"`,
-              checkerId, checkerName, 'USER']
+              checkerId, checkerName, userRole]
           );
           pushToUser(tlId);
           console.log(`🔔 mark-file-checked: notified TL ${tlId} — checker=${checkerName}, file=${fileId}`);
