@@ -8,6 +8,7 @@ import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal, FileViewersB
 import { useSmartNavigation } from '../shared/SmartNavigation'
 import '../shared/SmartNavigation/SmartNavigation.css'
 import SuccessModal from '../user/SuccessModal'
+import { ChecklistViewModal } from '../user/TasksTab-Enhanced'
 
 import { recursiveGroupByPath } from '@utils/folderUtils'
 import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtils'
@@ -381,6 +382,9 @@ const AssignmentsTab = ({
   const [isPostingReply, setIsPostingReply] = useState(false)
   const [highlightCommentBy, setHighlightCommentBy] = useState(null)
   const [highlightTargetCommentId, setHighlightTargetCommentId] = useState(null)
+
+  // Checklist view modal (read-only — shows wrong items for a file)
+  const [checklistViewModal, setChecklistViewModal] = useState({ isOpen: false, file: null })
 
   // Warm up the server's path cache when a folder is expanded
   const prefetchFolderFiles = (files, type = 'file') => {
@@ -908,6 +912,28 @@ const AssignmentsTab = ({
       }
     }
   }, [highlightedFileId, assignments]);
+
+  // Auto-open ChecklistViewModal when navigating from a "Submission Needs Editing" / checked notification
+  useEffect(() => {
+    if (!highlightedFileId || assignments.length === 0) return;
+    const isChecklistStatus = highlightedFileStatus &&
+      (highlightedFileStatus === 'revision' ||
+       highlightedFileStatus === 'for_editing' ||
+       highlightedFileStatus === 'under_revision' ||
+       highlightedFileStatus === 'checked');
+    if (!isChecklistStatus) return;
+    const fid = parseInt(highlightedFileId);
+    for (const assignment of assignments) {
+      const allFiles = assignment.recent_submissions || assignment.submitted_files || [];
+      const targetFile = allFiles.find(f => f.id === fid || f.file_id === fid);
+      if (targetFile) {
+        const timer = setTimeout(() => {
+          setChecklistViewModal({ isOpen: true, file: targetFile });
+        }, 700); // slight delay so scroll/highlight fires first
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [highlightedFileId, highlightedFileStatus, assignments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleAttachments = (assignmentId) => {
     setExpandedAttachments(prev => {
@@ -2798,6 +2824,13 @@ const AssignmentsTab = ({
           }
         }}
         file={fileToOpen}
+      />
+
+      {/* Checklist View Modal — auto-opened from notification navigation */}
+      <ChecklistViewModal
+        isOpen={checklistViewModal.isOpen}
+        onClose={() => setChecklistViewModal({ isOpen: false, file: null })}
+        file={checklistViewModal.file}
       />
     </div>
   )

@@ -509,13 +509,13 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
       setFileScore(100 - file.penalty_percentage);
     }
 
-    // If checker_note is already on the file object, use it directly
-    if (file.checker_note !== undefined && file.penalty_percentage !== undefined) {
+    // If checker_note is already on the file object, use it directly — no fetch needed
+    if (file.checker_note !== undefined) {
       setResolvedNote(file.checker_note || '');
       setLoading(false);
       return;
     }
-    // Otherwise fetch the full file details to get checker_note
+    // Otherwise fetch the full file details to get checker_note + penalty_percentage
     setLoading(true);
     apiFetch(`/api/files/${file.id}`)
       .then(data => {
