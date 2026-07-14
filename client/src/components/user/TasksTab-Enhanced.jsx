@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState, useEffect, startTransition, useMemo, memo } from 'react';
 import { apiFetch, API_BASE_URL, uploadWithProgress, getAuthToken } from '@/config/api';
+import anime from 'animejs';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
 import { FileIcon, FileOpenModal } from '../shared';
@@ -495,12 +496,16 @@ CheckingModal.displayName = 'CheckingModal';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 // ─── Checklist View Modal (read-only wrong items viewer) ──────────────────────
-export const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
+export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole }) => {
   const [resolvedNote, setResolvedNote] = useState(null);
   const [loading, setLoading] = useState(false);
   const [checklistType, setChecklistType] = useState('2D');
 
   const [fileScore, setFileScore] = useState(null);
+  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
+  const [penaltyPercentage, setPenaltyPercentage] = useState(5);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   useEffect(() => {
     if (!isOpen || !file) { setResolvedNote(null); setFileScore(null); setLoading(false); return; }
@@ -580,6 +585,7 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
       style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
     >
       <div
+        id="checklist-view-modal-content"
         style={{ background: 'var(--background-secondary)', borderRadius: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', width: '560px', maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
         onClick={e => e.stopPropagation()}
       >
@@ -719,15 +725,118 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
         </div>
 
         {/* Footer */}
-        <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border-color)', background: 'var(--background-secondary)', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border-color)', background: 'var(--background-secondary)', display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center' }}>
+          {successMessage && (
+            <span style={{ color: '#10b981', fontSize: '14px', fontWeight: '600', marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              {successMessage}
+            </span>
+          )}
+          {currentUserRole === 'TEAM_LEADER' && file?.checked_by && (
+            <button
+              onClick={() => setShowPenaltyModal(true)}
+              style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1.5px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.35)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.25)'; }}
+              onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(1px)'; e.currentTarget.style.boxShadow = '0 2px 6px rgba(239, 68, 68, 0.2)'; }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-1.5px)'; }}
+            >
+              Wrong Checked
+            </button>
+          )}
           <button
             onClick={onClose}
-            style={{ padding: '9px 22px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--background-secondary)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+            style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: 'var(--bg-tertiary, #f1f5f9)', color: 'var(--text-secondary, #475569)', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover, #e2e8f0)'; e.currentTarget.style.color = 'var(--text-primary, #1e293b)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg-tertiary, #f1f5f9)'; e.currentTarget.style.color = 'var(--text-secondary, #475569)'; }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.97)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
           >
             Close
           </button>
         </div>
       </div>
+
+      {/* Checker Penalty Modal */}
+      {showPenaltyModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 2200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--background-secondary)', borderRadius: '16px', padding: '24px', width: '480px', maxWidth: '90vw' }}>
+            <h4 style={{ margin: '0 0 16px', fontSize: '18px', color: 'var(--text-primary)' }}>Select Checker Penalty</h4>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+              Select how much to deduct from the checker's performance for this file.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '24px' }}>
+              {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map(pct => (
+                <button
+                  key={pct}
+                  onClick={() => setPenaltyPercentage(pct)}
+                  style={{
+                    padding: '10px 0',
+                    borderRadius: '8px',
+                    border: penaltyPercentage === pct ? '2px solid #f59e0b' : '1px solid var(--border-color)',
+                    background: penaltyPercentage === pct ? 'rgba(245, 158, 11, 0.1)' : 'var(--background-secondary)',
+                    color: penaltyPercentage === pct ? '#f59e0b' : 'var(--text-primary)',
+                    fontWeight: penaltyPercentage === pct ? '700' : '500',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {pct}%
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                onClick={() => setShowPenaltyModal(false)}
+                style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: '500' }}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setIsSubmitting(true);
+                  try {
+                    await apiFetch(`/api/files/${file.id}/checker-penalty`, {
+                      method: 'POST',
+                      body: JSON.stringify({ penalty_percentage: penaltyPercentage })
+                    });
+                    
+                    // Show a massive success overlay before closing
+                    setShowPenaltyModal(false);
+                    setSuccessMessage(`Successfully applied ${penaltyPercentage}% penalty!`);
+                    
+                    // Add a quick animation effect to the modal
+                    const modalEl = document.getElementById('checklist-view-modal-content');
+                    if (modalEl) {
+                      anime({
+                        targets: modalEl,
+                        scale: [1, 1.05, 1],
+                        borderColor: ['#10b981', 'transparent'],
+                        borderWidth: ['4px', '0px'],
+                        duration: 600,
+                        easing: 'easeOutElastic(1, .8)'
+                      });
+                    }
+                    
+                    setTimeout(() => {
+                      setSuccessMessage(null);
+                      if (onClose) onClose();
+                    }, 2000);
+                  } catch (e) {
+                    console.error('Failed to set penalty', e);
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                disabled={isSubmitting}
+                style={{ padding: '8px 24px', borderRadius: '8px', border: 'none', background: '#f59e0b', color: 'white', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+              >
+                {isSubmitting ? 'Saving...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
@@ -2432,7 +2541,22 @@ const TasksTab = memo(({
                           )
                         } catch { return null }
                       })()}
-                      <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>📅 Assigned on: {formatDateTime(assignment.created_at)}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>📅 Assigned on: {formatDateTime(assignment.created_at)}</span>
+                        {assignment.complexity && assignment.complexity !== 'Medium' && (
+                          <span style={{ 
+                            backgroundColor: assignment.complexity === 'High' ? '#fee2e2' : '#f3f4f6', 
+                            color: assignment.complexity === 'High' ? '#dc2626' : '#4b5563', 
+                            padding: '2px 6px', 
+                            borderRadius: '4px', 
+                            fontSize: '11px', 
+                            fontWeight: '600',
+                            border: `1px solid ${assignment.complexity === 'High' ? '#fca5a5' : '#d1d5db'}`
+                          }}>
+                            {assignment.complexity} Complexity
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -2912,6 +3036,7 @@ const TasksTab = memo(({
         isOpen={checklistViewModal.isOpen}
         onClose={() => setChecklistViewModal({ isOpen: false, file: null })}
         file={checklistViewModal.file}
+        currentUserRole={user?.role}
       />
 
       <CheckingModal

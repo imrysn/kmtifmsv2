@@ -954,13 +954,10 @@
 
 /* Opened/Viewed file highlight */
 .admin-file-item.admin-file-card-opened {
-  border-left: 3px solid #16a34a !important;
   background-color: var(--status-approved) !important;
-  border-color: var(--status-approved-text) !important;
 }
 .admin-file-item.admin-file-card-opened:hover {
   background-color: var(--status-approved) !important;
-  border-color: var(--status-approved-text) !important;
 }
 
 /* =================================================================

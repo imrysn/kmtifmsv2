@@ -1232,10 +1232,23 @@ const TaskManagement = ({
                                   : 'Unknown User'}
                             </span>
                           </div>
-                          <div className="admin-assignment-created">
+                          <div className="admin-assignment-created" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {assignment.created_at
-                              ? <>📅 Assigned on: {formatDateTime(assignment.created_at)}</>
-                              : 'Unknown creation date'}
+                              ? <span>📅 Assigned on: {formatDateTime(assignment.created_at)}</span>
+                              : <span>Unknown creation date</span>}
+                            {assignment.complexity && assignment.complexity !== 'Medium' && (
+                              <span style={{ 
+                                backgroundColor: assignment.complexity === 'High' ? '#fee2e2' : '#f3f4f6', 
+                                color: assignment.complexity === 'High' ? '#dc2626' : '#4b5563', 
+                                padding: '2px 6px', 
+                                borderRadius: '4px', 
+                                fontSize: '11px', 
+                                fontWeight: '600',
+                                border: `1px solid ${assignment.complexity === 'High' ? '#fca5a5' : '#d1d5db'}`
+                              }}>
+                                {assignment.complexity} Complexity
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

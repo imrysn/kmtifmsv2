@@ -492,6 +492,25 @@ const CreateAssignmentModal = ({
                   )}
                 </div>
               </div>
+              <div className="tl-form-group">
+                <label>Task Complexity</label>
+                <select
+                  value={assignmentForm.complexity || 'Medium'}
+                  onChange={e => setAssignmentForm({ ...assignmentForm, complexity: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    border: '1px solid #D1D5DB',
+                    background: 'var(--background-secondary)',
+                    height: '38px' // Match dropdown buttons
+                  }}
+                >
+                  <option value="Low">Low (0.5x weight)</option>
+                  <option value="Medium">Medium (1.0x weight)</option>
+                  <option value="High">High (2.0x weight)</option>
+                </select>
+              </div>
             </div>
 
             {/* ── Approved OT Weekend Dates ─────────────────────────── */}

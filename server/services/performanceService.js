@@ -67,8 +67,8 @@ async function calculateAllUserPerformance(teamId = null) {
       WHERE checked_by IS NOT NULL OR status IN ('final_approved', 'revision', 'checked', 'rejected_by_team_leader', 'rejected_by_admin')
       GROUP BY user_id`, []],
 
-    // 5. Global Speed Data (Weighted by File Count)
-    [`SELECT am.user_id, a.created_at, a.due_date, am.submitted_at, COALESCE(fc.file_count, 1) as file_count
+    // 5. Global Speed Data (Weighted by File Count and Complexity)
+    [`SELECT am.user_id, a.created_at, a.due_date, am.submitted_at, COALESCE(fc.file_count, 1) as file_count, COALESCE(a.complexity, 'Medium') as complexity
       FROM assignments a
       JOIN assignment_members am ON a.id = am.assignment_id
       LEFT JOIN (SELECT assignment_id, user_id, COUNT(*) as file_count FROM files GROUP BY assignment_id, user_id) fc 
@@ -99,7 +99,8 @@ async function calculateAllUserPerformance(teamId = null) {
     [`SELECT 
         u.id as user_id, 
         COUNT(f.id) as checking_assigned, 
-        SUM(CASE WHEN f.checked_by IN (u.username, u.fullName) THEN 1 ELSE 0 END) as checking_completed 
+        SUM(CASE WHEN f.checked_by IN (u.username, u.fullName) THEN 1 ELSE 0 END) as checking_completed,
+        SUM(CASE WHEN f.checked_by IN (u.username, u.fullName) THEN COALESCE(f.checker_penalty_percentage, 0) ELSE 0 END) as total_checker_penalty
       FROM users u 
       JOIN assignments a ON (
         a.checker_ids IS NOT NULL 
@@ -108,10 +109,26 @@ async function calculateAllUserPerformance(teamId = null) {
       ) 
       JOIN assignment_submissions asub ON asub.assignment_id = a.id
       JOIN files f ON f.id = asub.file_id 
-      GROUP BY u.id`, []]
+      GROUP BY u.id`, []],
+
+    // 9. Checker Speed Data
+    [`SELECT 
+        u.id as user_id, 
+        f.uploaded_at, 
+        COALESCE(f.checked_at, f.updated_at) as checked_at
+      FROM users u 
+      JOIN assignments a ON (
+        a.checker_ids IS NOT NULL 
+        AND a.checker_ids != '[]' 
+        AND CONCAT(',', REPLACE(REPLACE(REPLACE(a.checker_ids,'[',''),']',''),'"',''), ',') LIKE CONCAT('%,', u.id, ',%')
+      ) 
+      JOIN assignment_submissions asub ON asub.assignment_id = a.id
+      JOIN files f ON f.id = asub.file_id 
+      WHERE f.checked_by IN (u.username, u.fullName) AND f.status != 'pending_team_leader' AND f.status != 'pending_checker' AND f.status != 'uploaded'
+      `, []]
   ]);
 
-  const [taskStats, reliabilityStats, overdueStats, qualityStats, speedRaw, managementStats, managementQueue, checkingStats] = results;
+  const [taskStats, reliabilityStats, overdueStats, qualityStats, speedRaw, managementStats, managementQueue, checkingStats, checkerSpeedRaw] = results;
 
   // Group speed data by user
   const speedMap = {};
@@ -122,6 +139,14 @@ async function calculateAllUserPerformance(teamId = null) {
     if (speedMap[row.user_id].length < 20) {
       speedMap[row.user_id].push(row);
     }
+  });
+
+  const checkerSpeedMap = {};
+  checkerSpeedRaw.forEach(row => {
+    if (!checkerSpeedMap[row.user_id]) {
+      checkerSpeedMap[row.user_id] = [];
+    }
+    checkerSpeedMap[row.user_id].push(row);
   });
 
   const performanceMap = {};
@@ -161,38 +186,7 @@ async function calculateAllUserPerformance(teamId = null) {
     
     // avg_quality_score is AVG(100 - penalty_percentage) per file from DB query.
     // This ALREADY accounts for rejections. We don't apply an extra rejection ratio penalty to avoid double dipping.
-    const baseQualityScore = qStat.avg_quality_score != null ? qStat.avg_quality_score : (fileTotal > 0 ? 50 : 0);
-    const qualityScore = baseQualityScore / 100;
-
-    // Speed (File-Weighted) — overdue tasks apply a direct speed penalty
-    let totalWeightedSpeedFactor = 0;
-    let totalFilesWeight = 0;
-    sData.forEach(task => {
-      const timeAllocated = getBusinessHoursDiff(task.created_at, task.due_date);
-      const timeTaken = getBusinessHoursDiff(task.created_at, task.submitted_at);
-      if (timeAllocated > 0 && timeTaken > 0) {
-        const factor = calculateSpeedFactor(timeAllocated, timeTaken);
-        const weight = task.file_count || 1;
-        totalWeightedSpeedFactor += (factor * weight);
-        totalFilesWeight += weight;
-      }
-    });
-    let avgSpeedFactor = totalFilesWeight > 0 ? (totalWeightedSpeedFactor / totalFilesWeight) : 0;
-    // Each overdue task reduces speed by 5% (capped at 50% total deduction)
-    if (overdueCount > 0 && totalFilesVolume > 0) {
-      const speedPenalty = Math.min(0.50, overdueCount * 0.05);
-      avgSpeedFactor = avgSpeedFactor * (1 - speedPenalty);
-    }
-    const speedScore = Math.min(1.5, avgSpeedFactor);
-
-    // Final WPI
-    const hasActivity = submittedFilesVolume > 0 || processedFiles > 0;
-    let overallScore = (totalFilesVolume > 0 && hasActivity) ? Math.max(0, Math.round(
-      (qualityScore * 45) + (speedScore * 35) + (reliabilityScore * 20)
-    )) : 0;
-    
-    // Cap at 100 to prevent scores like 117 due to a high speedScore factor
-    overallScore = Math.min(100, overallScore);
+    let baseQualityScore = qStat.avg_quality_score != null ? qStat.avg_quality_score : (fileTotal > 0 ? 50 : 0);
 
     const mStat = managementStats.find(m => m.user_id === userId) || {};
     const mqStat = managementQueue.find(mq => mq.user_id === userId) || {};
@@ -200,6 +194,83 @@ async function calculateAllUserPerformance(teamId = null) {
     const checkingAssigned = parseInt(cStat.checking_assigned) || 0;
     const checkingCompleted = parseInt(cStat.checking_completed) || 0;
     const checkingCompletionRate = checkingAssigned > 0 ? Math.round((checkingCompleted / checkingAssigned) * 100) : 0;
+    
+    // Calculate Checking Penalty Deduction
+    const totalCheckerPenalty = parseInt(cStat.total_checker_penalty) || 0;
+    const checkingPenaltyDeduction = checkingAssigned > 0 ? (totalCheckerPenalty / checkingAssigned) : 0;
+
+    // If they have no submissions but they are a checker, give them a baseline of 100 to deduct from
+    if (fileTotal === 0 && checkingAssigned > 0) {
+      baseQualityScore = 100;
+    }
+
+    // Apply checking penalty to main quality score
+    const finalQualityDisplay = Number(Math.max(0, baseQualityScore - checkingPenaltyDeduction).toFixed(1));
+    const qualityScore = finalQualityDisplay / 100;
+
+    // Speed (File-Weighted) — overdue tasks apply a direct speed penalty
+    let totalWeightedSpeedFactor = 0;
+    let totalFilesWeight = 0;
+    let earlyCompletionBonus = 0;
+    sData.forEach(task => {
+      const timeAllocated = getBusinessHoursDiff(task.created_at, task.due_date);
+      const timeTaken = getBusinessHoursDiff(task.created_at, task.submitted_at);
+      if (timeAllocated > 0 && timeTaken > 0) {
+        const factor = calculateSpeedFactor(timeAllocated, timeTaken);
+        const complexityMultiplier = task.complexity === 'High' ? 2 : task.complexity === 'Low' ? 0.5 : 1;
+        const weight = (task.file_count || 1) * complexityMultiplier;
+        totalWeightedSpeedFactor += (factor * weight);
+        totalFilesWeight += weight;
+        
+        // Early completion bonus: finished 24+ business hours early
+        if ((timeAllocated - timeTaken) >= 24) {
+          earlyCompletionBonus += 0.05;
+        }
+      }
+    });
+    let avgSpeedFactor = totalFilesWeight > 0 ? (totalWeightedSpeedFactor / totalFilesWeight) : 0;
+    
+    // Each overdue task reduces speed by 5% (capped at 50% total deduction)
+    if (overdueCount > 0 && totalFilesVolume > 0) {
+      const speedPenalty = Math.min(0.50, overdueCount * 0.05);
+      avgSpeedFactor = avgSpeedFactor * (1 - speedPenalty);
+    }
+    
+    // Checker SLA (Turnaround Time) Penalty
+    let checkerSlaPenalty = 0;
+    const csData = checkerSpeedMap[userId] || [];
+    csData.forEach(cf => {
+      if (cf.checked_at && cf.uploaded_at) {
+        const turnaround = getBusinessHoursDiff(cf.uploaded_at, cf.checked_at);
+        if (turnaround > 24) {
+          checkerSlaPenalty += 0.05; // 5% penalty per late checked file
+        }
+      }
+    });
+    // Apply Checker SLA penalty to speed factor
+    if (checkerSlaPenalty > 0) {
+      avgSpeedFactor = avgSpeedFactor * (1 - Math.min(0.50, checkerSlaPenalty));
+    }
+    
+    const speedScore = Math.min(1.5, avgSpeedFactor);
+
+    // Flawless Bonuses
+    const flawlessSubmitterBonus = (baseQualityScore === 100 && submittedFilesVolume > 10) ? 0.05 : 0;
+    const flawlessCheckerBonus = (totalCheckerPenalty === 0 && checkingCompleted > 10) ? 0.05 : 0;
+    const cappedEarlyBonus = Math.min(0.05, earlyCompletionBonus);
+    const totalBonusFactor = cappedEarlyBonus + flawlessSubmitterBonus + flawlessCheckerBonus;
+
+    // Final WPI
+    const hasActivity = submittedFilesVolume > 0 || processedFiles > 0;
+    let overallScore = (totalFilesVolume > 0 && hasActivity) ? Math.max(0, Math.round(
+      (qualityScore * 45) + (speedScore * 35) + (reliabilityScore * 20) + (totalBonusFactor * 100)
+    )) : 0;
+    
+    // Cap at 110 to show true over-performers, but prevent ridiculous scores
+    overallScore = Math.min(110, overallScore);
+
+    // Calculate Checking Quality
+    const checkingQualityFactor = finalQualityDisplay;
 
     performanceMap[userId] = {
       taskTotal: totalFilesVolume,
@@ -214,8 +285,9 @@ async function calculateAllUserPerformance(teamId = null) {
       checkingAssigned,
       checkingCompleted,
       checkingCompletionRate,
+      checkingQualityFactor,
       efficiencyRatio: Math.round(avgSpeedFactor * 100) / 100,
-      qualityFactor: Math.round(qualityScore * 100),
+      qualityFactor: finalQualityDisplay,
       management: {
         avgReviewHours: Math.round((mStat.avg_review_hours || 0) * 10) / 10,
         totalReviewed: mStat.total_reviewed || 0,

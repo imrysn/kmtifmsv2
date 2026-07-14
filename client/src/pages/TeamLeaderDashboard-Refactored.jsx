@@ -111,7 +111,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     fileTypeRequired: '',
     assignedMembers: [],
     selectedTeam: '',
-    otDates: []
+    otDates: [],
+    complexity: 'Medium'
   })
   const [editingAssignmentId, setEditingAssignmentId] = useState(null)
   const [modalInitialAttachments, setModalInitialAttachments] = useState([])
@@ -481,7 +482,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       const optimisticOtDates = JSON.stringify(otDates || [])
       setAssignments(prev => prev.map(a =>
         a.id === editingAssignmentId
-          ? { ...a, title: assignmentForm.title, description: assignmentForm.description || '', due_date: assignmentForm.dueDate || a.due_date, ot_dates: optimisticOtDates, file_type_required: assignmentForm.fileTypeRequired || a.file_type_required }
+          ? { ...a, title: assignmentForm.title, description: assignmentForm.description || '', due_date: assignmentForm.dueDate || a.due_date, ot_dates: optimisticOtDates, file_type_required: assignmentForm.fileTypeRequired || a.file_type_required, complexity: assignmentForm.complexity || 'Medium' }
           : a
       ))
       setSuccess('Task updated successfully!')
@@ -495,7 +496,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         fileTypeRequired: '',
         assignedMembers: [],
         selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
-        otDates: []
+        otDates: [],
+        complexity: 'Medium'
       })
     }
 
@@ -511,6 +513,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         due_date: assignmentForm.dueDate || null,
         ot_dates: JSON.stringify(otDates || []),
         file_type_required: assignmentForm.fileTypeRequired || null,
+        complexity: assignmentForm.complexity || 'Medium',
         team: assignmentForm.selectedTeam || user.team,
         team_leader_id: user.id,
         team_leader_username: user.username,
@@ -525,6 +528,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       setSuccess('Assignment created!')
       setIsProcessing(false)
       setShowCreateAssignmentModal(false)
+      setEditingAssignmentId(null)
       setAssignmentForm({
         title: '',
         description: '',
@@ -532,7 +536,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         fileTypeRequired: '',
         assignedMembers: [],
         selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
-        otDates: []
+        otDates: [],
+        complexity: 'Medium'
       })
     }
 
@@ -575,7 +580,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             fileTypeRequired: '',
             assignedMembers: [],
             selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
-            otDates: []
+            otDates: [],
+            complexity: 'Medium'
           })
         }
         // Always do a silent refresh to replace temp/optimistic data with real server data
@@ -628,6 +634,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         formData.append('dueDate', assignmentForm.dueDate || '')
         formData.append('otDates', JSON.stringify(otDates || []))
         formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
+        formData.append('complexity', assignmentForm.complexity || 'Medium')
         formData.append('assignedTo', assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific')
         formData.append('assignedMembers', JSON.stringify(
           assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers
@@ -673,6 +680,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               dueDate: assignmentForm.dueDate || '',
               otDates: JSON.stringify(otDates || []),
               fileTypeRequired: assignmentForm.fileTypeRequired || '',
+              complexity: assignmentForm.complexity || 'Medium',
               assignedTo: assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific',
               assignedMembers: assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers,
               teamLeaderId: user.id,
@@ -701,6 +709,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             dueDate: assignmentForm.dueDate || '',
             otDates: JSON.stringify(otDates || []),
             fileTypeRequired: assignmentForm.fileTypeRequired || '',
+            complexity: assignmentForm.complexity || 'Medium',
             assignedTo: assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific',
             assignedMembers: assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers,
             teamLeaderId: user.id,
@@ -758,7 +767,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         fileTypeRequired: a.file_type_required || a.fileTypeRequired || '',
         assignedMembers: (a.assigned_member_details || []).map(m => m.id),
         selectedTeam: a.team || '',
-        otDates: parseOtDates(a.ot_dates)
+        otDates: parseOtDates(a.ot_dates),
+        complexity: a.complexity || 'Medium'
       }
     }
 

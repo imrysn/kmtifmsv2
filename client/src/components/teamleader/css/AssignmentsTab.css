@@ -595,7 +595,6 @@
 
 .tl-assignment-file-item.file-card-opened {
   background-color: var(--status-approved) !important;
-  border-color: var(--status-approved-text) !important;
 }
 
 .tl-view-button:hover {
@@ -1342,13 +1341,10 @@
 
 /* Opened/Viewed file highlight */
 .tl-assignment-file-item.file-card-opened {
-  border-left: 3px solid #16a34a !important;
   background-color: var(--status-approved) !important;
-  border-color: var(--status-approved-text) !important;
 }
 .tl-assignment-file-item.file-card-opened:hover {
   background-color: var(--status-approved) !important;
-  border-color: var(--status-approved-text) !important;
 }
 
 .tl-viewed-badge {

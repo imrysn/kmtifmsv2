@@ -732,6 +732,36 @@ class FileController {
       total_flat: flatFiles.length
     });
   });
+
+  /**
+   * Apply penalty to checker for wrong checking
+   */
+  addCheckerPenalty = asyncHandler(async (req, res) => {
+    const fileId = req.params.id;
+    const { penalty_percentage } = req.body;
+
+    if (penalty_percentage == null || isNaN(penalty_percentage) || penalty_percentage < 0 || penalty_percentage > 100) {
+      throw new ValidationError('Invalid penalty percentage');
+    }
+
+    const { query } = require('../config/database');
+    const [file] = await query('SELECT id, checked_by FROM files WHERE id = ?', [fileId]);
+
+    if (!file) {
+      return res.status(404).json({ success: false, message: 'File not found' });
+    }
+
+    if (!file.checked_by) {
+      return res.status(400).json({ success: false, message: 'File has not been checked yet' });
+    }
+
+    await query('UPDATE files SET checker_penalty_percentage = ? WHERE id = ?', [penalty_percentage, fileId]);
+
+    res.json({
+      success: true,
+      message: `Penalty of ${penalty_percentage}% applied to checker for file.`
+    });
+  });
 }
 
 module.exports = new FileController();

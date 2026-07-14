@@ -1373,8 +1373,21 @@ const AssignmentsTab = ({
                           )
                         } catch { return null }
                       })()}
-                      <div className="tl-assignment-created">
-                        📅 Assigned on: {formatDateTime(assignment.created_at)}
+                      <div className="tl-assignment-created" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>📅 Assigned on: {formatDateTime(assignment.created_at)}</span>
+                        {assignment.complexity && assignment.complexity !== 'Medium' && (
+                          <span style={{ 
+                            backgroundColor: assignment.complexity === 'High' ? '#fee2e2' : '#f3f4f6', 
+                            color: assignment.complexity === 'High' ? '#dc2626' : '#4b5563', 
+                            padding: '2px 6px', 
+                            borderRadius: '4px', 
+                            fontSize: '11px', 
+                            fontWeight: '600',
+                            border: `1px solid ${assignment.complexity === 'High' ? '#fca5a5' : '#d1d5db'}`
+                          }}>
+                            {assignment.complexity} Complexity
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2831,6 +2844,7 @@ const AssignmentsTab = ({
         isOpen={checklistViewModal.isOpen}
         onClose={() => setChecklistViewModal({ isOpen: false, file: null })}
         file={checklistViewModal.file}
+        currentUserRole="TEAM_LEADER"
       />
     </div>
   )

@@ -315,6 +315,7 @@ const ReviewModal = ({
         isOpen={showChecklist}
         onClose={() => setShowChecklist(false)}
         file={selectedFile}
+        currentUserRole="TEAM_LEADER"
       />
 
       {/* Reject without reason confirmation modal */}

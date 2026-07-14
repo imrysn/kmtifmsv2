@@ -880,7 +880,7 @@ router.get('/:assignmentId/details', authenticateToken, async (req, res) => {
 // POST /create-json — no file uploads (bypasses multer, avoids Electron replay)
 router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), async (req, res) => {
   try {
-    const { title, description, dueDate, fileTypeRequired, assignedTo, assignedMembers, teamLeaderId, teamLeaderUsername, team } = req.body;
+    const { title, description, dueDate, fileTypeRequired, complexity, assignedTo, assignedMembers, teamLeaderId, teamLeaderUsername, team } = req.body;
     if (!title || !team || !teamLeaderId) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
@@ -902,9 +902,9 @@ router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'AD
     const assignmentResult = await (async () => {
       try {
         return await query(
-          `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
-          [title, description || null, dueDate || null, finalOtDates, fileTypeRequired || null, assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team]
+          `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, complexity, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
+          [title, description || null, dueDate || null, finalOtDates, fileTypeRequired || null, complexity || 'Medium', assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team]
         );
       } catch (insertErr) {
         if (insertErr.message && insertErr.message.toLowerCase().includes('ot_dates')) {
@@ -912,9 +912,9 @@ router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'AD
             await query('ALTER TABLE assignments ADD COLUMN ot_dates TEXT NULL AFTER due_date');
           } catch { /* ignored */ }
           return await query(
-            `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
-            [title, description || null, dueDate || null, finalOtDates, fileTypeRequired || null, assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team]
+            `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, complexity, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
+            [title, description || null, dueDate || null, finalOtDates, fileTypeRequired || null, complexity || 'Medium', assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team]
           );
         }
         throw insertErr;
@@ -1057,9 +1057,9 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     }
 
     const assignmentResult = await query(
-      `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
-      [title, description || null, finalDueDate || null, finalOtDates, finalFileType || null, finalAssignedTo, finalMaxSize, finalTeamLeaderId, finalTeamLeaderUsername, team]
+      `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, complexity, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
+      [title, description || null, finalDueDate || null, finalOtDates, finalFileType || null, req.body.complexity || 'Medium', finalAssignedTo, finalMaxSize, finalTeamLeaderId, finalTeamLeaderUsername, team]
     );
     const assignmentId = assignmentResult.insertId;
 
@@ -1191,7 +1191,7 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
       title, description, dueDate, due_date, fileTypeRequired, file_type_required,
       assignedTo, assigned_to, maxFileSize, max_file_size,
       assignedMembers, assigned_members, teamLeaderId, team_leader_id,
-      teamLeaderUsername, team_leader_username, team
+      teamLeaderUsername, team_leader_username, team, complexity
     } = req.body;
 
     const finalDueDate = dueDate || due_date;
@@ -1235,8 +1235,8 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
         }
       }
       await query(
-        'UPDATE assignments SET title=?, description=?, due_date=?, ot_dates=COALESCE(?,ot_dates), file_type_required=?, due_date_edited=?, original_due_date=?, updated_at=? WHERE id=?',
-        [title, description || null, finalDueDate || null, finalOtDates !== undefined ? finalOtDates : null, finalFileType || null, dueDateEdited, originalDueDate, now, id]
+        'UPDATE assignments SET title=?, description=?, due_date=?, ot_dates=COALESCE(?,ot_dates), file_type_required=?, due_date_edited=?, original_due_date=?, updated_at=?, complexity=COALESCE(?, complexity) WHERE id=?',
+        [title, description || null, finalDueDate || null, finalOtDates !== undefined ? finalOtDates : null, finalFileType || null, dueDateEdited, originalDueDate, now, complexity, id]
       );
       return res.json({ success: true, message: 'Assignment updated successfully', membersAssigned: 0, attachmentsCreated: 0 });
     }
@@ -1353,8 +1353,8 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
 
     try {
       await query(
-        'UPDATE assignments SET title=?, description=?, due_date=?, ot_dates=COALESCE(?,ot_dates), file_type_required=?, assigned_to=?, max_file_size=?, due_date_edited=?, original_due_date=? WHERE id=?',
-        [title, description || null, finalDueDate || null, finalOtDates !== undefined ? finalOtDates : null, finalFileType || null, finalAssignedTo || existingAssignment.assigned_to, finalMaxSize, dueDateEdited, originalDueDate, id]
+        'UPDATE assignments SET title=?, description=?, due_date=?, ot_dates=COALESCE(?,ot_dates), file_type_required=?, assigned_to=?, max_file_size=?, due_date_edited=?, original_due_date=?, complexity=COALESCE(?, complexity) WHERE id=?',
+        [title, description || null, finalDueDate || null, finalOtDates !== undefined ? finalOtDates : null, finalFileType || null, finalAssignedTo || existingAssignment.assigned_to, finalMaxSize, dueDateEdited, originalDueDate, complexity, id]
       );
     } catch (updateErr) {
       throw updateErr;
@@ -2066,8 +2066,8 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       // Per-file revision: only mark the specific file, keep assignment status as-is
       // Add new penalty to any existing penalty for cumulative effect
       await query(
-        'UPDATE files SET status = \'revision\', checker_note = ?, penalty_percentage = COALESCE(penalty_percentage, 0) + ?, updated_at = ? WHERE id = ?',
-        [note || null, penalty, now, fileId]
+        'UPDATE files SET status = \'revision\', checked_by = ?, checker_note = ?, penalty_percentage = COALESCE(penalty_percentage, 0) + ?, updated_at = ? WHERE id = ?',
+        [checkerName, note || null, penalty, now, fileId]
       );
     } else {
       // Whole-assignment revision: update assignment status and ALL submitted files
@@ -2075,9 +2075,9 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       await query(
         `UPDATE files f
          JOIN assignment_submissions asub ON asub.file_id = f.id
-         SET f.status = 'revision', f.checker_note = ?, f.penalty_percentage = COALESCE(f.penalty_percentage, 0) + ?, f.updated_at = ?
+         SET f.status = 'revision', f.checked_by = ?, f.checker_note = ?, f.penalty_percentage = COALESCE(f.penalty_percentage, 0) + ?, f.updated_at = ?
          WHERE asub.assignment_id = ?`,
-        [note || null, penalty, now, assignmentId]
+        [checkerName, note || null, penalty, now, assignmentId]
       );
     }
     invalidateCache();
@@ -2263,7 +2263,7 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     // Mark this single file as checked (record who checked it and save any note)
-    await query('UPDATE files SET status = ?, checked_by = ?, checker_note = ?, penalty_percentage = 0, updated_at = ? WHERE id = ?', ['checked', checkerName, checkerNote || null, now, fileId]);
+    await query('UPDATE files SET status = ?, checked_by = ?, checker_note = ?, penalty_percentage = 0, updated_at = ?, checked_at = ? WHERE id = ?', ['checked', checkerName, checkerNote || null, now, now, fileId]);
     invalidateCache();
 
     // Notify the file submitter that their file was checked

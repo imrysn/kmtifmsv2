@@ -1298,13 +1298,10 @@ textarea:focus {
 /* Opened / already-viewed file card */
 .submitted-file-card.file-card-opened {
   background: var(--status-approved);
-  border-color: var(--status-approved-text);
-  border-left: 3px solid #16a34a;
 }
 
 .submitted-file-card.file-card-opened:hover {
   background-color: var(--status-approved) !important;
-  border-color: var(--status-approved-text);
 }
 
 /* ============================================

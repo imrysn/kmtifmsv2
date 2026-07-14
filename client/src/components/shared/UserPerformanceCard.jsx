@@ -426,6 +426,7 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
                     </div>
                     <div className="perf-metric-footer">Files Checked</div>
                   </div>
+
                 </>
               )}
             </div>
