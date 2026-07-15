@@ -260,14 +260,25 @@ async function calculateAllUserPerformance(teamId = null) {
     const cappedEarlyBonus = Math.min(0.05, earlyCompletionBonus);
     const totalBonusFactor = cappedEarlyBonus + flawlessSubmitterBonus + flawlessCheckerBonus;
 
-    // Final WPI
+    // Final WPI (Raw)
     const hasActivity = submittedFilesVolume > 0 || processedFiles > 0;
-    let overallScore = (totalFilesVolume > 0 && hasActivity) ? Math.max(0, Math.round(
+    let rawOverallScore = (totalFilesVolume > 0 && hasActivity) ? Math.max(0, Math.round(
       (qualityScore * 45) + (speedScore * 35) + (reliabilityScore * 20) + (totalBonusFactor * 100)
     )) : 0;
     
     // Cap at 110 to show true over-performers, but prevent ridiculous scores
-    overallScore = Math.min(110, overallScore);
+    rawOverallScore = Math.min(110, rawOverallScore);
+
+    // Apply Bayesian Smoothing to balance low-volume vs high-volume users
+    // We add 5 "dummy" tasks with an average score of 75% to naturally pull low-volume users toward the average
+    const DUMMY_TASKS = 5;
+    const DUMMY_SCORE = 75;
+    const totalActivityVolume = submittedFilesVolume + checkingCompleted + (mStat.total_reviewed || 0);
+    
+    let overallScore = 0;
+    if (hasActivity) {
+      overallScore = Math.round(((rawOverallScore * totalActivityVolume) + (DUMMY_SCORE * DUMMY_TASKS)) / (totalActivityVolume + DUMMY_TASKS));
+    }
 
     // Calculate Checking Quality
     const checkingQualityFactor = finalQualityDisplay;
