@@ -41,12 +41,40 @@ async function getAssignedUserIds(assignment) {
   return [...ids];
 }
 
+    }
+  }
+  return [...ids];
+}
+
 async function alreadyNotified(userId, assignmentId, type) {
   const rows = await query(
     'SELECT id FROM notifications WHERE user_id = ? AND assignment_id = ? AND type = ? LIMIT 1',
     [userId, assignmentId, type]
   );
   return rows && rows.length > 0;
+}
+
+async function hasUserSubmitted(userId, assignmentId) {
+  // Check if the user has an active submission
+  const subRow = await query(
+    'SELECT id FROM assignment_submissions WHERE user_id = ? AND assignment_id = ? LIMIT 1',
+    [userId, assignmentId]
+  );
+  if (subRow && subRow.length > 0) return true;
+
+  // Or check if their member status indicates they already submitted
+  const memberRow = await query(
+    'SELECT status FROM assignment_members WHERE user_id = ? AND assignment_id = ? LIMIT 1',
+    [userId, assignmentId]
+  );
+  if (memberRow && memberRow.length > 0) {
+    const status = memberRow[0].status;
+    if (status === 'submitted' || status === 'checked' || status === 'revision' || status === 'under_revision') {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 async function insertNotification(userId, assignmentId, type, title, message, actionById, actionByUsername) {
@@ -78,6 +106,10 @@ async function checkDueDates() {
     for (const asgn of (dueSoonAssignments || [])) {
       const userIds = await getAssignedUserIds(asgn);
       for (const uid of userIds) {
+        if (await hasUserSubmitted(uid, asgn.id)) {
+          continue;
+        }
+
         if (await alreadyNotified(uid, asgn.id, 'due_soon')) {
           continue;
         }
@@ -108,6 +140,10 @@ async function checkDueDates() {
     for (const asgn of (overdueAssignments || [])) {
       const userIds = await getAssignedUserIds(asgn);
       for (const uid of userIds) {
+        if (await hasUserSubmitted(uid, asgn.id)) {
+          continue;
+        }
+
         if (await alreadyNotified(uid, asgn.id, 'overdue')) {
           continue;
         }
