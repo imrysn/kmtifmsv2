@@ -506,10 +506,13 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole
   const [penaltyPercentage, setPenaltyPercentage] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [localPenalty, setLocalPenalty] = useState(file?.checker_penalty_percentage || null);
 
   useEffect(() => {
     if (!isOpen || !file) { setResolvedNote(null); setFileScore(null); setLoading(false); return; }
     
+    setLocalPenalty(file.checker_penalty_percentage || null);
+
     if (file.penalty_percentage !== undefined) {
       setFileScore(100 - file.penalty_percentage);
     }
@@ -533,6 +536,17 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole
       .catch(() => setResolvedNote(''))
       .finally(() => setLoading(false));
   }, [isOpen, file]);
+
+  useEffect(() => {
+    const handlePenalty = (e) => {
+      if (file && file.id === e.detail.fileId) {
+        setLocalPenalty(e.detail.penaltyPercentage);
+        if (file) file.checker_penalty_percentage = e.detail.penaltyPercentage;
+      }
+    };
+    window.addEventListener('checkerPenaltyApplied', handlePenalty);
+    return () => window.removeEventListener('checkerPenaltyApplied', handlePenalty);
+  }, [file]);
 
   // Auto-detect the right checklist if any wrong items exist in 3D
   useEffect(() => {
@@ -734,14 +748,33 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole
           )}
           {file?.checked_by && (
             <button
-              onClick={() => setShowPenaltyModal(true)}
-              style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1.5px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.35)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.25)'; }}
-              onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(1px)'; e.currentTarget.style.boxShadow = '0 2px 6px rgba(239, 68, 68, 0.2)'; }}
-              onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-1.5px)'; }}
+              onClick={() => {
+                if (!localPenalty) {
+                  setShowPenaltyModal(true);
+                }
+              }}
+              disabled={!!localPenalty}
+              style={{
+                padding: '8px 20px',
+                borderRadius: '10px',
+                border: 'none',
+                background: localPenalty ? 'var(--bg-tertiary, #e2e8f0)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                color: localPenalty ? 'var(--text-secondary, #64748b)' : 'white',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: localPenalty ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: localPenalty ? 'none' : '0 4px 12px rgba(239, 68, 68, 0.25)',
+                opacity: localPenalty ? 0.8 : 1
+              }}
+              onMouseEnter={(e) => { if (!localPenalty) { e.currentTarget.style.transform = 'translateY(-1.5px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.35)'; } }}
+              onMouseLeave={(e) => { if (!localPenalty) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.25)'; } }}
+              onMouseDown={(e) => { if (!localPenalty) { e.currentTarget.style.transform = 'translateY(1px)'; e.currentTarget.style.boxShadow = '0 2px 6px rgba(239, 68, 68, 0.2)'; } }}
+              onMouseUp={(e) => { if (!localPenalty) { e.currentTarget.style.transform = 'translateY(-1.5px)'; } }}
             >
-              Wrong Checked
+              {localPenalty ? `Penalty Applied (${localPenalty}%)` : 'Wrong Checked'}
             </button>
           )}
           <button

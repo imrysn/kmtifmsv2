@@ -11,6 +11,7 @@ const FILE_NOTIFICATION_TYPES = new Set([
   'rejection', 'final_rejection',
   'checker_done',
   'submission', 'file_submitted', // checker receives these when a user submits files
+  'checker_penalty'
 ]);
 
 // Notification types that go directly to Tasks via their stored assignment_id (no file_id needed)
@@ -131,7 +132,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
       let fileStatus = notification.file_status || null;
 
       // submission/file_submitted sent to a checker or TL → open the For Checking tab
-      const isCheckerSubmission = notification.type === 'submission' || notification.type === 'file_submitted';
+      const isCheckerSubmission = notification.type === 'submission' || notification.type === 'file_submitted' || notification.type === 'checker_penalty';
 
       // If assignment_id wasn't stored on the notification, look it up live
       if (!assignmentId) {
@@ -148,7 +149,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
         if (onNavigate) onNavigate('tasks', {
           assignmentId,
           fileId: notification.file_id,
-          fileStatus,
+          fileStatus: notification.type === 'checker_penalty' ? 'checker_penalty' : fileStatus,
           ...(isCheckerSubmission && { initialTab: 'for-checking' }),
         });
         return;

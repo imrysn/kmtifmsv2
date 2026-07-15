@@ -533,7 +533,7 @@ router.get('/all', authenticateToken, authorizeRole(['ADMIN']), async (req, res)
       const [allMembers, allAttachments, allSubmissions, allTLs] = await Promise.all([
         query(`SELECT am.assignment_id, u.id, u.username, u.fullName, u.profile_picture FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id IN (${ph})`, ids),
         query(`SELECT id, assignment_id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at, COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
-        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size, f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder, u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id FROM assignment_submissions asub JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id WHERE asub.assignment_id IN (${ph}) ORDER BY asub.submitted_at DESC`, ids),
+        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size, f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.checker_note, f.checker_penalty_percentage, f.folder_name, f.relative_path, f.is_folder, u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id FROM assignment_submissions asub JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id WHERE asub.assignment_id IN (${ph}) ORDER BY asub.submitted_at DESC`, ids),
         tlIds.length > 0 ? query(`SELECT id, fullName, username, email, profile_picture FROM users WHERE id IN (${tlPh})`, tlIds) : []
       ]);
       const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
@@ -588,7 +588,7 @@ router.get('/team-leader/:userId/all-submissions', authenticateToken, authorizeR
     if (teamNames.length > 0) {
       const placeholders = teamNames.map(() => '?').join(',');
       memberSubmissions = await query(
-        `SELECT f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
+        `SELECT f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size, f.checker_penalty_percentage,
                 f.uploaded_at, f.status, f.user_team, f.folder_name, f.relative_path, f.is_folder,
                 u.username, u.fullName,
                 asub.submitted_at, asub.submitted_at as created_at,
@@ -603,7 +603,7 @@ router.get('/team-leader/:userId/all-submissions', authenticateToken, authorizeR
     }
 
     const tlFiles = await query(
-      `SELECT f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
+      `SELECT f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size, f.checker_penalty_percentage,
               f.uploaded_at, f.status, f.user_team, f.folder_name, f.relative_path, f.is_folder,
               u.username, u.fullName,
               f.uploaded_at as submitted_at, f.uploaded_at as created_at,
@@ -1530,7 +1530,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
             const cph = checkerAssignmentIds.map(() => '?').join(',');
             queries.push(
               query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_path, f.public_network_url, f.file_type, f.file_size,
-                f.tag, f.description, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.status, f.checked_by, f.checker_note, f.checker_penalty_percentage, f.folder_name, f.relative_path, f.is_folder,
                 asub.submitted_at, u.fullName as submitter_name, u.username as submitter_username
                FROM assignment_submissions asub
                JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -1542,7 +1542,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
             const mph = myTaskIds.map(() => '?').join(',');
             queries.push(
               query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_path, f.public_network_url, f.file_type, f.file_size,
-                f.tag, f.description, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.status, f.checked_by, f.checker_note, f.checker_penalty_percentage, f.folder_name, f.relative_path, f.is_folder,
                 asub.submitted_at, u.fullName as submitter_name, u.username as submitter_username
                FROM assignment_submissions asub
                JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
