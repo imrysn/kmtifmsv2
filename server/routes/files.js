@@ -43,7 +43,7 @@ router.get('/notifications/:team', authenticateToken, authorizeRole(['TEAM_LEADE
 
 router.post('/:id/team-leader-review', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), fileController.approveByTeamLeader);
 router.post('/:id/team-leader-reject', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), fileController.rejectByTeamLeader);
-router.post('/:id/checker-penalty', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), fileController.addCheckerPenalty);
+router.post('/:id/checker-penalty', authenticateToken, authorizeRole(['USER', 'TEAM_LEADER', 'ADMIN']), fileController.addCheckerPenalty);
 
 // ─── Admin Review ─────────────────────────────────────────────────────────────
 

@@ -732,7 +732,7 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole
               {successMessage}
             </span>
           )}
-          {currentUserRole === 'TEAM_LEADER' && file?.checked_by && (
+          {file?.checked_by && (
             <button
               onClick={() => setShowPenaltyModal(true)}
               style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)' }}

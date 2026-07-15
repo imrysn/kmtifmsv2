@@ -2140,7 +2140,9 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
 
     // Notify the Team Leader that the checker flagged this submission for editing
     const tlId = assignment.team_leader_id;
-    if (tlId) {
+    // Don't send a redundant "Checker: Submission..." notification if the TL is the one who uploaded the file
+    // and they already received the direct "Your file..." notification.
+    if (tlId && !allUserIds.has(tlId)) {
       try {
         const tlMsg = note
           ? `${checkerName} marked ${fileId ? 'a file' : 'the submission'} for "${assignment.title}" as needing editing. Note: ${note}`
