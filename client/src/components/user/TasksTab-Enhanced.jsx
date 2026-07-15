@@ -760,7 +760,7 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole
       {/* Checker Penalty Modal */}
       {showPenaltyModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 2200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--background-secondary)', borderRadius: '16px', padding: '24px', width: '480px', maxWidth: '90vw' }}>
+          <div style={{ background: 'var(--background-secondary)', borderRadius: '16px', padding: '24px', width: '480px', maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
             <h4 style={{ margin: '0 0 16px', fontSize: '18px', color: 'var(--text-primary)' }}>Select Checker Penalty</h4>
             <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
               Select how much to deduct from the checker's performance for this file.
@@ -769,7 +769,12 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole
               {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map(pct => (
                 <button
                   key={pct}
-                  onClick={() => setPenaltyPercentage(pct)}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setPenaltyPercentage(pct);
+                  }}
                   style={{
                     padding: '10px 0',
                     borderRadius: '8px',

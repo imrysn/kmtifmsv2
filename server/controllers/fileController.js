@@ -745,7 +745,12 @@ class FileController {
     }
 
     const { query } = require('../config/database');
-    const [file] = await query('SELECT id, checked_by FROM files WHERE id = ?', [fileId]);
+    const [file] = await query(`
+      SELECT f.id, f.original_name, f.checked_by, asub.assignment_id 
+      FROM files f 
+      LEFT JOIN assignment_submissions asub ON f.id = asub.file_id
+      WHERE f.id = ?
+    `, [fileId]);
 
     if (!file) {
       return res.status(404).json({ success: false, message: 'File not found' });
@@ -756,6 +761,37 @@ class FileController {
     }
 
     await query('UPDATE files SET checker_penalty_percentage = ? WHERE id = ?', [penalty_percentage, fileId]);
+
+    // Notify the checker
+    try {
+      const [checker] = await query('SELECT id FROM users WHERE fullName = ? OR username = ? LIMIT 1', [file.checked_by, file.checked_by]);
+      
+      if (checker && checker.id) {
+        const actionById = req.user ? req.user.id : null;
+        const actionByUsername = req.user ? (req.user.username || req.user.fullName) : 'System';
+        const actionByRole = req.user ? req.user.role : null;
+        
+        await query(`
+          INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          checker.id,
+          file.assignment_id || null,
+          fileId,
+          'checker_penalty',
+          'Wrong Checked File',
+          `${actionByUsername} marked your checking on file "${file.original_name}" as wrong. Penalty: ${penalty_percentage}%`,
+          actionById,
+          actionByUsername,
+          actionByRole
+        ]);
+
+        const { pushToUser } = require('../routes/notifications');
+        pushToUser(checker.id);
+      }
+    } catch (err) {
+      console.error('Failed to notify checker of penalty:', err);
+    }
 
     res.json({
       success: true,
