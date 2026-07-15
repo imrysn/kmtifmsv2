@@ -133,7 +133,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
     const r = role.toUpperCase()
     if (r.includes('ADMIN')) return '#7c3aed'
     if (r.includes('TEAM_LEADER')) return 'var(--status-review-text)'
-    return 'var(--status-approved-text)'
+    return '#10b981'
   }
 
   const getRoleLabel = (role) => {
@@ -163,19 +163,19 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          color: open ? 'var(--status-approved-text)' : displayCount > 0 ? 'var(--status-approved-text)' : 'var(--text-tertiary)',
+          color: open ? '#10b981' : displayCount > 0 ? '#10b981' : 'var(--text-tertiary)',
           flexShrink: 0,
           transition: 'all 0.15s',
           position: 'relative',
         }}
         onMouseEnter={e => {
           e.currentTarget.style.backgroundColor = 'var(--status-approved)'
-          e.currentTarget.style.color = 'var(--status-approved-text)'
+          e.currentTarget.style.color = '#10b981'
         }}
         onMouseLeave={e => {
           if (!open) {
             e.currentTarget.style.backgroundColor = 'transparent'
-            e.currentTarget.style.color = displayCount > 0 ? 'var(--status-approved-text)' : 'var(--text-tertiary)'
+            e.currentTarget.style.color = displayCount > 0 ? '#10b981' : 'var(--text-tertiary)'
           }
         }}
       >
@@ -190,7 +190,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
             position: 'absolute',
             top: '1px',
             right: '1px',
-            background: 'var(--status-approved-text)',
+            background: '#10b981',
             color: 'var(--background-secondary)',
             fontSize: '9px',
             fontWeight: '700',
@@ -218,7 +218,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
           right: `${popoverPos.right}px`,
           zIndex: 99999,
           background: 'var(--background-secondary)',
-          border: '1px solid #e5e7eb',
+          border: '1px solid var(--border-color)',
           borderRadius: '12px',
           boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
           minWidth: '240px',
@@ -231,7 +231,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
             marginBottom: '10px', paddingBottom: '8px',
             borderBottom: '1px solid var(--background-secondary)'
           }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke='var(--status-approved-text)' strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke='#10b981' strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
               <circle cx="12" cy="12" r="3" />
             </svg>

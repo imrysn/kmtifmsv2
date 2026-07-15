@@ -70,7 +70,7 @@ const MemberFilesModal = ({
   const getStatusLabel = (file) => {
     return file.status === 'uploaded' ? 'New' : 
            file.status === 'under_revision' ? '✎ Revised' :
-           file.status === 'revision' ? '⚠ Checked - Need to Edit' :
+           file.status === 'revision' ? (file.checked_by ? `⚠ Checked by: ${file.checked_by.split(' ')[0].charAt(0).toUpperCase() + file.checked_by.split(' ')[0].slice(1).toLowerCase()} (Need to Edit)` : '⚠ Checked by: (Need to Edit)') :
            file.status === 'team_leader_approved' ? 'Pending Admin' : 
            file.status === 'final_approved' ? '✓ Approved' : 
            (file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending Review'

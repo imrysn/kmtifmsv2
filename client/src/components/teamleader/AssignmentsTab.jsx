@@ -1777,7 +1777,7 @@ const AssignmentsTab = ({
                                             {submission.status === 'checked' ? '✓ Checked' :
                                             submission.status === 'uploaded' ? 'New' : 
                                             submission.status === 'under_revision' ? '✎ Revised' :
-                                            submission.status === 'revision' ? '⚠ Checked - Need to Edit' :
+                                            submission.status === 'revision' ? (submission.checked_by ? `⚠ Checked by: ${submission.checked_by.split(' ')[0].charAt(0).toUpperCase() + submission.checked_by.split(' ')[0].slice(1).toLowerCase()} (Need to Edit)` : '⚠ Checked by: (Need to Edit)') :
                                             submission.status === 'team_leader_approved' ? 'Pending Admin' : 
                                             submission.status === 'final_approved' ? '✓ Approved' : 
                              (submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending'}
@@ -2051,7 +2051,7 @@ const AssignmentsTab = ({
                             <span className={`tl-assignment-file-status ${file.status}`}>
                               {file.status === 'uploaded' ? 'New' : 
                                file.status === 'under_revision' ? '✎ Revised' :
-                               file.status === 'revision' ? '⚠ Checked - Need to Edit' :
+                               file.status === 'revision' ? (file.checked_by ? `⚠ Checked by: ${file.checked_by.split(' ')[0].charAt(0).toUpperCase() + file.checked_by.split(' ')[0].slice(1).toLowerCase()} (Need to Edit)` : '⚠ Checked by: (Need to Edit)') :
                                file.status === 'checked' ? '✓ Checked' :
                                file.status === 'team_leader_approved' ? 'Pending Admin' : 
                                file.status === 'final_approved' ? '✓ Approved' : 

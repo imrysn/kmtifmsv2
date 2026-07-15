@@ -1055,7 +1055,18 @@ const AttachmentMoreMenu = memo(({ onDownload, onOpenPath, isFolder = false }) =
 });
 AttachmentMoreMenu.displayName = 'AttachmentMoreMenu';
 
-const getFileStatusBadge = (status) => {
+const getFileStatusBadge = (file) => {
+  const status = typeof file === 'string' ? file : file?.status || 'uploaded';
+  
+  let revisionLabel = '✎ CHECKED - NEED TO EDIT';
+  if (status === 'revision' && typeof file === 'object' && file?.checked_by) {
+    const firstName = file.checked_by.split(' ')[0];
+    const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+    revisionLabel = `✎ Checked by: ${formattedFirstName} (Need to Edit)`;
+  } else if (status === 'revision') {
+    revisionLabel = '✎ Checked by: (Need to Edit)';
+  }
+
   const badges = {
     new: { bg: 'var(--status-review-text)', color: 'var(--background-secondary)', label: 'New', radius: '20px' },
     uploaded: { bg: 'var(--status-review-text)', color: 'var(--background-secondary)', label: 'New', radius: '20px' },
@@ -1064,7 +1075,7 @@ const getFileStatusBadge = (status) => {
     rejected_by_team_leader: { bg: '#ffe4e6', color: 'var(--status-rejected-text)', label: 'Rejected', radius: '20px' },
     rejected_by_admin: { bg: '#ffe4e6', color: 'var(--status-rejected-text)', label: 'Rejected', radius: '20px' },
     under_revision: { bg: 'var(--status-pending)', color: 'var(--status-pending-text)', label: '✎ REVISED', radius: '4px', weight: '600' },
-    revision: { bg: 'var(--status-pending)', color: 'var(--status-pending-text)', label: '✎ CHECKED - NEED TO EDIT', radius: '4px', weight: '600' },
+    revision: { bg: 'var(--status-pending)', color: 'var(--status-pending-text)', label: revisionLabel, radius: '4px', weight: '600' },
     checked: { bg: 'var(--status-review)', color: 'var(--status-review-text)', label: '✓ CHECKED', radius: '4px', weight: '600' },
   };
   const b = badges[status] || badges.uploaded;
@@ -2029,7 +2040,7 @@ const TasksTab = memo(({
               {file.tag && (
                 <span style={{ backgroundColor: 'var(--status-review)', color: 'var(--status-review-text)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>🏷️ {file.tag}</span>
               )}
-              {getFileStatusBadge(file.status)}
+              {getFileStatusBadge(file)}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
@@ -2223,7 +2234,7 @@ const TasksTab = memo(({
                     {file.tag && (
                       <span style={{ backgroundColor: 'var(--status-review)', color: 'var(--status-review-text)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>🏷️ {file.tag}</span>
                     )}
-                    {getFileStatusBadge(file.status)}
+                    {getFileStatusBadge(file)}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
