@@ -2810,6 +2810,7 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  min-width: 0;
 }
 
 .tl-priority-count {
@@ -2821,12 +2822,17 @@ input[type="checkbox"] {
   border-radius: 12px;
   min-width: 20px;
   text-align: center;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tl-priority-label {
   font-size: 14px;
   color: var(--text-primary);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tl-priority-empty {
@@ -2915,6 +2921,7 @@ input[type="checkbox"] {
 
 .tl-priority-list {
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .tl-priority-list::-webkit-scrollbar {
