@@ -273,7 +273,7 @@ async function calculateAllUserPerformance(teamId = null) {
     // We add 5 "dummy" tasks with an average score of 75% to naturally pull low-volume users toward the average
     const DUMMY_TASKS = 5;
     const DUMMY_SCORE = 75;
-    const totalActivityVolume = submittedFilesVolume + checkingCompleted + (mStat.total_reviewed || 0);
+    const totalActivityVolume = Number(submittedFilesVolume) + Number(checkingCompleted) + Number(mStat.total_reviewed || 0);
     
     let overallScore = 0;
     if (hasActivity) {
