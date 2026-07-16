@@ -54,7 +54,7 @@ async function calculateAllUserPerformance(teamId = null) {
     // 4. Global Quality (- penalty_percentage per file)
     [`SELECT user_id, 
         COUNT(*) as total,
-        SUM(CASE WHEN status = 'final_approved' THEN 1 ELSE 0 END) as approved,
+        SUM(CASE WHEN status IN ('final_approved', 'team_leader_approved') THEN 1 ELSE 0 END) as approved,
         SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected,
         AVG(
           CASE 
@@ -64,7 +64,7 @@ async function calculateAllUserPerformance(teamId = null) {
           END
         ) as avg_quality_score
       FROM files 
-      WHERE checked_by IS NOT NULL OR status IN ('final_approved', 'revision', 'checked', 'rejected_by_team_leader', 'rejected_by_admin')
+      WHERE checked_by IS NOT NULL OR status IN ('final_approved', 'team_leader_approved', 'revision', 'checked', 'rejected_by_team_leader', 'rejected_by_admin')
       GROUP BY user_id`, []],
 
     // 5. Global Speed Data (Weighted by File Count and Complexity)
@@ -228,7 +228,7 @@ async function calculateAllUserPerformance(teamId = null) {
         }
       }
     });
-    let avgSpeedFactor = totalFilesWeight > 0 ? (totalWeightedSpeedFactor / totalFilesWeight) : 0;
+    let avgSpeedFactor = totalFilesWeight > 0 ? (totalWeightedSpeedFactor / totalFilesWeight) : 1;
     
     // Each overdue task reduces speed by 5% (capped at 50% total deduction)
     if (overdueCount > 0 && totalFilesVolume > 0) {
