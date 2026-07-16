@@ -1511,7 +1511,7 @@ async function deleteFolder(folderName, fileIds, user) {
  * We therefore use a plain ASCII temp name on disk and let the HTTP layer set
  * the correct Unicode filename via Content-Disposition.
  */
-async function zipFolder(fileIds, folderName) {
+async function zipFolder(fileIds, folderName, type = 'file') {
   const safeId = `kmti-${Date.now()}`; // ASCII-only — safe for PowerShell paths
   const tmpDir  = path.join(os.tmpdir(), safeId);
   const zipPath = path.join(os.tmpdir(), `${safeId}.zip`);
@@ -1522,9 +1522,14 @@ async function zipFolder(fileIds, folderName) {
   const failedFiles = [];
 
   for (const fileId of fileIds) {
-    // zipFolder must handle both regular files and attachments
-    const regularFile = await fileRepository.findById(fileId);
-    const file = regularFile || await fileRepository.findAttachmentById(fileId);
+    // zipFolder must handle both regular files and attachments correctly based on type
+    let file = null;
+    if (type === 'attachment') {
+      file = await fileRepository.findAttachmentById(fileId);
+    } else {
+      file = await fileRepository.findById(fileId);
+      if (!file) file = await fileRepository.findAttachmentById(fileId);
+    }
     if (!file) {
       failedFiles.push({ id: fileId, reason: 'Not found in DB' });
       continue;

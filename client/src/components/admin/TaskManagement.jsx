@@ -590,10 +590,11 @@ const TaskManagement = ({
     }
   }
 
-  const handleDownloadFolder = async (folderFiles, folderName) => {
+  const handleDownloadFolder = async (folderFiles, folderName, isAttachment = false) => {
     if (!window.electron || !window.electron.downloadFolder) {
       const fileIds = folderFiles.map(f => f.id).join(',')
-      const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
+      const typeParam = isAttachment ? '&type=attachment' : '&type=file';
+      const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}${typeParam}`
       const a = document.createElement('a')
       a.href = fileUrl
       a.download = `${folderName}.zip`
@@ -606,7 +607,7 @@ const TaskManagement = ({
       const fileIds = folderFiles.map(f => f.id).filter(Boolean)
       const data = await apiFetch('/api/files/bulk-path', {
         method: 'POST',
-        body: JSON.stringify({ fileIds, type: 'file' })
+        body: JSON.stringify({ fileIds, type: isAttachment ? 'attachment' : 'file' })
       })
       const fileInfoList = (data.results || []).map((r, i) => {
         const file = folderFiles.find(f => f.id === r.id) || folderFiles[i] || {}
@@ -1046,7 +1047,7 @@ const TaskManagement = ({
                             </div>
                             </div>
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleDownloadFolder(subFiles.map(f => f.file || f), subName) }}
+                              onClick={(e) => { e.stopPropagation(); handleDownloadFolder(subFiles.map(f => f.file || f), subName, isAttachment) }}
                               title="Download folder as ZIP"
                               style={{
                                 background: 'transparent', border: 'none', borderRadius: '6px',

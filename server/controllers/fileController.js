@@ -403,10 +403,10 @@ class FileController {
      * Zip and download folder
      */
   zipFolder = asyncHandler(async (req, res) => {
-    const { fileIds: fileIdsStr, folderName } = req.query;
+    const { fileIds: fileIdsStr, folderName, type } = req.query;
     const fileIds = fileIdsStr.split(',').map(id => parseInt(id.trim())).filter(Boolean);
 
-    const { zipPath, tmpDir } = await fileService.zipFolder(fileIds, folderName);
+    const { zipPath, tmpDir } = await fileService.zipFolder(fileIds, folderName, type || 'file');
 
     const fs = require('fs');
     res.download(zipPath, `${folderName}.zip`, (err) => {

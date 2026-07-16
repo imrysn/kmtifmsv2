@@ -939,7 +939,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
           )}
           {onOpenPath && (
             <button
-              onClick={() => { setOpen(false); onOpenPath(); }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setOpen(false); onOpenPath(); }}
               style={{
                 width: '100%', textAlign: 'left', background: 'none', border: 'none',
                 padding: '10px 14px', fontSize: '13px', color: 'var(--text-secondary)',
@@ -1054,7 +1054,7 @@ const AttachmentMoreMenu = memo(({ onDownload, onOpenPath, isFolder = false }) =
         }}>
           {onOpenPath && (
             <button
-              onClick={() => { onOpenPath(); setOpen(false); }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onOpenPath(); setOpen(false); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
                 padding: '8px 12px', background: 'transparent', border: 'none',
@@ -1070,7 +1070,7 @@ const AttachmentMoreMenu = memo(({ onDownload, onOpenPath, isFolder = false }) =
             </button>
           )}
           <button
-            onClick={() => { onDownload(); setOpen(false); }}
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDownload(); setOpen(false); }}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
               padding: '8px 12px', background: 'transparent', border: 'none',
@@ -1621,11 +1621,12 @@ const TasksTab = memo(({
     }
   }, [showError]);
 
-  const handleDownloadFolder = useCallback(async (folderFiles, folderName) => {
+  const handleDownloadFolder = useCallback(async (folderFiles, folderName, isAttachment = false) => {
     if (!window.electron?.downloadFolder) {
       const fileIds = folderFiles.map(f => f.id).join(',');
+      const typeParam = isAttachment ? '&type=attachment' : '&type=file';
       const a = Object.assign(document.createElement('a'), {
-        href: `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`,
+        href: `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}${typeParam}`,
         download: `${folderName}.zip`
       });
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
@@ -1635,7 +1636,7 @@ const TasksTab = memo(({
       const fileIds = folderFiles.map(f => f.id).filter(Boolean);
       const data = await apiFetch('/api/files/bulk-path', {
         method: 'POST',
-        body: JSON.stringify({ fileIds, type: 'file' })
+        body: JSON.stringify({ fileIds, type: isAttachment ? 'attachment' : 'file' })
       });
       const fileInfoList = (data.results || []).map((r, i) => {
         const file = folderFiles.find(f => f.id === r.id) || folderFiles[i] || {};

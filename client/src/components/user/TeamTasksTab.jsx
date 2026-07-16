@@ -95,7 +95,7 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
         >
           {onOpenPath && (
             <button
-              onClick={() => { onOpenPath(); setOpen(false) }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onOpenPath(); setOpen(false) }}
               style={{
                 display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
                 padding: '8px 12px', background: 'transparent', border: 'none',
@@ -111,7 +111,7 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
             </button>
           )}
           <button
-            onClick={() => { onDownload(); setOpen(false) }}
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDownload(); setOpen(false) }}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
               padding: '8px 12px', background: 'transparent', border: 'none',
@@ -423,7 +423,8 @@ const TeamTasksTab = ({ user }) => {
       if (openModalType === 'folder' || openModalType === 'filePath') {
         if (!window.electron?.openFolderInExplorer) return
         const pathType = fileToOpen?.isAttachment ? 'attachment' : 'file'
-        const data = await apiFetch(`/api/files/${fileId}/path?type=${pathType}`)
+        const folderParam = openModalType === 'folder' && fileToOpen?.original_name && fileToOpen.original_name !== 'Folder Path' ? `&folderName=${encodeURIComponent(fileToOpen.original_name)}` : ''
+        const data = await apiFetch(`/api/files/${fileId}/path?type=${pathType}${folderParam}`)
         if (data.success && data.filePath) {
           await window.electron.openFolderInExplorer(data.filePath)
         }
@@ -476,7 +477,8 @@ const TeamTasksTab = ({ user }) => {
     if (!window.electron?.openFolderInExplorer) return
     try {
       const pathType = isAttachment ? 'attachment' : 'file'
-      const data = await apiFetch(`/api/files/${fileId}/path?type=${pathType}`)
+      const folderParam = isFolder && originalName ? `&folderName=${encodeURIComponent(originalName)}` : ''
+      const data = await apiFetch(`/api/files/${fileId}/path?type=${pathType}${folderParam}`)
       if (data.success && data.filePath) {
         setFileToOpen({ id: fileId, file_path: data.filePath, original_name: originalName || (isFolder ? 'Folder Path' : 'File Path'), isAttachment })
         setOpenModalType(isFolder ? 'folder' : 'filePath')
@@ -497,11 +499,12 @@ const TeamTasksTab = ({ user }) => {
     }
   }
 
-  const handleDownloadFolder = async (folderFiles, folderName) => {
+  const handleDownloadFolder = async (folderFiles, folderName, isAttachment = false) => {
     if (!window.electron?.downloadFolder) {
       const fileIds = folderFiles.map(f => f.id).join(',')
+      const typeParam = isAttachment ? '&type=attachment' : '&type=file';
       const a = Object.assign(document.createElement('a'), {
-        href: `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`,
+        href: `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}${typeParam}`,
         download: `${folderName}.zip`
       })
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
@@ -511,7 +514,7 @@ const TeamTasksTab = ({ user }) => {
       const fileIds = folderFiles.map(f => f.id).filter(Boolean)
       const data = await apiFetch('/api/files/bulk-path', {
         method: 'POST',
-        body: JSON.stringify({ fileIds, type: 'file' })
+        body: JSON.stringify({ fileIds, type: isAttachment ? 'attachment' : 'file' })
       })
       const fileInfoList = (data.results || []).map((r, i) => {
         const file = folderFiles.find(f => f.id === r.id) || folderFiles[i] || {}
@@ -1111,7 +1114,7 @@ const TeamTasksTab = ({ user }) => {
                                     <div onClick={e => e.stopPropagation()}>
                                       <FileMoreMenu
                                         isFolder
-                                        onDownload={() => handleDownloadFolder(folderFiles, folderName)}
+                                        onDownload={() => handleDownloadFolder(folderFiles, folderName, true)}
                                         onOpenPath={() => handleOpenFolderPath(firstFile.id, true, true, folderName)}
                                       />
                                     </div>

@@ -156,7 +156,8 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
               const firstFile = folderFiles[0]
               const type = isReference ? 'attachment' : 'file'
               try {
-                const data = await apiFetch(`/api/files/${firstFile.id}/path?type=${type}`)
+                const folderParam = folderName && folderName !== 'Folder Path' ? `&folderName=${encodeURIComponent(folderName)}` : ''
+                const data = await apiFetch(`/api/files/${firstFile.id}/path?type=${type}${folderParam}`)
                 if (data.success && data.filePath) {
                   const result = await window.electron.openFolderInExplorer(data.filePath)
                   if (!result.success) {
@@ -180,7 +181,7 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
             onClick={async (e) => {
               e.stopPropagation()
               setIsOpen(false)
-              await handleDownloadFolder(folderFiles, folderName)
+              await handleDownloadFolder()
             }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -548,11 +549,12 @@ const AssignmentsTab = ({
     }
   }
 
-  const handleDownloadFolder = async (folderFiles, folderName) => {
+  const handleDownloadFolder = async (folderFiles, folderName, isAttachment = false) => {
     if (!window.electron || !window.electron.downloadFolder) {
       // Fallback for non-Electron (browser): use old zip approach
       const fileIds = folderFiles.map(f => f.id).join(',')
-      const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
+      const typeParam = isAttachment ? '&type=attachment' : '&type=file';
+      const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}${typeParam}`
       const a = document.createElement('a')
       a.href = fileUrl
       a.download = `${folderName}.zip`
@@ -567,7 +569,7 @@ const AssignmentsTab = ({
       const fileIds = folderFiles.map(f => f.id).filter(Boolean)
       const data = await apiFetch('/api/files/bulk-path', {
         method: 'POST',
-        body: JSON.stringify({ fileIds, type: 'file' })
+        body: JSON.stringify({ fileIds, type: isAttachment ? 'attachment' : 'file' })
       })
 
       const fileInfoList = (data.results || []).map((r, i) => {
@@ -1691,7 +1693,7 @@ const AssignmentsTab = ({
                                         assignment={assignment}
                                         folderName={folderName}
                                         folderFiles={folderFiles.map(f => f.file || f)}
-                                        handleDownloadFolder={handleDownloadFolder}
+                                        handleDownloadFolder={() => handleDownloadFolder(folderFiles.map(f => f.file || f), folderName, isReference)}
                                         setFolderReviewModal={isReference ? null : setFolderReviewModal}
                                         setFolderReviewComment={isReference ? null : setFolderReviewComment}
                                         setToast={setToast}
