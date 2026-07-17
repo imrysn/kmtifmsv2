@@ -1124,6 +1124,43 @@ const getFileStatusBadge = (file) => {
   );
 };
 
+const calculateWorkingDaysLate = (dueDateStr, submittedAtStr) => {
+  if (!dueDateStr || !submittedAtStr) return 0;
+  const dueDate = new Date(dueDateStr);
+  const submitDate = new Date(submittedAtStr);
+  
+  dueDate.setHours(0, 0, 0, 0);
+  submitDate.setHours(0, 0, 0, 0);
+  
+  if (submitDate <= dueDate) return 0;
+  
+  let lateDays = 0;
+  let current = new Date(dueDate);
+  current.setDate(current.getDate() + 1);
+  
+  while (current <= submitDate) {
+    const day = current.getDay();
+    if (day !== 0 && day !== 6) lateDays++;
+    current.setDate(current.getDate() + 1);
+  }
+  return lateDays;
+};
+
+const getSubmittedLateText = (assignment, mySubmittedFiles) => {
+  if (!assignment.due_date || !mySubmittedFiles || mySubmittedFiles.length === 0) return 'SUBMITTED';
+  
+  const earliestSubmit = mySubmittedFiles.reduce((earliest, file) => {
+    const fileDate = new Date(file.submitted_at || file.uploaded_at || new Date());
+    return fileDate < earliest ? fileDate : earliest;
+  }, new Date(mySubmittedFiles[0].submitted_at || mySubmittedFiles[0].uploaded_at || new Date()));
+  
+  const lateDays = calculateWorkingDaysLate(assignment.due_date, earliestSubmit);
+  if (lateDays > 0) {
+    return `SUBMITTED LATE ${lateDays} DAY${lateDays > 1 ? 'S' : ''}`;
+  }
+  return 'SUBMITTED';
+};
+
 const getStatusBadge = (assignment, activeTab = 'my-tasks', user = null) => {
   if (assignment.status === 'completed') {
     return <span style={{ backgroundColor: 'var(--status-approved)', color: 'var(--status-approved-text)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ COMPLETED</span>;
@@ -1145,7 +1182,9 @@ const getStatusBadge = (assignment, activeTab = 'my-tasks', user = null) => {
       return <span style={{ backgroundColor: 'transparent', color: 'var(--status-pending-text)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1px solid #FDBA74' }}>FOR CHECKING</span>;
     }
     if (mySubmittedFiles?.length > 0) {
-      return <span style={{ backgroundColor: 'var(--status-approved)', color: 'var(--status-approved-text)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>✓ SUBMITTED</span>;
+      const lateText = getSubmittedLateText(assignment, mySubmittedFiles);
+      const isLate = lateText.includes('LATE');
+      return <span style={{ backgroundColor: isLate ? 'var(--status-rejected)' : 'var(--status-approved)', color: isLate ? 'var(--status-rejected-text)' : 'var(--status-approved-text)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: isLate ? 'none' : '1px solid #86EFAC' }}>{isLate ? '⚠' : '✓'} {lateText}</span>;
     }
     return <span style={{ backgroundColor: 'var(--status-pending)', color: 'var(--status-pending-text)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #FCD34D' }}>✎ FOR EDITING</span>;
   }
@@ -1153,7 +1192,9 @@ const getStatusBadge = (assignment, activeTab = 'my-tasks', user = null) => {
     if (activeTab === 'for-checking') {
       return <span style={{ backgroundColor: 'transparent', color: 'var(--status-pending-text)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1px solid #FDBA74' }}>FOR CHECKING</span>;
     }
-    return <span style={{ backgroundColor: 'var(--status-approved)', color: 'var(--status-approved-text)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>✓ SUBMITTED</span>;
+    const lateText = getSubmittedLateText(assignment, mySubmittedFiles);
+    const isLate = lateText.includes('LATE');
+    return <span style={{ backgroundColor: isLate ? 'var(--status-rejected)' : 'var(--status-approved)', color: isLate ? 'var(--status-rejected-text)' : 'var(--status-approved-text)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: isLate ? 'none' : '1px solid #86EFAC' }}>{isLate ? '⚠' : '✓'} {lateText}</span>;
   }
   if (!assignment.due_date) return null;
   const dueDate = new Date(assignment.due_date);
@@ -2642,10 +2683,13 @@ const TasksTab = memo(({
                             </div>
                           ) : null}
                         </>
-                      ) : mySubmittedFiles?.length > 0 ? (
+                      ) : mySubmittedFiles?.length > 0 ? (() => {
+                        const lateText = getSubmittedLateText(assignment, mySubmittedFiles);
+                        const isLate = lateText.includes('LATE');
+                        return (
                         <>
-                          <div style={{ backgroundColor: 'var(--status-approved)', color: 'var(--status-approved-text)', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>
-                            ✓ Submitted
+                          <div style={{ backgroundColor: isLate ? 'var(--status-rejected)' : 'var(--status-approved)', color: isLate ? 'var(--status-rejected-text)' : 'var(--status-approved-text)', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: isLate ? 'none' : '1px solid #86EFAC' }}>
+                            {isLate ? '⚠' : '✓'} {lateText.toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
                           </div>
                           {assignment.due_date_edited ? (
                             <div style={{ marginTop: '4px', textAlign: 'right' }}>
@@ -2653,7 +2697,8 @@ const TasksTab = memo(({
                             </div>
                           ) : null}
                         </>
-                      ) : (
+                        );
+                      })() : (
                         <>
                           <div style={{ backgroundColor: 'var(--status-pending)', color: 'var(--status-pending-text)', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #FCD34D' }}>
                             ✎ For Editing
@@ -2665,7 +2710,7 @@ const TasksTab = memo(({
                           ) : null}
                         </>
                       )
-                    ) : mySubmittedFiles?.length > 0 ? (
+                      ) : mySubmittedFiles?.length > 0 ? (
                       activeTab === 'for-checking' ? (
                         <>
                           <div style={{ backgroundColor: 'transparent', color: 'var(--status-pending-text)', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
@@ -2677,10 +2722,13 @@ const TasksTab = memo(({
                             </div>
                           ) : null}
                         </>
-                      ) : (
+                      ) : (() => {
+                        const lateText = getSubmittedLateText(assignment, mySubmittedFiles);
+                        const isLate = lateText.includes('LATE');
+                        return (
                         <>
-                          <div style={{ backgroundColor: 'var(--status-approved)', color: 'var(--status-approved-text)', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>
-                            ✓ Submitted
+                          <div style={{ backgroundColor: isLate ? 'var(--status-rejected)' : 'var(--status-approved)', color: isLate ? 'var(--status-rejected-text)' : 'var(--status-approved-text)', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: isLate ? 'none' : '1px solid #86EFAC' }}>
+                            {isLate ? '⚠' : '✓'} {lateText.toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
                           </div>
                           {assignment.due_date_edited ? (
                             <div style={{ marginTop: '4px', textAlign: 'right' }}>
@@ -2688,7 +2736,8 @@ const TasksTab = memo(({
                             </div>
                           ) : null}
                         </>
-                      )
+                        );
+                      })()
                     ) : (
                       <>
                         <div style={{ fontSize: '14px', fontWeight: '500', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>

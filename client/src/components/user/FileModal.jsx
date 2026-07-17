@@ -146,10 +146,10 @@ const FileModal = memo(({
           )}
 
           {/* Status pill */}
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: st.bg, border: `1px solid ${st.border}`, borderRadius: '20px', padding: '5px 14px' }}>
-            <span style={{ fontSize: '13px', fontWeight: '700', color: st.color }}>{st.icon} {st.label}</span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '20px', padding: '5px 14px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
+            <span style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>{st.icon} {st.label}</span>
             {stageLabel && (
-              <span style={{ fontSize: '11px', color: st.color, opacity: 0.75, borderLeft: `1px solid ${st.border}`, paddingLeft: '8px', marginLeft: '2px' }}>{stageLabel}</span>
+              <span style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.9)', borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: '8px', marginLeft: '2px', fontWeight: '700' }}>{stageLabel}</span>
             )}
           </div>
         </div>
@@ -170,6 +170,7 @@ const FileModal = memo(({
                   {selectedFile.checked_by && (
                     <div style={{ fontSize: '12px', color: 'var(--status-pending-text)', marginTop: '2px' }}>
                       Reviewed by <strong>{selectedFile.checked_by}</strong>
+                      {(selectedFile.checked_at || selectedFile.updated_at) && ` on ${formatDate(selectedFile.checked_at || selectedFile.updated_at)}`}
                     </div>
                   )}
                 </div>
@@ -204,8 +205,9 @@ const FileModal = memo(({
               <span style={{ fontSize: '20px' }}>✓</span>
               <div>
                 <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--status-review-text)' }}>Checked & Approved</div>
-                <div style={{ fontSize: '12px', color: 'var(--status-review-text)', marginTop: '1px' }}>
-                  Checked by <strong>{selectedFile.checked_by}</strong>
+                <div style={{ fontSize: '12px', color: 'var(--status-review-text)', marginTop: '2px' }}>
+                  Reviewed by <strong>{selectedFile.checked_by}</strong>
+                  {(selectedFile.checked_at || selectedFile.updated_at) && ` on ${formatDate(selectedFile.checked_at || selectedFile.updated_at)}`}
                 </div>
               </div>
             </div>
