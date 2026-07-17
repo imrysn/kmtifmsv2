@@ -85,10 +85,10 @@ const OverviewTab = ({
       .sort((a, b) => a.dueDate - b.dueDate)
 
     // Categorize tasks
-    const overdueTasks = sortedTasks.filter(t => t.daysUntilDue < 0)
-    const dueTodayTasks = sortedTasks.filter(t => t.daysUntilDue === 0)
-    const upcomingTasks = sortedTasks.filter(t => t.daysUntilDue > 0 && t.daysUntilDue <= 7)
-    const futureTasks = sortedTasks.filter(t => t.daysUntilDue > 7)
+    const overdueTasks = sortedTasks.filter(t => t.daysUntilDue < 0 && !(t.recent_submissions?.length > 0) && t.status !== 'completed')
+    const dueTodayTasks = sortedTasks.filter(t => t.daysUntilDue === 0 && !(t.recent_submissions?.length > 0) && t.status !== 'completed')
+    const upcomingTasks = sortedTasks.filter(t => t.daysUntilDue > 0 && t.daysUntilDue <= 7 && !(t.recent_submissions?.length > 0) && t.status !== 'completed')
+    const futureTasks = sortedTasks.filter(t => t.daysUntilDue > 7 && !(t.recent_submissions?.length > 0) && t.status !== 'completed')
 
     // Return all tasks prioritized by urgency (nearest deadline first), then tasks without deadlines
     return [...overdueTasks, ...dueTodayTasks, ...upcomingTasks, ...futureTasks, ...tasksWithoutDueDates]

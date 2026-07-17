@@ -106,6 +106,11 @@ async function checkDueDates() {
     for (const asgn of (dueSoonAssignments || [])) {
       const userIds = await getAssignedUserIds(asgn);
       for (const uid of userIds) {
+        // Skip notifying the Team Leader to "submit" their own task
+        if (uid === asgn.team_leader_id) {
+          continue;
+        }
+
         if (await hasUserSubmitted(uid, asgn.id)) {
           continue;
         }
@@ -140,6 +145,11 @@ async function checkDueDates() {
     for (const asgn of (overdueAssignments || [])) {
       const userIds = await getAssignedUserIds(asgn);
       for (const uid of userIds) {
+        // Skip notifying the Team Leader to "submit" their own task
+        if (uid === asgn.team_leader_id) {
+          continue;
+        }
+
         if (await hasUserSubmitted(uid, asgn.id)) {
           continue;
         }

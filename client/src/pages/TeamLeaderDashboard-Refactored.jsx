@@ -152,7 +152,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     if (!user || !user.team) return
     if (lastFetchedTeam.current === user.team) return
     lastFetchedTeam.current = user.team
-    
+
     fetchTeamMembers()
     fetchNotifications()
     fetchAnalytics()
@@ -225,7 +225,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             if (data.type === 'broadcast') {
               setActiveBroadcast({ title: data.title, message: data.message });
             }
-          } catch(e) {}
+          } catch (e) { }
         }
       }
       es.onerror = () => {
@@ -326,7 +326,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       if (data.success && data.members && data.members.length > 0) {
         // Filter out the current user from the fetched members since we manually add them as '(You)' later
         const otherMembers = data.members.filter(member => String(member.id) !== String(user.id))
-        
+
         const mappedMembers = otherMembers.map(member => ({
           id: member.id,
           name: member.fullName || member.username,
@@ -549,7 +549,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           apiFetch(`/api/assignments/${data.assignmentId}`, {
             method: 'DELETE',
             body: JSON.stringify({ teamLeaderUsername: user.username, team: user.team })
-          }).catch(() => {})
+          }).catch(() => { })
         }
         return
       }
@@ -622,11 +622,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         const CHUNK_SIZE = 200          // files per subsequent chunk
         const CONCURRENT_CHUNKS = 4   // parallel chunk uploads
 
-        const firstBatchFiles = attachedFiles.slice(0, FIRST_BATCH_SIZE)
-        const remainingFiles  = attachedFiles.slice(FIRST_BATCH_SIZE)
+        const firstBatchFiles = attachedFiles.slic  e(0, FIRST_BATCH_SIZE)
+        const remainingFiles = attachedFiles.slice(FIRST_BATCH_SIZE)
         const allPaths = attachedFiles.map(f => f.webkitRelativePath || f.name)
-        const firstBatchPaths  = allPaths.slice(0, FIRST_BATCH_SIZE)
-        const remainingPaths   = allPaths.slice(FIRST_BATCH_SIZE)
+        const firstBatchPaths = allPaths.slice(0, FIRST_BATCH_SIZE)
+        const remainingPaths = allPaths.slice(FIRST_BATCH_SIZE)
 
         const formData = new FormData()
         formData.append('title', assignmentForm.title)
@@ -675,22 +675,22 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             const fallbackData = await apiFetch(fallbackUrl, {
               method: fallbackMethod,
               body: JSON.stringify({
-              title: assignmentForm.title,
-              description: assignmentForm.description || '',
-              dueDate: assignmentForm.dueDate || '',
-              otDates: JSON.stringify(otDates || []),
-              fileTypeRequired: assignmentForm.fileTypeRequired || '',
-              complexity: assignmentForm.complexity || 'Medium',
-              assignedTo: assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific',
-              assignedMembers: assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers,
-              teamLeaderId: user.id,
-              teamLeaderUsername: user.username,
-              team: assignmentForm.selectedTeam || user.team,
-              removeAttachmentIds
+                title: assignmentForm.title,
+                description: assignmentForm.description || '',
+                dueDate: assignmentForm.dueDate || '',
+                otDates: JSON.stringify(otDates || []),
+                fileTypeRequired: assignmentForm.fileTypeRequired || '',
+                complexity: assignmentForm.complexity || 'Medium',
+                assignedTo: assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific',
+                assignedMembers: assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers,
+                teamLeaderId: user.id,
+                teamLeaderUsername: user.username,
+                team: assignmentForm.selectedTeam || user.team,
+                removeAttachmentIds
               }),
               signal: abortController.signal
-              })
-              return handlePostDataResult(fallbackData, removeAttachmentIds)
+            })
+            return handlePostDataResult(fallbackData, removeAttachmentIds)
           }
           throw error
         }
@@ -910,7 +910,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           } else {
             setSuccess('File opened successfully');
             // Record view only when file is actually opened
-            try { await apiFetch(`/api/files/${actualFileId}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
+            try { await apiFetch(`/api/files/${actualFileId}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch { }
             if (onFileViewedCallback) { onFileViewedCallback(actualFileId); setOnFileViewedCallback(null) }
           }
         } else {
@@ -925,7 +925,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         });
         setSuccess('File opened in new tab');
         // Record view only when file is actually opened
-        try { await apiFetch(`/api/files/${actualFileId}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
+        try { await apiFetch(`/api/files/${actualFileId}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch { }
         if (onFileViewedCallback) { onFileViewedCallback(actualFileId); setOnFileViewedCallback(null) }
       }
     } catch (error) {
@@ -1384,7 +1384,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                           setHighlightedSubmissionFileId(res.file_id)
                           setHighlightedFileStatus(res.file_status || 'revision')
                         }
-                      } catch (_) {}
+                      } catch (_) { }
                     }
 
                     if (shouldOpenComments) {
@@ -1433,181 +1433,181 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         <Suspense fallback={<SkeletonLoader type="teamleader" />}>
           <div className="tl-dashboard">
             <Sidebar
-          activeTab={activeTab}
-          setActiveTab={switchTab}
-          clearMessages={clearMessages}
-          setSidebarOpen={setSidebarOpen}
-          sidebarOpen={sidebarOpen}
-          onLogout={onLogout}
-          user={user}
-          unreadCount={unreadCount}
-        />
+              activeTab={activeTab}
+              setActiveTab={switchTab}
+              clearMessages={clearMessages}
+              setSidebarOpen={setSidebarOpen}
+              sidebarOpen={sidebarOpen}
+              onLogout={onLogout}
+              user={user}
+              unreadCount={unreadCount}
+            />
 
-        <main className="tl-main">
-          {/* Online Members Panel — top right */}
-          <div style={{ position: 'fixed', top: '16px', right: '24px', zIndex: 1000 }}>
-            <OnlineMembersPanel user={user} />
+            <main className="tl-main">
+              {/* Online Members Panel — top right */}
+              <div style={{ position: 'fixed', top: '16px', right: '24px', zIndex: 1000 }}>
+                <OnlineMembersPanel user={user} />
+              </div>
+
+              <AlertMessage
+                type="error"
+                message={error}
+                onClose={clearMessages}
+              />
+              <AlertMessage
+                type="success"
+                message={success}
+                onClose={clearMessages}
+              />
+
+              {renderActiveTab()}
+            </main>
+
+            {/* All Modals */}
+            {showBulkActionModal && (
+              <Suspense fallback={<div />}>
+                <BulkActionModal
+                  showBulkActionModal={showBulkActionModal}
+                  setShowBulkActionModal={setShowBulkActionModal}
+                  bulkAction={bulkAction}
+                  selectedFileIds={selectedFileIds}
+                  bulkComments={bulkComments}
+                  setBulkComments={setBulkComments}
+                  isProcessing={isProcessing}
+                  submitBulkAction={submitBulkAction}
+                />
+              </Suspense>
+            )}
+
+            {showFilterModal && (
+              <Suspense fallback={<div />}>
+                <FilterModal
+                  showFilterModal={showFilterModal}
+                  setShowFilterModal={setShowFilterModal}
+                  filters={filters}
+                  setFilters={setFilters}
+                  clearFilters={clearFilters}
+                  applyFilters={applyFilters}
+                />
+              </Suspense>
+            )}
+
+            {showPriorityModal && (
+              <Suspense fallback={<div />}>
+                <PriorityModal
+                  showPriorityModal={showPriorityModal}
+                  setShowPriorityModal={setShowPriorityModal}
+                  priorityValue={priorityValue}
+                  setPriorityValue={setPriorityValue}
+                  dueDateValue={dueDateValue}
+                  setDueDateValue={setDueDateValue}
+                  isProcessing={isProcessing}
+                  submitPriority={submitPriority}
+                />
+              </Suspense>
+            )}
+
+            {showMemberFilesModal && (
+              <Suspense fallback={<div />}>
+                <MemberFilesModal
+                  showMemberFilesModal={showMemberFilesModal}
+                  setShowMemberFilesModal={setShowMemberFilesModal}
+                  selectedMember={selectedMember}
+                  setSelectedMember={setSelectedMember}
+                  memberFiles={memberFiles}
+                  setMemberFiles={setMemberFiles}
+                  isLoading={isLoading}
+                  formatFileSize={formatFileSize}
+                  user={user}
+                />
+              </Suspense>
+            )}
+
+            {showCreateAssignmentModal && (
+              <Suspense fallback={<div />}>
+                <CreateAssignmentModal
+                  key={editingAssignmentId || 'new'}
+                  showCreateAssignmentModal={showCreateAssignmentModal}
+                  setShowCreateAssignmentModal={setShowCreateAssignmentModal}
+                  assignmentForm={assignmentForm}
+                  setAssignmentForm={setAssignmentForm}
+                  teamMembers={teamMembers}
+                  isProcessing={isProcessing}
+                  uploadProgress={uploadProgress}
+                  createAssignment={createAssignment}
+                  currentUserId={user.id}
+                  teams={uniqueTeams} // Pass unique teams to modal
+                  isEditMode={!!editingAssignmentId}
+                  initialAttachments={modalInitialAttachments}
+                  onClose={() => {
+                    // Mark as cancelled FIRST — synchronously, before anything else
+                    createAssignmentCancelled.current = true
+                    // Also try to abort the network request
+                    if (createAssignmentAbortController.current) {
+                      createAssignmentAbortController.current.abort()
+                      createAssignmentAbortController.current = null
+                    }
+                    setShowCreateAssignmentModal(false)
+                    setIsProcessing(false)
+                    setUploadProgress(null)
+                    setEditingAssignmentId(null)
+                    setModalInitialAttachments([])
+                    setAssignmentForm({
+                      title: '',
+                      description: '',
+                      dueDate: '',
+                      fileTypeRequired: '',
+                      assignedMembers: [],
+                      selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
+                      otDates: []
+                    })
+                  }}
+                />
+              </Suspense>
+            )}
+
+            {showReviewModal && (
+              <Suspense fallback={<div />}>
+                <ReviewModal
+                  showReviewModal={showReviewModal}
+                  setShowReviewModal={setShowReviewModal}
+                  selectedFile={selectedFile}
+                  reviewAction={reviewAction}
+                  setReviewAction={setReviewAction}
+                  fileComments={fileComments}
+                  reviewComments={reviewComments}
+                  setReviewComments={setReviewComments}
+                  isProcessing={isProcessing}
+                  handleReviewSubmit={handleReviewSubmit}
+                  formatFileSize={formatFileSize}
+                  user={user}
+                  openFileViewModal={openFileViewModal}
+                />
+              </Suspense>
+            )}
+
+            {showFileViewModal && (
+              <Suspense fallback={<div />}>
+                <FileViewModal
+                  showModal={showFileViewModal}
+                  setShowModal={setShowFileViewModal}
+                  selectedFile={selectedFile}
+                  formatFileSize={formatFileSize}
+                  user={user}
+                />
+              </Suspense>
+            )}
+
+            {activeBroadcast && (
+              <BroadcastAlert
+                broadcast={activeBroadcast}
+                onClose={() => setActiveBroadcast(null)}
+              />
+            )}
           </div>
-
-          <AlertMessage
-            type="error"
-            message={error}
-            onClose={clearMessages}
-          />
-          <AlertMessage
-            type="success"
-            message={success}
-            onClose={clearMessages}
-          />
-
-          {renderActiveTab()}
-        </main>
-
-        {/* All Modals */}
-        {showBulkActionModal && (
-          <Suspense fallback={<div />}>
-            <BulkActionModal
-              showBulkActionModal={showBulkActionModal}
-              setShowBulkActionModal={setShowBulkActionModal}
-              bulkAction={bulkAction}
-              selectedFileIds={selectedFileIds}
-              bulkComments={bulkComments}
-              setBulkComments={setBulkComments}
-              isProcessing={isProcessing}
-              submitBulkAction={submitBulkAction}
-            />
-          </Suspense>
-        )}
-
-        {showFilterModal && (
-          <Suspense fallback={<div />}>
-            <FilterModal
-              showFilterModal={showFilterModal}
-              setShowFilterModal={setShowFilterModal}
-              filters={filters}
-              setFilters={setFilters}
-              clearFilters={clearFilters}
-              applyFilters={applyFilters}
-            />
-          </Suspense>
-        )}
-
-        {showPriorityModal && (
-          <Suspense fallback={<div />}>
-            <PriorityModal
-              showPriorityModal={showPriorityModal}
-              setShowPriorityModal={setShowPriorityModal}
-              priorityValue={priorityValue}
-              setPriorityValue={setPriorityValue}
-              dueDateValue={dueDateValue}
-              setDueDateValue={setDueDateValue}
-              isProcessing={isProcessing}
-              submitPriority={submitPriority}
-            />
-          </Suspense>
-        )}
-
-        {showMemberFilesModal && (
-          <Suspense fallback={<div />}>
-            <MemberFilesModal
-              showMemberFilesModal={showMemberFilesModal}
-              setShowMemberFilesModal={setShowMemberFilesModal}
-              selectedMember={selectedMember}
-              setSelectedMember={setSelectedMember}
-              memberFiles={memberFiles}
-              setMemberFiles={setMemberFiles}
-              isLoading={isLoading}
-              formatFileSize={formatFileSize}
-              user={user}
-            />
-          </Suspense>
-        )}
-
-        {showCreateAssignmentModal && (
-          <Suspense fallback={<div />}>
-            <CreateAssignmentModal
-              key={editingAssignmentId || 'new'}
-              showCreateAssignmentModal={showCreateAssignmentModal}
-              setShowCreateAssignmentModal={setShowCreateAssignmentModal}
-              assignmentForm={assignmentForm}
-              setAssignmentForm={setAssignmentForm}
-              teamMembers={teamMembers}
-              isProcessing={isProcessing}
-              uploadProgress={uploadProgress}
-              createAssignment={createAssignment}
-              currentUserId={user.id}
-              teams={uniqueTeams} // Pass unique teams to modal
-              isEditMode={!!editingAssignmentId}
-              initialAttachments={modalInitialAttachments}
-              onClose={() => {
-                // Mark as cancelled FIRST — synchronously, before anything else
-                createAssignmentCancelled.current = true
-                // Also try to abort the network request
-                if (createAssignmentAbortController.current) {
-                  createAssignmentAbortController.current.abort()
-                  createAssignmentAbortController.current = null
-                }
-                setShowCreateAssignmentModal(false)
-                setIsProcessing(false)
-                setUploadProgress(null)
-                setEditingAssignmentId(null)
-                setModalInitialAttachments([])
-                setAssignmentForm({
-                  title: '',
-                  description: '',
-                  dueDate: '',
-                  fileTypeRequired: '',
-                  assignedMembers: [],
-                  selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
-                  otDates: []
-                })
-              }}
-            />
-          </Suspense>
-        )}
-
-        {showReviewModal && (
-          <Suspense fallback={<div />}>
-            <ReviewModal
-              showReviewModal={showReviewModal}
-              setShowReviewModal={setShowReviewModal}
-              selectedFile={selectedFile}
-              reviewAction={reviewAction}
-              setReviewAction={setReviewAction}
-              fileComments={fileComments}
-              reviewComments={reviewComments}
-              setReviewComments={setReviewComments}
-              isProcessing={isProcessing}
-              handleReviewSubmit={handleReviewSubmit}
-              formatFileSize={formatFileSize}
-              user={user}
-              openFileViewModal={openFileViewModal}
-            />
-          </Suspense>
-        )}
-
-        {showFileViewModal && (
-          <Suspense fallback={<div />}>
-            <FileViewModal
-              showModal={showFileViewModal}
-              setShowModal={setShowFileViewModal}
-              selectedFile={selectedFile}
-              formatFileSize={formatFileSize}
-              user={user}
-            />
-          </Suspense>
-        )}
-
-        {activeBroadcast && (
-          <BroadcastAlert 
-            broadcast={activeBroadcast} 
-            onClose={() => setActiveBroadcast(null)} 
-          />
-        )}
-      </div>
-    </Suspense>
-    </NetworkProvider>
-  </AuthProvider>
+        </Suspense>
+      </NetworkProvider>
+    </AuthProvider>
   )
 }
 

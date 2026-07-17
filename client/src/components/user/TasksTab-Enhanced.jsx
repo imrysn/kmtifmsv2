@@ -2049,7 +2049,7 @@ const TasksTab = memo(({
   };
 
   const renderFileCard = (file, assignmentId, indented = false, assignmentTitle = null, isAttachment = false, checkerActions = null) => {
-    const canDelete = file.status !== 'final_approved';
+    const canDelete = file.status !== 'final_approved' && activeTab === 'my-tasks';
     const fileWithTitle = assignmentTitle ? { ...file, assignment_title: assignmentTitle } : file;
     return (
       <div
@@ -2232,7 +2232,7 @@ const TasksTab = memo(({
           </div>
         );
       } else {
-        const canDelete = file.status !== 'final_approved';
+        const canDelete = file.status !== 'final_approved' && activeTab === 'my-tasks';
         const fileWithTitle = assignment.title ? { ...file, assignment_title: assignment.title } : file;
         subItems.push(
           <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '7px' }}>
@@ -2881,10 +2881,10 @@ const TasksTab = memo(({
                                     isFolder
                                     onViewDetails={() => { const firstFile = folderFiles[0]; if (firstFile) openFileDetails(firstFile); }}
                                     onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false, folderName, true)}
-                                    onDelete={() => {
+                                    onDelete={activeTab === 'my-tasks' ? () => {
                                       setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
                                       setShowDeleteModal(true);
-                                    }}
+                                    } : undefined}
                                   />
                                 </div>
                               </div>
@@ -2917,7 +2917,7 @@ const TasksTab = memo(({
                   </div>
                 )}
 
-                {(assignment.assigned_to === 'all' || assignment.assigned_member_details?.some(m => m.id === user.id)) && (
+                {activeTab === 'my-tasks' && (assignment.assigned_to === 'all' || assignment.assigned_member_details?.some(m => m.id === user.id)) && (
                   <div style={{ paddingTop: '16px' }}>
                     <button
                       onClick={() => handleSubmit(assignment)}
