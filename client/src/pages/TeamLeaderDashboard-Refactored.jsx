@@ -622,7 +622,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         const CHUNK_SIZE = 200          // files per subsequent chunk
         const CONCURRENT_CHUNKS = 4   // parallel chunk uploads
 
-        const firstBatchFiles = attachedFiles.slic  e(0, FIRST_BATCH_SIZE)
+        const firstBatchFiles = attachedFiles.slice(0, FIRST_BATCH_SIZE)
         const remainingFiles = attachedFiles.slice(FIRST_BATCH_SIZE)
         const allPaths = attachedFiles.map(f => f.webkitRelativePath || f.name)
         const firstBatchPaths = allPaths.slice(0, FIRST_BATCH_SIZE)

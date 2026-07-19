@@ -7,19 +7,19 @@ const formatDate = (dateString) => {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return null;
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
-           ' ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      ' ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   } catch { return null; }
 };
 
 const STATUS_CONFIG = {
-  uploaded:                 { label: 'Pending Review',          bg: 'var(--status-review)', color: 'var(--status-review-text)', border: 'var(--status-review-text)', icon: '⏳' },
-  revision:                 { label: 'Checked – Need to Edit',  bg: 'var(--status-pending)', color: 'var(--status-pending-text)', border: 'var(--status-pending-text)', icon: '✎' },
-  under_revision:           { label: 'Under Revision',          bg: 'var(--status-pending)', color: 'var(--status-pending-text)', border: 'var(--status-pending-text)', icon: '✎' },
-  checked:                  { label: 'Checked',                 bg: 'var(--status-review)', color: 'var(--status-review-text)', border: 'var(--status-review-text)', icon: '✓' },
-  team_leader_approved:     { label: 'Pending Admin',           bg: '#fefce8', color: '#713f12', border: 'var(--status-pending-text)', icon: '⏳' },
-  final_approved:           { label: 'Approved',                bg: 'var(--status-approved)', color: 'var(--status-approved-text)', border: 'var(--status-approved-text)', icon: '✓' },
-  rejected_by_team_leader:  { label: 'Rejected by Team Leader', bg: 'var(--status-rejected)', color: '#b91c1c', border: 'var(--status-rejected-text)', icon: '✕' },
-  rejected_by_admin:        { label: 'Rejected by Admin',       bg: 'var(--status-rejected)', color: '#b91c1c', border: 'var(--status-rejected-text)', icon: '✕' },
+  uploaded: { label: 'Pending Review', bg: 'var(--status-review)', color: 'var(--status-review-text)', border: 'var(--status-review-text)', icon: '⏳' },
+  revision: { label: 'Checked – Need to Edit', bg: 'var(--status-pending)', color: 'var(--status-pending-text)', border: 'var(--status-pending-text)', icon: '✎' },
+  under_revision: { label: 'Under Revision', bg: 'var(--status-pending)', color: 'var(--status-pending-text)', border: 'var(--status-pending-text)', icon: '✎' },
+  checked: { label: 'Checked', bg: 'var(--status-review)', color: 'var(--status-review-text)', border: 'var(--status-review-text)', icon: '✓' },
+  team_leader_approved: { label: 'Pending Admin', bg: '#fefce8', color: '#713f12', border: 'var(--status-pending-text)', icon: '⏳' },
+  final_approved: { label: 'Approved', bg: 'var(--status-approved)', color: 'var(--status-approved-text)', border: 'var(--status-approved-text)', icon: '✓' },
+  rejected_by_team_leader: { label: 'Rejected by Team Leader', bg: 'var(--status-rejected)', color: '#b91c1c', border: 'var(--status-rejected-text)', icon: '✕' },
+  rejected_by_admin: { label: 'Rejected by Admin', bg: 'var(--status-rejected)', color: '#b91c1c', border: 'var(--status-rejected-text)', icon: '✕' },
 };
 
 const getStatusConfig = (status) => {
@@ -329,8 +329,8 @@ const FileModal = memo(({
               boxShadow: '0 2px 8px rgba(79,70,229,0.3)',
             }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
-                <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
               </svg>
               Open File
             </button>

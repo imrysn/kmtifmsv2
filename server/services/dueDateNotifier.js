@@ -55,24 +55,20 @@ async function alreadyNotified(userId, assignmentId, type) {
 }
 
 async function hasUserSubmitted(userId, assignmentId) {
-  // Check if the user has an active submission
+  // Check if ANY user has an active submission for this assignment
+  // If anyone submitted, the task is considered submitted for the whole team
   const subRow = await query(
-    'SELECT id FROM assignment_submissions WHERE user_id = ? AND assignment_id = ? LIMIT 1',
-    [userId, assignmentId]
+    'SELECT id FROM assignment_submissions WHERE assignment_id = ? LIMIT 1',
+    [assignmentId]
   );
   if (subRow && subRow.length > 0) return true;
 
-  // Or check if their member status indicates they already submitted
+  // Or check if ANY member status indicates they already submitted
   const memberRow = await query(
-    'SELECT status FROM assignment_members WHERE user_id = ? AND assignment_id = ? LIMIT 1',
-    [userId, assignmentId]
+    'SELECT status FROM assignment_members WHERE assignment_id = ? AND status IN (\'submitted\', \'checked\', \'revision\', \'under_revision\') LIMIT 1',
+    [assignmentId]
   );
-  if (memberRow && memberRow.length > 0) {
-    const status = memberRow[0].status;
-    if (status === 'submitted' || status === 'checked' || status === 'revision' || status === 'under_revision') {
-      return true;
-    }
-  }
+  if (memberRow && memberRow.length > 0) return true;
 
   return false;
 }
@@ -98,7 +94,7 @@ async function checkDueDates() {
     const dueSoonAssignments = await query(
       `SELECT id, title, due_date, assigned_to, team, team_leader_id, team_leader_username
        FROM assignments
-       WHERE status NOT IN ('completed', 'checked')
+       WHERE status NOT IN ('completed', 'checked', 'submitted')
          AND due_date IS NOT NULL
          AND DATE(due_date) = DATE(DATE_ADD(NOW(), INTERVAL 1 DAY))`
     );
@@ -137,7 +133,7 @@ async function checkDueDates() {
     const overdueAssignments = await query(
       `SELECT id, title, due_date, assigned_to, team, team_leader_id, team_leader_username
        FROM assignments
-       WHERE status NOT IN ('completed', 'checked')
+       WHERE status NOT IN ('completed', 'checked', 'submitted')
          AND due_date IS NOT NULL
          AND DATE(due_date) < DATE(NOW())`
     );
