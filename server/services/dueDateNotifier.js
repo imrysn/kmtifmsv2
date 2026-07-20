@@ -41,12 +41,15 @@ async function getAssignedUserIds(assignment) {
   return [...ids];
 }
 
-    }
-  }
-  return [...ids];
-}
-
 async function alreadyNotified(userId, assignmentId, type) {
+  // Check the robust history log first so deleted notifications don't come back
+  const historyRow = await query(
+    "SELECT id FROM notification_history WHERE user_id = ? AND assignment_id = ? AND type = ? LIMIT 1",
+    [userId, assignmentId, type]
+  );
+  if (historyRow && historyRow.length > 0) return true;
+
+  // Fallback to live notifications table for safety
   const rows = await query(
     "SELECT id FROM notifications WHERE user_id = ? AND assignment_id = ? AND type = ? AND (panel_type IS NULL OR panel_type = 'user') LIMIT 1",
     [userId, assignmentId, type]
@@ -80,6 +83,17 @@ async function insertNotification(userId, assignmentId, type, title, message, ac
      VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 'ADMIN', 'user')`,
     [userId, assignmentId, type, title, message, actionById, actionByUsername || 'System']
   );
+  
+  // Record it in the robust history log so it never comes back as a zombie
+  try {
+    await query(
+      `INSERT IGNORE INTO notification_history (user_id, assignment_id, type) VALUES (?, ?, ?)`,
+      [userId, assignmentId, type]
+    );
+  } catch (err) {
+    console.error("Error inserting into notification_history:", err);
+  }
+
   pushToUser(userId);
 }
 
