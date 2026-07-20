@@ -2142,7 +2142,7 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
     const tlId = assignment.team_leader_id;
     // Don't send a redundant "Checker: Submission..." notification if the TL is the one who uploaded the file
     // and they already received the direct "Your file..." notification.
-    if (tlId && !allUserIds.has(tlId)) {
+    if (tlId && !allUserIds.has(tlId) && String(tlId) !== String(checkerId)) {
       try {
         const tlMsg = note
           ? `${checkerName} marked ${fileId ? 'a file' : 'the submission'} for "${assignment.title}" as needing editing. Note: ${note}`
@@ -2212,7 +2212,7 @@ router.put('/:assignmentId/mark-checked', authenticateToken, async (req, res) =>
     // Notify the Team Leader
     const tlId = assignment.team_leader_id;
     console.log(`🔔 mark-checked: assignment.team_leader_id=${tlId}, assignment.id=${assignmentId}, checker=${checkerName}`);
-    if (tlId) {
+    if (tlId && String(tlId) !== String(checkerId)) {
       try {
         await query(
           'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -2312,7 +2312,7 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
 
       // Notify the Team Leader — all files done
       const tlId = assignment.team_leader_id;
-      if (tlId) {
+      if (tlId && String(tlId) !== String(checkerId)) {
         try {
           await query(
             'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -2328,7 +2328,7 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
     } else {
       // Notify the Team Leader — progress update (not all files done yet)
       const tlId = assignment.team_leader_id;
-      if (tlId) {
+      if (tlId && String(tlId) !== String(checkerId)) {
         try {
           const fileRow = await queryOne('SELECT original_name FROM files WHERE id = ?', [fileId]);
           const fileName = fileRow?.original_name || 'a file';
