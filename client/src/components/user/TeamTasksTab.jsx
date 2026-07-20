@@ -836,7 +836,7 @@ const TeamTasksTab = ({ user }) => {
             {assignments.filter(a => a.status !== 'completed').length}
           </span>
         </button>
-        {/* Done Tasks Tab */}z``
+        {/* Done Tasks Tab */}
         <button
           onClick={() => setActiveTab('done-tasks')}
           style={{
