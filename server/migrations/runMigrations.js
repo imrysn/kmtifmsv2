@@ -41,7 +41,10 @@ async function runMigrations() {
       { name: '021-add-profile-picture-to-users',            run: require('./021-add-profile-picture-to-users') },
       { name: '022-add-last-seen-to-users',                  run: require('./022-add-last-seen-to-users') },
       { name: '023-add-mistakes-count',                      run: require('./023-add-mistakes-count') },
-      { name: '024-add-penalty-percentage',                  run: require('./024-add-penalty-percentage') }
+      { name: '024-add-penalty-percentage',                  run: require('./024-add-penalty-percentage') },
+      { name: '025-add-checker-penalty',                     run: require('./025-add-checker-penalty') },
+      { name: '026-add-complexity-and-checked-at',           run: require('./026-add-complexity-and-checked-at') },
+      { name: '027-add-panel-type-to-notifications',         run: require('./027-add-panel-type-to-notifications') },
     ];
 
     // Fetch all already-applied migrations in one query

@@ -52,8 +52,8 @@ async function createNotification(
   const query = `
         INSERT INTO notifications (
             user_id, file_id, assignment_id, type, title, message,
-            action_by_id, action_by_username, action_by_role, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            action_by_id, action_by_username, action_by_role, panel_type, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `;
 
   // Ensure all parameters are null instead of undefined for MySQL compatibility
@@ -67,7 +67,8 @@ async function createNotification(
     data.message ?? null,
     data.action_by_id ?? data.actionById ?? null,
     data.action_by_username ?? data.actionByUsername ?? 'System',
-    data.action_by_role ?? data.actionByRole ?? 'ADMIN'
+    data.action_by_role ?? data.actionByRole ?? 'ADMIN',
+    data.panel_type ?? data.panelType ?? null
   ];
 
   try {

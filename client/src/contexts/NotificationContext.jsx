@@ -16,7 +16,7 @@ const updateElectronBadge = (unreadCount) => {
   }
 }
 
-export const NotificationProvider = ({ children, userId }) => {
+export const NotificationProvider = ({ children, userId, panelType }) => {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
@@ -29,7 +29,7 @@ export const NotificationProvider = ({ children, userId }) => {
 
     try {
       const data = await apiFetch(
-        `/api/notifications/user/${userId}?page=1&limit=20`
+        `/api/notifications/user/${userId}?page=1&limit=20${panelType ? `&panelType=${panelType}` : ''}`
       )
 
       if (data.success) {
@@ -41,7 +41,7 @@ export const NotificationProvider = ({ children, userId }) => {
     } finally {
       if (!silent) setIsLoading(false)
     }
-  }, [userId])
+  }, [userId, panelType])
 
   const markAsRead = useCallback(async (notificationId) => {
     try {

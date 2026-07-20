@@ -48,7 +48,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
   // Single stable fetch function — defined once, used by both initial load and poll
   const fetchNotifications = useCallback(async () => {
     try {
-      const data = await apiFetch(`/api/notifications/user/${user.id}`);
+      const data = await apiFetch(`/api/notifications/user/${user.id}?panelType=user`);
       applyNotifications(data);
     } catch (error) {
       console.error('❌ Error fetching notifications:', error);

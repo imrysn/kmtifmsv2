@@ -96,7 +96,7 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
       if (isInitial && !isSilentRefresh) setLoading(true);
       else if (!isSilentRefresh) setLoadingMore(true);
 
-      const data = await apiFetch(`/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}`);
+      const data = await apiFetch(`/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}&panelType=teamleader`);
 
       if (data.success) {
         const incoming = data.notifications || [];

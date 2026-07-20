@@ -13,7 +13,7 @@ const NotificationBell = ({ userId, onNotificationClick }) => {
 
   const fetchUnreadCount = async () => {
     try {
-      const data = await apiFetch(`/api/notifications/user/${userId}/unread-count`);
+      const data = await apiFetch(`/api/notifications/user/${userId}/unread-count?panelType=teamleader`);
 
       if (data.success) {
         const newCount = data.count || 0;

@@ -80,8 +80,8 @@ const createNotification = async (userId, fileId, type, title, message, actionBy
     const result = await query(
       `INSERT INTO notifications (
         user_id, file_id, type, title, message, assignment_id,
-        action_by_id, action_by_username, action_by_role
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        action_by_id, action_by_username, action_by_role, panel_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'user')`,
       [
         userId ?? null,
         fileId ?? null,
@@ -167,7 +167,7 @@ const createAdminNotification = async (fileId, type, title, message, actionById,
 router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { unreadOnly, page = 1, limit = 20 } = req.query;
+    const { unreadOnly, page = 1, limit = 20, panelType } = req.query;
 
     // Ownership check: users can only see their own notifications; ADMIN can see any
     // Use loose == comparison so string userId from URL matches integer req.user.id from JWT
@@ -186,10 +186,17 @@ router.get('/user/:userId', async (req, res) => {
 
     // Get total count
     let countQuery = 'SELECT COUNT(*) as total FROM notifications WHERE user_id = ?';
+    const countParams = [userId];
     if (unreadOnly === 'true') {
       countQuery += ' AND is_read = 0';
     }
-    const countResult = await queryOne(countQuery, [userId]);
+    // Panel-type filtering: exclude notifications scoped to the *other* panel
+    if (panelType === 'teamleader') {
+      countQuery += " AND (panel_type IS NULL OR panel_type != 'user')";
+    } else if (panelType === 'user') {
+      countQuery += " AND (panel_type IS NULL OR panel_type != 'teamleader')";
+    }
+    const countResult = await queryOne(countQuery, countParams);
     const totalCount = countResult?.total || 0;
 
     // Get paginated notifications
@@ -211,21 +218,32 @@ router.get('/user/:userId', async (req, res) => {
       WHERE n.user_id = ?
     `;
 
+    const queryParams = [userId];
     if (unreadOnly === 'true') {
       queryStr += ' AND n.is_read = 0';
+    }
+    // Panel-type filtering: exclude notifications scoped to the *other* panel
+    if (panelType === 'teamleader') {
+      queryStr += " AND (n.panel_type IS NULL OR n.panel_type != 'user')";
+    } else if (panelType === 'user') {
+      queryStr += " AND (n.panel_type IS NULL OR n.panel_type != 'teamleader')";
     }
 
     queryStr += ` ORDER BY n.created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
 
-    const notifications = await query(queryStr, [userId]);
+    const notifications = await query(queryStr, queryParams);
 
     console.log(`✅ Found ${notifications.length} notifications for user ${userId} (page ${pageNum})`);
 
     // Count unread notifications (total, not just in this page)
-    const unreadCountResult = await queryOne(
-      'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0',
-      [userId]
-    );
+    let unreadCountQuery = 'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0';
+    const unreadParams = [userId];
+    if (panelType === 'teamleader') {
+      unreadCountQuery += " AND (panel_type IS NULL OR panel_type != 'user')";
+    } else if (panelType === 'user') {
+      unreadCountQuery += " AND (panel_type IS NULL OR panel_type != 'teamleader')";
+    }
+    const unreadCountResult = await queryOne(unreadCountQuery, unreadParams);
     const unreadCount = unreadCountResult?.count || 0;
 
     // Calculate if there are more pages
@@ -260,10 +278,16 @@ router.get('/user/:userId/unread-count', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const result = await queryOne(
-      'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0',
-      [userId]
-    );
+    const { panelType } = req.query;
+
+    let unreadQuery = 'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0';
+    const unreadParams = [userId];
+    if (panelType === 'teamleader') {
+      unreadQuery += " AND (panel_type IS NULL OR panel_type != 'user')";
+    } else if (panelType === 'user') {
+      unreadQuery += " AND (panel_type IS NULL OR panel_type != 'teamleader')";
+    }
+    const result = await queryOne(unreadQuery, unreadParams);
 
     res.json({
       success: true,

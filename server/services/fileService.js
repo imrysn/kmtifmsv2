@@ -319,17 +319,18 @@ async function uploadFile(fileData, user) {
             if (String(checkerId) === String(assignment.team_leader_id)) {
               continue;
             }    // TL already notified
-            await notificationService.createNotification(
-              parseInt(checkerId, 10),
-              fileId,
-              'submission',
-              'New File Submitted for Checking',
-              `${user.fullName || user.username} submitted "${originalName}" for "${assignment.title}".`,
-              user.id,
-              user.username,
-              user.role,
-              assignmentId
-            );
+            await notificationService.createNotification({
+              user_id: parseInt(checkerId, 10),
+              file_id: fileId,
+              type: 'submission',
+              title: 'New File Submitted for Checking',
+              message: `${user.fullName || user.username} submitted "${originalName}" for "${assignment.title}".`,
+              action_by_id: user.id,
+              action_by_username: user.username,
+              action_by_role: user.role,
+              assignment_id: assignmentId,
+              panel_type: 'user'
+            });
             pushToUser(checkerId);
           }
         } catch (checkerNotifErr) {
@@ -654,17 +655,23 @@ async function bulkUploadFast(filesData, user, assignmentId = null, targetFolder
           })();
           for (const checkerId of checkerIds) {
             if (String(checkerId) === String(user.id)) {
-              continue;
-            }                          // submitter is the checker
+              continue;  // submitter is the checker
+            }
             if (String(checkerId) === String(assignment.team_leader_id)) {
-              continue;
-            }        // TL already notified
-            await notificationService.createNotification(
-              parseInt(checkerId, 10), firstFileId, 'submission',
-              'New File Submitted for Checking',
-              notificationMessage,
-              user.id, user.username, user.role, parseInt(assignmentId, 10)
-            );
+              continue;  // TL already notified
+            }
+            await notificationService.createNotification({
+              user_id: parseInt(checkerId, 10),
+              file_id: firstFileId,
+              type: 'submission',
+              title: 'New File Submitted for Checking',
+              message: notificationMessage,
+              action_by_id: user.id,
+              action_by_username: user.username,
+              action_by_role: user.role,
+              assignment_id: parseInt(assignmentId, 10),
+              panel_type: 'user'
+            });
             pushToUser(checkerId);
           }
         } catch (checkerNotifErr) {

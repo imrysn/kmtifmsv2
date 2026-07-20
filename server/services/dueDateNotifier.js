@@ -48,7 +48,7 @@ async function getAssignedUserIds(assignment) {
 
 async function alreadyNotified(userId, assignmentId, type) {
   const rows = await query(
-    'SELECT id FROM notifications WHERE user_id = ? AND assignment_id = ? AND type = ? LIMIT 1',
+    "SELECT id FROM notifications WHERE user_id = ? AND assignment_id = ? AND type = ? AND (panel_type IS NULL OR panel_type = 'user') LIMIT 1",
     [userId, assignmentId, type]
   );
   return rows && rows.length > 0;
@@ -76,8 +76,8 @@ async function hasUserSubmitted(userId, assignmentId) {
 async function insertNotification(userId, assignmentId, type, title, message, actionById, actionByUsername) {
   await query(
     `INSERT INTO notifications
-       (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role)
-     VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 'SYSTEM')`,
+       (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role, panel_type)
+     VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 'ADMIN', 'user')`,
     [userId, assignmentId, type, title, message, actionById, actionByUsername || 'System']
   );
   pushToUser(userId);

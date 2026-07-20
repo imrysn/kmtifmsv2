@@ -177,7 +177,8 @@ async function createAssignment(data, attachments, user) {
         type: 'assignment',
         title: 'New Assignment',
         message: `${user.username} assigned a new task: "${title}"`,
-        assignment_id: assignmentId
+        assignment_id: assignmentId,
+        panel_type: 'user'
       })));
     }
   } else if (finalMembers.length > 0) {
@@ -187,7 +188,8 @@ async function createAssignment(data, attachments, user) {
       type: 'assignment',
       title: 'New Assignment',
       message: `${user.username} assigned a new task: "${title}"`,
-      assignment_id: assignmentId
+      assignment_id: assignmentId,
+      panel_type: 'user'
     })));
   }
 

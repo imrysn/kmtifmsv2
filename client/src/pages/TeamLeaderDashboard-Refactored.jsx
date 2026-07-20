@@ -1184,7 +1184,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
     // Also fetch unread count from the dedicated notifications endpoint
     try {
-      const d = await apiFetch(`/api/notifications/user/${user.id}?page=1&limit=1`)
+      const d = await apiFetch(`/api/notifications/user/${user.id}?page=1&limit=1&panelType=teamleader`)
       if (d.success) {
         setUnreadCount(d.unreadCount || 0)
       }

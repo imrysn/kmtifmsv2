@@ -2008,11 +2008,13 @@ router.put('/:assignmentId/assign-checker', authenticateToken, authorizeRole(['T
     if (ids.length > 0 && assignment) {
       for (const checkerId of ids) {
         try {
+          // panel_type='user' ensures this notification only appears in the user panel,
+          // not in the team leader panel (both share the same user_id for a TL account).
           await query(
-            'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
+            'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role, panel_type) VALUES (?,?,?,?,?,?,?,?,?,?)',
             [checkerId, assignmentId, null, 'assignment', 'You have been assigned as Checker',
               `${assignment.team_leader_username} assigned you to check the submitted files for "${assignment.title}".`,
-              assignment.team_leader_id, assignment.team_leader_username, 'TEAM_LEADER']
+              assignment.team_leader_id, assignment.team_leader_username, 'TEAM_LEADER', 'user']
           );
           pushToUser(checkerId);
         } catch (e) {
@@ -2025,11 +2027,12 @@ router.put('/:assignmentId/assign-checker', authenticateToken, authorizeRole(['T
     if (removedIds.length > 0 && assignment) {
       for (const removedId of removedIds) {
         try {
+          // panel_type='user' ensures this notification only appears in the user panel.
           await query(
-            'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
+            'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role, panel_type) VALUES (?,?,?,?,?,?,?,?,?,?)',
             [removedId, assignmentId, null, 'assignment', 'You have been removed as Checker',
               `${assignment.team_leader_username} removed you as a checker for "${assignment.title}".`,
-              assignment.team_leader_id, assignment.team_leader_username, 'TEAM_LEADER']
+              assignment.team_leader_id, assignment.team_leader_username, 'TEAM_LEADER', 'user']
           );
           pushToUser(removedId);
         } catch (e) {
