@@ -146,8 +146,9 @@ export function useSmartNavigation({
             timer = clearTimer;
         };
 
-        // Small initial delay so a simultaneous tab-switch re-render can settle first
-        timer = setTimeout(tryHighlight, 80);
+        // Small initial delay so a simultaneous tab-switch re-render can settle first,
+        // and to ensure the smooth scroll animation is visible to the user rather than jumping.
+        timer = setTimeout(tryHighlight, 400);
 
         return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -196,7 +197,7 @@ export function useSmartNavigation({
             }, 3000);
         };
 
-        let timer = setTimeout(tryHighlight, 80); // small initial delay so folder expand fires first
+        let timer = setTimeout(tryHighlight, 400); // Increased delay so folder expand fires first and scroll animation is smooth
         return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [highlightedFileId, highlightedItemId, highlightedFileStatus, items]);

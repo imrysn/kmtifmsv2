@@ -456,14 +456,19 @@ const AssignmentsTab = ({
   // Team filter toggle: 'all' | 'KUSAKABE' | 'IT Dept'
   const [teamFilter, setTeamFilter] = useState('all')
 
-  // Auto-switch to 'done' tab and correct team filter when navigating to a task
+  // Auto-switch to 'done' or 'for_checking' tab and correct team filter when navigating to a task
   useEffect(() => {
     if (!highlightedAssignmentId || assignments.length === 0) return
     const target = assignments.find(a => a.id === highlightedAssignmentId || String(a.id) === String(highlightedAssignmentId))
     if (target) {
       if (target.status === 'completed') {
         setActiveTaskTab('done')
+      } else if (target.recent_submissions?.length > 0) {
+        setActiveTaskTab('for_checking')
+      } else {
+        setActiveTaskTab('tasks')
       }
+      
       if (target.team) {
         setTeamFilter(target.team)
       }
@@ -879,7 +884,7 @@ const AssignmentsTab = ({
             folderEl.classList.add('tl-assignment-folder-highlighted');
             setTimeout(() => folderEl.classList.remove('tl-assignment-folder-highlighted'), 3000);
           };
-          setTimeout(tryHighlightFolder, 80);
+          setTimeout(tryHighlightFolder, 400);
         } else {
           // 3. Poll until the file is in the DOM
           let attempts = 0;
