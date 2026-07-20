@@ -101,7 +101,7 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
                 padding: '8px 12px', background: 'transparent', border: 'none',
                 borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', textAlign: 'left',
               }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--background-primary)'}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
               onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -117,7 +117,7 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
               padding: '8px 12px', background: 'transparent', border: 'none',
               borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', textAlign: 'left',
             }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--background-primary)'}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1090,42 +1090,40 @@ const TeamTasksTab = ({ user }) => {
                             const firstFile = folderFiles[0]
 
                             items.push(
-                              <div
-                                key={`att-folder-${assignment.id}-${folderName}`}
-                                className="file-item folder-item"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))
-                                }}
-                                style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)' }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                  <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-primary)' }}>{folderName}</div>
-                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                      {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
+                              <div key={`att-folder-wrapper-${assignment.id}-${folderName}`} style={{ display: 'contents' }}>
+                                <div
+                                  className="file-item folder-item"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))
+                                  }}
+                                  style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)' }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                    <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-primary)' }}>{folderName}</div>
+                                      <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                        {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
+                                      </div>
                                     </div>
-                                  </div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-                                      <path d="M4 6L8 10L12 6" stroke="var(--text-tertiary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                    <div onClick={e => e.stopPropagation()}>
-                                      <FileMoreMenu
-                                        isFolder
-                                        onDownload={() => handleDownloadFolder(folderFiles, folderName, true)}
-                                        onOpenPath={() => handleOpenFolderPath(firstFile.id, true, true, folderName)}
-                                      />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                                        <path d="M4 6L8 10L12 6" stroke="var(--text-tertiary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                      <div onClick={e => e.stopPropagation()}>
+                                        <FileMoreMenu
+                                          isFolder
+                                          onDownload={() => handleDownloadFolder(folderFiles, folderName, true)}
+                                          onOpenPath={() => handleOpenFolderPath(firstFile.id, true, true, folderName)}
+                                        />
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
+                                {isExpanded && renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], true, folderName)}
                               </div>
                             )
-
-                            if (isExpanded) {
-                              items.push(...renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], true, folderName))
-                            }
                           })
 
                           individualFiles.forEach(file => {
@@ -1209,35 +1207,33 @@ const TeamTasksTab = ({ user }) => {
                             const firstFile = folderFiles[0]
 
                             items.push(
-                              <div
-                                key={`sub-folder-${assignment.id}-${folderName}`}
-                                className="file-item folder-item"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))
-                                }}
-                                style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)' }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                  <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-primary)' }}>{folderName}</div>
-                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                      Submitted by <span style={{ fontWeight: '500' }}>{firstFile.fullName || firstFile.username}</span> • {folderFiles.length} files
+                              <div key={`sub-folder-wrapper-${assignment.id}-${folderName}`} style={{ display: 'contents' }}>
+                                <div
+                                  className="file-item folder-item"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))
+                                  }}
+                                  style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)' }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                    <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-primary)' }}>{folderName}</div>
+                                      <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                        Submitted by <span style={{ fontWeight: '500' }}>{firstFile.fullName || firstFile.username}</span> • {folderFiles.length} files
+                                      </div>
                                     </div>
+                                    <FileMoreMenu
+                                      isFolder
+                                      onDownload={() => handleDownloadFolder(folderFiles, folderName)}
+                                      onOpenPath={() => handleOpenFolderPath(firstFile.id, false, true, folderName)}
+                                    />
                                   </div>
-                                  <FileMoreMenu
-                                    isFolder
-                                    onDownload={() => handleDownloadFolder(folderFiles, folderName)}
-                                    onOpenPath={() => handleOpenFolderPath(firstFile.id, false, true, folderName)}
-                                  />
                                 </div>
+                                {isExpanded && renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], false, folderName)}
                               </div>
                             )
-
-                            if (isExpanded) {
-                              items.push(...renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], false, folderName))
-                            }
                           })
 
                           individualFiles.forEach(file => {

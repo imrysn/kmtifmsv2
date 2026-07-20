@@ -928,7 +928,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
                 padding: '10px 14px', fontSize: '13px', color: 'var(--text-secondary)',
                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
               }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--background-secondary)'; }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--background-primary)'; }}
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -945,7 +945,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
                 padding: '10px 14px', fontSize: '13px', color: 'var(--text-secondary)',
                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
               }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--background-secondary)'; }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--background-primary)'; }}
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1060,7 +1060,7 @@ const AttachmentMoreMenu = memo(({ onDownload, onOpenPath, isFolder = false }) =
                 padding: '8px 12px', background: 'transparent', border: 'none',
                 borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'left',
               }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--background-secondary)'}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
               onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1076,7 +1076,7 @@ const AttachmentMoreMenu = memo(({ onDownload, onOpenPath, isFolder = false }) =
               padding: '8px 12px', background: 'transparent', border: 'none',
               borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'left',
             }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--background-secondary)'}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3196,7 +3196,7 @@ const TasksTab = memo(({
             <div className="tasks-modal-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
               <div style={{ flex: 1, marginRight: '40px' }}>
                 <h3 style={{ fontSize: '20px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '12px' }}>Submit Task</h3>
-                <div style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)', borderLeft: '4px solid var(--primary-color)', borderRadius: '8px', padding: '12px 16px' }}>
+                <div style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px 16px' }}>
                   <h4 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-secondary)', margin: 0 }}>{currentAssignment.title}</h4>
                   {currentAssignment.description && (
                     <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '6px', marginBottom: 0, lineHeight: '1.5' }}>{currentAssignment.description}</p>
@@ -3437,7 +3437,9 @@ const TasksTab = memo(({
                 <button
                   onClick={() => { resetSubmitModal(); setShowSubmitModal(false); }}
                   disabled={false}
-                  style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--background-secondary)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+                  style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--background-secondary)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--border-color)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--background-secondary)'}
                 >
                   {isUploading ? 'Stop Upload' : 'Cancel'}
                 </button>

@@ -145,7 +145,9 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
         >
           <button
             className="tl-assignment-menu-item"
-            style={{ fontWeight: '600' }}
+            style={{ fontWeight: '600', borderRadius: '4px' }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
             onClick={async (e) => {
               e.stopPropagation()
               setIsOpen(false)
@@ -177,7 +179,9 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
           </button>
           <button
             className="tl-assignment-menu-item"
-            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}
+            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '4px' }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
             onClick={async (e) => {
               e.stopPropagation()
               setIsOpen(false)
@@ -192,7 +196,9 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
           {!isReference && (
             <button
               className="tl-assignment-menu-item"
-              style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '4px' }}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
               onClick={(e) => {
                 e.stopPropagation()
                 setIsOpen(false)
@@ -277,7 +283,9 @@ const FileActionDropdown = ({ assignment, submission, isReference, handleDownloa
         >
           <button
             className="tl-assignment-menu-item"
-            style={{ fontWeight: '600' }}
+            style={{ fontWeight: '600', borderRadius: '4px' }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
             onClick={async (e) => {
               e.stopPropagation()
               setIsOpen(false)
@@ -307,7 +315,9 @@ const FileActionDropdown = ({ assignment, submission, isReference, handleDownloa
           </button>
           <button
             className="tl-assignment-menu-item"
-            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}
+            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '4px' }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
             onClick={async (e) => {
               e.stopPropagation()
               setIsOpen(false)
