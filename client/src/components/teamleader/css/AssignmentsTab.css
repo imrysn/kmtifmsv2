@@ -415,6 +415,7 @@
   border-radius: 8px;
   cursor: pointer;
   margin-bottom: 8px;
+  background-color: var(--background-secondary);
 }
 
 /* Team Leader Attached Files - Different styling */
@@ -441,6 +442,7 @@
   border-radius: 8px;
   cursor: pointer;
   margin-bottom: 8px;
+  background-color: var(--background-secondary);
 }
 
 .tl-assignment-tl-file-item:last-child {
@@ -448,7 +450,8 @@
 }
 
 .tl-assignment-tl-file-item:hover {
-  background-color: rgba(156, 163, 175, 0.1);
+  background-color: rgba(161, 161, 161, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
 }
 
 .tl-assignment-file-item:last-child {
@@ -456,7 +459,16 @@
 }
 
 .tl-assignment-file-item:hover {
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: rgba(161, 161, 161, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.tl-folder-expanded {
+  background-color: var(--status-review) !important;
+}
+
+.tl-folder-expanded:hover {
+  background-color: #bfdbfe !important;
 }
 
 .tl-assignment-file-icon {

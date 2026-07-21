@@ -16,8 +16,8 @@ import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtil
 const useDropdownPosition = (btnRef, menuRef, isOpen) => {
   const [pos, setPos] = useState({ top: 0, left: 0, up: false, ready: false })
 
-  useEffect(() => {
-    if (!isOpen || !btnRef.current) return
+  const updatePosition = useCallback(() => {
+    if (!btnRef.current) return
     const btn = btnRef.current.getBoundingClientRect()
     const menuHeight = menuRef.current?.offsetHeight || 180
     const spaceBelow = window.innerHeight - btn.bottom
@@ -28,9 +28,23 @@ const useDropdownPosition = (btnRef, menuRef, isOpen) => {
       up,
       ready: true
     })
-  }, [isOpen])
+  }, [btnRef, menuRef])
 
-  useEffect(() => { if (!isOpen) setPos(p => ({ ...p, ready: false })) }, [isOpen])
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition()
+      const rafId = requestAnimationFrame(updatePosition)
+      window.addEventListener('scroll', updatePosition, true)
+      window.addEventListener('resize', updatePosition)
+      return () => {
+        cancelAnimationFrame(rafId)
+        window.removeEventListener('scroll', updatePosition, true)
+        window.removeEventListener('resize', updatePosition)
+      }
+    } else {
+      setPos(p => ({ ...p, ready: false }))
+    }
+  }, [isOpen, updatePosition])
 
   return pos
 }
@@ -1626,7 +1640,7 @@ const AssignmentsTab = ({
                                   {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
                                   <div
                                     data-folder-key={`${assignment.id}__${currentKey}`}
-                                    className={`tl-assignment-file-item tl-folder-row ${level > 0 ? 'tl-in-tree' : ''}`}
+                                    className={`tl-assignment-file-item tl-folder-row ${isExpanded ? 'tl-folder-expanded' : ''} ${level > 0 ? 'tl-in-tree' : ''}`}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       const newKey = `${assignment.id}__${currentKey}`;
@@ -1635,8 +1649,7 @@ const AssignmentsTab = ({
                                       if (newState) prefetchFolderFiles(folderFiles.map(f => f.file || f), type);
                                     }}
                                     style={{ 
-                                      cursor: 'pointer', 
-                                      backgroundColor: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)', 
+                                      cursor: 'pointer',
                                       padding: '14px 20px', 
                                       marginBottom: '8px', 
                                       borderRadius: '6px',
@@ -1779,7 +1792,6 @@ const AssignmentsTab = ({
                                   }}
                                   style={{ 
                                     cursor: 'pointer', 
-                                    backgroundColor: 'var(--background-secondary)',
                                     marginLeft: level === 0 ? '0px' : '0px', 
                                     padding: '14px 20px', 
                                     marginBottom: '8px',
