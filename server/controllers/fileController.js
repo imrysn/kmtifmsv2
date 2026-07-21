@@ -793,10 +793,10 @@ class FileController {
       console.error('Failed to notify checker of penalty:', err);
     }
 
-    res.json({
-      success: true,
-      message: `Penalty of ${penalty_percentage}% applied to checker for file.`
-    });
+    // Invalidate the cache so the dashboard immediately reflects the new penalty
+    invalidateCache();
+
+    res.json({ success: true, message: 'Penalty applied successfully' });
   });
 }
 

@@ -421,8 +421,8 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
               You are returning this file for editing with <b>{wrongItems.length} wrong items</b>.<br />
               This percentage represents how much will be deducted from the user's performance based on their files.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', justifyContent: 'center', width: '100%', maxWidth: '420px' }}>
-              {Array.from({ length: 12 }, (_, i) => (i + 1) * 5).map(pct => (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', justifyContent: 'center', width: '100%', maxWidth: '420px' }}>
+              {Array.from({ length: 20 }, (_, i) => (i + 1) * 5).map(pct => (
                 <button
                   key={pct}
                   onClick={() => setSelectedPenalty(pct)}
@@ -502,8 +502,7 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole
   const [checklistType, setChecklistType] = useState('2D');
 
   const [fileScore, setFileScore] = useState(null);
-  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
-  const [penaltyPercentage, setPenaltyPercentage] = useState(5);
+  const [originalPenalty, setOriginalPenalty] = useState(file?.penalty_percentage !== undefined ? file.penalty_percentage : null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
   const [localPenalty, setLocalPenalty] = useState(file?.checker_penalty_percentage || null);
@@ -515,10 +514,11 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole
 
     if (file.penalty_percentage !== undefined) {
       setFileScore(100 - file.penalty_percentage);
+      setOriginalPenalty(file.penalty_percentage);
     }
 
-    // If checker_note is already on the file object, use it directly — no fetch needed
-    if (file.checker_note !== undefined) {
+    // If checker_note and penalty_percentage are already on the file object, use them directly — no fetch needed
+    if (file.checker_note !== undefined && file.penalty_percentage !== undefined) {
       setResolvedNote(file.checker_note || '');
       setLoading(false);
       return;
@@ -531,6 +531,7 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole
         setResolvedNote(fileData?.checker_note || '');
         if (fileData?.penalty_percentage !== undefined) {
           setFileScore(100 - fileData.penalty_percentage);
+          setOriginalPenalty(fileData.penalty_percentage);
         }
       })
       .catch(() => setResolvedNote(''))
@@ -748,33 +749,66 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole
           )}
           {file?.checked_by && (
             <button
-              onClick={() => {
-                if (!localPenalty) {
-                  setShowPenaltyModal(true);
+              onClick={async () => {
+                if (localPenalty === null) {
+                  setIsSubmitting(true);
+                  try {
+                    const computedPenalty = Math.round((originalPenalty || 0) / 2);
+                    
+                      await apiFetch(`/api/files/${file.id}/checker-penalty`, {
+                        method: 'POST',
+                        body: JSON.stringify({ penalty_percentage: computedPenalty })
+                      });
+                      
+                      setLocalPenalty(computedPenalty);
+                      setSuccessMessage(`Successfully applied ${computedPenalty}% penalty!`);
+                      
+                      // Add a quick animation effect to the modal
+                      const modalEl = document.getElementById('checklist-view-modal-content');
+                      if (modalEl) {
+                        anime({
+                          targets: modalEl,
+                          scale: [1, 1.05, 1],
+                          borderColor: ['#10b981', 'transparent'],
+                          borderWidth: ['4px', '0px'],
+                          duration: 600,
+                          easing: 'easeOutElastic(1, .8)'
+                        });
+                      }
+                      
+                      setTimeout(() => {
+                        setSuccessMessage(null);
+                        if (onClose) onClose();
+                      }, 2000);
+                  } catch (e) {
+                    console.error('Failed to set penalty', e);
+                  } finally {
+                    setIsSubmitting(false);
+                  }
                 }
               }}
-              disabled={!!localPenalty}
+              disabled={localPenalty !== null || isSubmitting}
               style={{
                 padding: '8px 20px',
                 borderRadius: '10px',
                 border: 'none',
-                background: localPenalty ? 'var(--bg-tertiary, #e2e8f0)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                color: localPenalty ? 'var(--text-secondary, #64748b)' : 'white',
+                background: localPenalty !== null ? 'var(--bg-tertiary, #e2e8f0)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                color: localPenalty !== null ? 'var(--text-secondary, #64748b)' : 'white',
                 fontSize: '14px',
                 fontWeight: '600',
-                cursor: localPenalty ? 'not-allowed' : 'pointer',
+                cursor: localPenalty !== null ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                boxShadow: localPenalty ? 'none' : '0 4px 12px rgba(239, 68, 68, 0.25)',
-                opacity: localPenalty ? 0.8 : 1
+                boxShadow: localPenalty !== null ? 'none' : '0 4px 12px rgba(239, 68, 68, 0.25)',
+                opacity: localPenalty !== null ? 0.8 : 1
               }}
-              onMouseEnter={(e) => { if (!localPenalty) { e.currentTarget.style.transform = 'translateY(-1.5px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.35)'; } }}
-              onMouseLeave={(e) => { if (!localPenalty) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.25)'; } }}
-              onMouseDown={(e) => { if (!localPenalty) { e.currentTarget.style.transform = 'translateY(1px)'; e.currentTarget.style.boxShadow = '0 2px 6px rgba(239, 68, 68, 0.2)'; } }}
-              onMouseUp={(e) => { if (!localPenalty) { e.currentTarget.style.transform = 'translateY(-1.5px)'; } }}
+              onMouseEnter={(e) => { if (localPenalty === null) { e.currentTarget.style.transform = 'translateY(-1.5px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.35)'; } }}
+              onMouseLeave={(e) => { if (localPenalty === null) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.25)'; } }}
+              onMouseDown={(e) => { if (localPenalty === null) { e.currentTarget.style.transform = 'translateY(1px)'; e.currentTarget.style.boxShadow = '0 2px 6px rgba(239, 68, 68, 0.2)'; } }}
+              onMouseUp={(e) => { if (localPenalty === null) { e.currentTarget.style.transform = 'translateY(-1.5px)'; } }}
             >
-              {localPenalty ? `Penalty Applied (${localPenalty}%)` : 'Wrong Checked'}
+              {localPenalty !== null ? `Penalty Applied (${localPenalty}%)` : 'Wrong Checked'}
             </button>
           )}
           <button
@@ -790,91 +824,7 @@ export const ChecklistViewModal = memo(({ isOpen, onClose, file, currentUserRole
         </div>
       </div>
 
-      {/* Checker Penalty Modal */}
-      {showPenaltyModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 2200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--background-secondary)', borderRadius: '16px', padding: '24px', width: '480px', maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
-            <h4 style={{ margin: '0 0 16px', fontSize: '18px', color: 'var(--text-primary)' }}>Select Checker Penalty</h4>
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-              Select how much to deduct from the checker's performance for this file.
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '24px' }}>
-              {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map(pct => (
-                <button
-                  key={pct}
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setPenaltyPercentage(pct);
-                  }}
-                  style={{
-                    padding: '10px 0',
-                    borderRadius: '8px',
-                    border: penaltyPercentage === pct ? '2px solid #f59e0b' : '1px solid var(--border-color)',
-                    background: penaltyPercentage === pct ? 'rgba(245, 158, 11, 0.1)' : 'var(--background-secondary)',
-                    color: penaltyPercentage === pct ? '#f59e0b' : 'var(--text-primary)',
-                    fontWeight: penaltyPercentage === pct ? '700' : '500',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {pct}%
-                </button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={() => setShowPenaltyModal(false)}
-                style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: '500' }}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  setIsSubmitting(true);
-                  try {
-                    await apiFetch(`/api/files/${file.id}/checker-penalty`, {
-                      method: 'POST',
-                      body: JSON.stringify({ penalty_percentage: penaltyPercentage })
-                    });
-                    
-                    // Show a massive success overlay before closing
-                    setShowPenaltyModal(false);
-                    setSuccessMessage(`Successfully applied ${penaltyPercentage}% penalty!`);
-                    
-                    // Add a quick animation effect to the modal
-                    const modalEl = document.getElementById('checklist-view-modal-content');
-                    if (modalEl) {
-                      anime({
-                        targets: modalEl,
-                        scale: [1, 1.05, 1],
-                        borderColor: ['#10b981', 'transparent'],
-                        borderWidth: ['4px', '0px'],
-                        duration: 600,
-                        easing: 'easeOutElastic(1, .8)'
-                      });
-                    }
-                    
-                    setTimeout(() => {
-                      setSuccessMessage(null);
-                      if (onClose) onClose();
-                    }, 2000);
-                  } catch (e) {
-                    console.error('Failed to set penalty', e);
-                  } finally {
-                    setIsSubmitting(false);
-                  }
-                }}
-                disabled={isSubmitting}
-                style={{ padding: '8px 24px', borderRadius: '8px', border: 'none', background: '#f59e0b', color: 'white', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
-              >
-                {isSubmitting ? 'Saving...' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 });
