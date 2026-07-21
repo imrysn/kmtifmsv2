@@ -995,14 +995,13 @@ const TaskManagement = ({
                           {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
                           
                           <div
-                            className="admin-file-item admin-folder-item"
+                            className={`admin-file-item admin-folder-item ${isSubOpen ? 'admin-folder-expanded' : ''}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }));
                             }}
                             style={{ 
                               cursor: 'pointer', 
-                              backgroundColor: isSubOpen ? 'var(--status-review)' : 'var(--background-secondary)', 
                               padding: '14px 20px',
                               flex: 1,
                               display: 'flex',
@@ -1089,7 +1088,6 @@ const TaskManagement = ({
                           className={`admin-file-item${hasViewed ? ' admin-file-card-opened' : ''}`}
                           style={{ 
                             cursor: 'pointer', 
-                            backgroundColor: 'var(--background-secondary)',
                             flex: 1,
                             display: 'flex',
                             alignItems: 'center',

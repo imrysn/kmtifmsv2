@@ -1011,6 +1011,201 @@
   position: absolute;
   left: 15px;
   top: 50%;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-no-attachment-icon {
+  font-size: 16px;
+  color: var(--status-pending-text);
+}
+
+.admin-no-attachment-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Comments */
+.admin-comments-section {
+  padding: 12px 18px;
+}
+
+.admin-comments-text {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-comments-text:hover {
+  color: var(--status-review-text);
+}
+
+/* Role Badges - Unified Style */
+.task-management-container .role-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-left: 5px;
+  margin-right: 5px;
+  display: inline-block;
+  border: 1px solid;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.task-management-container .role-badge.user {
+  border-color: var(--status-approved-text);
+  color: var(--status-approved-text);
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.task-management-container .role-badge.team-leader {
+  border-color: var(--status-review-text);
+  color: var(--status-review-text);
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.task-management-container .role-badge.admin {
+  border-color: var(--status-rejected-text);
+  color: var(--status-rejected-text);
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.task-management-container .team-badge {
+  padding: 2px 8px;
+  border: 1px solid var(--text-tertiary);
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-align: center;
+  display: inline-block;
+  margin-left: 5px;
+  margin-right: 5px;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+/* =================================================================
+   COMMENTS MODAL - REMOVED (Now in CommentsModal.css)
+   ================================================================= */
+
+/* Modal styles have been moved to CommentsModal.css for better performance */
+
+/* =================================================================
+   SCROLLBARS
+   ================================================================= */
+
+.task-management-container .task-feed::-webkit-scrollbar,
+.comments-modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.task-management-container .task-feed::-webkit-scrollbar-track,
+.comments-modal-body::-webkit-scrollbar-track {
+  background: var(--background-secondary);
+}
+
+/* =================================================================
+   CURSOR STYLES
+   ================================================================= */
+
+.task-management-container.file-opening-cursor {
+  cursor: wait !important;
+}
+
+.task-management-container.file-opening-cursor * {
+  cursor: wait !important;
+}
+
+/* =================================================================
+   FOLDER STYLING FOR ADMIN
+   ================================================================= */
+
+.admin-folder-item {
+  transition: background-color 0.2s ease;
+}
+
+.admin-folder-item:hover {
+  /* Handled by JS inline style or fallback */
+}
+
+.admin-folder-file-item {
+  margin-left: 40px;
+}
+
+.admin-folder-file-item:hover {
+  background-color: var(--background-secondary) !important;
+}
+
+/* Opened/Viewed file highlight */
+.admin-file-item.admin-file-card-opened {
+  background-color: var(--status-approved) !important;
+}
+.admin-file-item.admin-file-card-opened:hover {
+  background-color: var(--status-approved) !important;
+}
+
+/* =================================================================
+   VISUAL TREE CONNECTOR LINES (PREMIUM TEAM LEADER STYLE)
+   ================================================================= */
+.tl-tree-container {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+}
+
+.tl-tree-line-vertical {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-empty {
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.tl-tree-line-vertical::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -7px; /* Connect to previous item */
+  bottom: -7px; /* Connect to next item */
+  width: 2px;
+  background-color: #cbd5e1; /* slate-300 */
+}
+
+.tl-tree-line-connector {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-connector::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -7px;
+  bottom: -7px;
+  width: 2px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-connector::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 50%;
   width: 15px;
   height: 2px;
   background-color: #cbd5e1;
@@ -1022,3 +1217,21 @@
   bottom: auto;
 }
 
+/* File Items Hover Styling */
+.admin-file-item {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 8px;
+}
+
+.admin-file-item:hover {
+  background-color: rgba(161, 161, 161, 0.1) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.admin-folder-item {
+  background-color: var(--background-secondary);
+}
+
+.admin-folder-expanded {
+  background-color: var(--status-review) !important;
+}
