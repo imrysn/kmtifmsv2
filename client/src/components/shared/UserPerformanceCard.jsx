@@ -221,15 +221,13 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
             </div>
 
             {/* Sparkline & Delta Group */}
-            {!isCollapsed && historyData && historyData.length > 1 && (
+            {!isCollapsed && historyData && historyData.length > 0 && (
               <div className="perf-trend-group" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <PerfSparkline data={historyData.map(h => h.overall_score)} />
-                {historyData.length >= 2 && (
-                  <div className={`perf-delta-chip ${overallScore >= historyData[historyData.length - 2].overall_score ? 'delta-up' : 'delta-down'}`}>
-                    {overallScore >= historyData[historyData.length - 2].overall_score ? '↗' : '↘'} 
-                    {Math.abs(overallScore - historyData[historyData.length - 2].overall_score)}
-                  </div>
-                )}
+                <PerfSparkline data={[...historyData.map(h => h.overall_score), overallScore]} />
+                <div className={`perf-delta-chip ${overallScore >= historyData[historyData.length - 1].overall_score ? 'delta-up' : 'delta-down'}`}>
+                  {overallScore >= historyData[historyData.length - 1].overall_score ? '↗' : '↘'} 
+                  {Math.abs(Math.round(overallScore - historyData[historyData.length - 1].overall_score))}
+                </div>
               </div>
             )}
           </div>

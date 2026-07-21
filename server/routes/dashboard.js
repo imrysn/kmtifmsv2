@@ -423,11 +423,14 @@ router.get('/user-performance/:userId/history', authorizeRole(['USER', 'TEAM_LEA
   }
 
   const history = await query(`
-    SELECT overall_score, quality_factor, snapshot_date 
-    FROM user_performance_snapshots 
-    WHERE user_id = ? 
-    ORDER BY snapshot_date ASC 
-    LIMIT 12
+    SELECT * FROM (
+      SELECT overall_score, quality_factor, snapshot_date 
+      FROM user_performance_snapshots 
+      WHERE user_id = ? 
+      ORDER BY snapshot_date DESC 
+      LIMIT 12
+    ) sub
+    ORDER BY snapshot_date ASC
   `, [userId]);
 
   // Calculate Personal Best
