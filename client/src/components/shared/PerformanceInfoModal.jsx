@@ -63,7 +63,13 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
             <div className="perf-pillar-card">
               <h3 className="perf-pillar-name">🎯 Quality (45%)</h3>
               <div className="perf-pillar-math">
-                (Base Quality Score × Rejection Penalty) × 45%
+                {performance ? (
+                  <>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{Math.round(qualityFactor)}%</span> × 45% = <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{qualityPts} pts</span>
+                  </>
+                ) : (
+                  '(Base Quality Score × Rejection Penalty) × 45%'
+                )}
               </div>
               <p className="perf-pillar-text" style={{ fontSize: '12.5px', lineHeight: '1.6' }}>
                 Every file starts with a <strong>100% Quality baseline</strong>. When a file is returned for editing, the checker assigns a <strong>specific deduction percentage</strong> (e.g., −10%, −35%). This is <strong>directly subtracted</strong> from the file's perfect score.
@@ -77,7 +83,13 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
             <div className="perf-pillar-card">
               <h3 className="perf-pillar-name">⚡ Speed (35%)</h3>
               <div className="perf-pillar-math">
-                (Submission Speed Factor − Overdue Penalty) × 35%
+                {performance ? (
+                  <>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{Math.round(Math.min(150, efficiencyRatio * 100))}%</span> × 35% = <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{speedPts} pts</span>
+                  </>
+                ) : (
+                  '(Submission Speed Factor − Overdue Penalty) × 35%'
+                )}
               </div>
               <p className="perf-pillar-text">
                 The calculation starts from the <strong>Task Posted Date</strong> and stops when you <strong>Submit</strong>. 
@@ -89,7 +101,13 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
             <div className="perf-pillar-card">
               <h3 className="perf-pillar-name">📅 Reliability (20%)</h3>
               <div className="perf-pillar-math">
-                (On-Time Files / (Total Files + Overdue)) × 20%
+                {performance ? (
+                  <>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{Math.round(onTimeRate)}%</span> × 20% = <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{reliabilityPts} pts</span>
+                  </>
+                ) : (
+                  '(On-Time Files / (Total Files + Overdue)) × 20%'
+                )}
               </div>
               <p className="perf-pillar-text">
                 At the moment you click <strong>Submit</strong>, the system checks if your timestamp is on or before the <strong>Due Date</strong>.
