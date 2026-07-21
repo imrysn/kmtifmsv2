@@ -2328,14 +2328,18 @@ const AssignmentsTab = ({
               <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '10px', justifyContent: 'space-between', alignItems: 'center' }}>
                 <button
                   onClick={() => setSelectedCheckerIds(new Set())}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', cursor: 'pointer', padding: '4px', textDecoration: 'underline' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', cursor: 'pointer', padding: '4px', textDecoration: 'underline', transition: 'color 0.2s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-tertiary)'}
                 >
                   Clear all
                 </button>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button
                     onClick={() => setAssignCheckerModal(null)}
-                    style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'var(--background-secondary)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+                    style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'var(--background-secondary)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'background-color 0.2s' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--background-secondary)'}
                   >
                     Cancel
                   </button>
@@ -2365,7 +2369,9 @@ const AssignmentsTab = ({
                         setIsAssigningChecker(false)
                       }
                     }}
-                    style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: isAssigningChecker ? '#a5b4fc' : 'var(--status-review-text)', color: 'var(--background-secondary)', fontSize: '14px', fontWeight: '600', cursor: isAssigningChecker ? 'not-allowed' : 'pointer' }}
+                    style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: isAssigningChecker ? '#a5b4fc' : '#2563eb', color: 'var(--background-secondary)', fontSize: '14px', fontWeight: '600', cursor: isAssigningChecker ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s' }}
+                    onMouseEnter={(e) => { if (!isAssigningChecker && members.length > 0) e.currentTarget.style.backgroundColor = '#1d4ed8' }}
+                    onMouseLeave={(e) => { if (!isAssigningChecker && members.length > 0) e.currentTarget.style.backgroundColor = '#2563eb' }}
                   >
                     {isAssigningChecker ? 'Saving...' : selectedCheckerIds.size === 0 ? 'Remove Checkers' : `Assign ${selectedCheckerIds.size} Checker${selectedCheckerIds.size > 1 ? 's' : ''}`}
                   </button>

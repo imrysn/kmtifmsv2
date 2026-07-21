@@ -318,7 +318,7 @@
 }
 
 .tl-assignment-menu-item:hover {
-  background-color: var(--background-primary);
+  background-color: rgba(161, 161, 161, 0.15);
 }
 
 .tl-assignment-delete-menu-item {
