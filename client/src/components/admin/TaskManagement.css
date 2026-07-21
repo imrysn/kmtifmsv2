@@ -1093,6 +1093,7 @@
   margin-right: 5px;
   background: transparent;
   color: var(--text-primary);
+  width: max-content !important;
 }
 
 /* =================================================================
