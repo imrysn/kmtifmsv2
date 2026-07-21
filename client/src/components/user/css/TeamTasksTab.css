@@ -355,9 +355,9 @@
 }
 
 .file-item:hover {
-  background: var(--status-review);
-  border-color: var(--status-review-text);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  background-color: rgba(161, 161, 161, 0.1) !important;
+  border-color: var(--border-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
 }
 
 
