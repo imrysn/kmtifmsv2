@@ -101,21 +101,21 @@ async function uploadFile(fileData, user) {
       existing = await queryOne(`
                 SELECT f.* FROM files f
                 INNER JOIN assignment_submissions asub ON f.id = asub.file_id
-                WHERE asub.assignment_id = ? AND f.original_name = ? AND f.folder_name = ?
+                WHERE asub.assignment_id = ? AND f.original_name = ? AND f.folder_name = ? AND f.user_id = ?
                 ORDER BY
                     CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END,
                     f.uploaded_at DESC LIMIT 1
-            `, [assignmentId, originalName, fileData.folder_name]);
+            `, [assignmentId, originalName, fileData.folder_name, user.id]);
     } else {
       // Single-file re-upload: match by name only (folder_name inherited later)
       existing = await queryOne(`
                 SELECT f.* FROM files f
                 INNER JOIN assignment_submissions asub ON f.id = asub.file_id
-                WHERE asub.assignment_id = ? AND f.original_name = ?
+                WHERE asub.assignment_id = ? AND f.original_name = ? AND f.user_id = ?
                 ORDER BY
                     CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END,
                     f.uploaded_at DESC LIMIT 1
-            `, [assignmentId, originalName]);
+            `, [assignmentId, originalName, user.id]);
     }
   } else {
     existing = await fileRepository.findByNameAndUser(
@@ -133,14 +133,14 @@ async function uploadFile(fileData, user) {
   if (!existing && assignmentId) {
     existing = await queryOne(`
             SELECT f.* FROM files f
-            LEFT JOIN assignment_submissions asub ON f.id = asub.file_id AND asub.assignment_id = ?
+            LEFT JOIN assignment_submissions asub ON f.id = asub.file_id
             WHERE f.original_name = ? AND f.user_id = ?
               AND (f.status IN ('checked','revision','under_revision') OR f.status LIKE 'modified by %')
               AND (asub.assignment_id = ? OR asub.assignment_id IS NULL)
             ORDER BY
                 CASE WHEN asub.assignment_id = ? THEN 0 ELSE 1 END,
                 f.uploaded_at DESC LIMIT 1
-        `, [assignmentId, originalName, user.id, assignmentId, assignmentId]);
+        `, [originalName, user.id, assignmentId, assignmentId]);
     if (existing) {
       logInfo('Found checked/revision file via fallback lookup (no submissions join)', { fileId: existing.id, status: existing.status });
     }
@@ -387,21 +387,21 @@ async function bulkUploadFast(filesData, user, assignmentId = null, targetFolder
           existing = await queryOne(`
                         SELECT f.* FROM files f
                         INNER JOIN assignment_submissions asub ON f.id = asub.file_id
-                        WHERE asub.assignment_id = ? AND f.original_name = ? AND f.folder_name = ?
+                        WHERE asub.assignment_id = ? AND f.original_name = ? AND f.folder_name = ? AND f.user_id = ?
                         ORDER BY
                             CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END,
                             f.uploaded_at DESC LIMIT 1
-                    `, [assignmentId, originalName, fileData.folder_name]);
+                    `, [assignmentId, originalName, fileData.folder_name, user.id]);
         } else {
           // Single-file re-upload: match by name only (folder_name inherited later)
           existing = await queryOne(`
                         SELECT f.* FROM files f
                         INNER JOIN assignment_submissions asub ON f.id = asub.file_id
-                        WHERE asub.assignment_id = ? AND f.original_name = ?
+                        WHERE asub.assignment_id = ? AND f.original_name = ? AND f.user_id = ?
                         ORDER BY
                             CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END,
                             f.uploaded_at DESC LIMIT 1
-                    `, [assignmentId, originalName]);
+                    `, [assignmentId, originalName, user.id]);
         }
       } else {
         existing = await fileRepository.findByNameAndUser(
@@ -413,14 +413,14 @@ async function bulkUploadFast(filesData, user, assignmentId = null, targetFolder
       if (!existing && assignmentId) {
         existing = await queryOne(`
                     SELECT f.* FROM files f
-                    LEFT JOIN assignment_submissions asub ON f.id = asub.file_id AND asub.assignment_id = ?
+                    LEFT JOIN assignment_submissions asub ON f.id = asub.file_id
                     WHERE f.original_name = ? AND f.user_id = ?
                       AND (f.status IN ('checked','revision','under_revision') OR f.status LIKE 'modified by %')
                       AND (asub.assignment_id = ? OR asub.assignment_id IS NULL)
                     ORDER BY
                         CASE WHEN asub.assignment_id = ? THEN 0 ELSE 1 END,
                         f.uploaded_at DESC LIMIT 1
-                `, [assignmentId, originalName, user.id, assignmentId, assignmentId]);
+                `, [originalName, user.id, assignmentId, assignmentId]);
         if (existing) {
           logInfo('bulkUpload: Found checked/revision file via fallback lookup', { fileId: existing.id, status: existing.status });
         }
@@ -451,12 +451,12 @@ async function bulkUploadFast(filesData, user, assignmentId = null, targetFolder
             pathSource = await queryOne(`
                             SELECT f.* FROM files f
                             INNER JOIN assignment_submissions asub ON f.id = asub.file_id
-                            WHERE asub.assignment_id = ? AND f.original_name = ?
+                            WHERE asub.assignment_id = ? AND f.original_name = ? AND f.user_id = ?
                             ORDER BY
                                 CASE WHEN f.folder_name IS NOT NULL AND f.folder_name != '' THEN 0 ELSE 1 END,
                                 f.uploaded_at DESC
                             LIMIT 1
-                        `, [assignmentId, originalName]);
+                        `, [assignmentId, originalName, user.id]);
           } else {
             pathSource = await fileRepository.findAnyByNameAndAssignment(
               originalName, user.id, assignmentId
@@ -721,16 +721,16 @@ async function bulkUpload(filesData, user, assignmentId = null) {
           existing = await queryOne(`
                         SELECT f.* FROM files f
                         INNER JOIN assignment_submissions asub ON f.id = asub.file_id
-                        WHERE asub.assignment_id = ? AND f.original_name = ? AND f.folder_name = ?
+                        WHERE asub.assignment_id = ? AND f.original_name = ? AND f.folder_name = ? AND f.user_id = ?
                         ORDER BY CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END, f.uploaded_at DESC LIMIT 1
-                    `, [assignmentId, originalName, fileData.folder_name]);
+                    `, [assignmentId, originalName, fileData.folder_name, user.id]);
         } else {
           existing = await queryOne(`
                         SELECT f.* FROM files f
                         INNER JOIN assignment_submissions asub ON f.id = asub.file_id
-                        WHERE asub.assignment_id = ? AND f.original_name = ?
+                        WHERE asub.assignment_id = ? AND f.original_name = ? AND f.user_id = ?
                         ORDER BY CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END, f.uploaded_at DESC LIMIT 1
-                    `, [assignmentId, originalName]);
+                    `, [assignmentId, originalName, user.id]);
         }
       } else {
         existing = await fileRepository.findByNameAndUser(originalName, user.id, fileData.folder_name, assignmentId);
