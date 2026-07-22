@@ -2067,9 +2067,9 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
 
     if (fileId) {
       // Per-file revision: only mark the specific file, keep assignment status as-is
-      // Add new penalty to any existing penalty for cumulative effect
+      // Apply new penalty (do not accumulate with previous rounds, treat as new file)
       await query(
-        'UPDATE files SET status = \'revision\', checked_by = ?, checker_note = ?, penalty_percentage = COALESCE(penalty_percentage, 0) + ?, updated_at = ? WHERE id = ?',
+        'UPDATE files SET status = \'revision\', checked_by = ?, checker_note = ?, penalty_percentage = ?, checker_penalty_percentage = NULL, wrong_check_note = NULL, checker_penalty_score = NULL, updated_at = ? WHERE id = ?',
         [checkerName, note || null, penalty, now, fileId]
       );
     } else {
@@ -2078,7 +2078,7 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       await query(
         `UPDATE files f
          JOIN assignment_submissions asub ON asub.file_id = f.id
-         SET f.status = 'revision', f.checked_by = ?, f.checker_note = ?, f.penalty_percentage = COALESCE(f.penalty_percentage, 0) + ?, f.updated_at = ?
+         SET f.status = 'revision', f.checked_by = ?, f.checker_note = ?, f.penalty_percentage = ?, f.checker_penalty_percentage = NULL, f.wrong_check_note = NULL, f.checker_penalty_score = NULL, f.updated_at = ?
          WHERE asub.assignment_id = ?`,
         [checkerName, note || null, penalty, now, assignmentId]
       );
@@ -2268,7 +2268,7 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     // Mark this single file as checked (record who checked it and save any note)
-    await query('UPDATE files SET status = ?, checked_by = ?, checker_note = ?, penalty_percentage = 0, updated_at = ?, checked_at = ? WHERE id = ?', ['checked', checkerName, checkerNote || null, now, now, fileId]);
+    await query('UPDATE files SET status = ?, checked_by = ?, checker_note = ?, penalty_percentage = 0, checker_penalty_percentage = NULL, wrong_check_note = NULL, checker_penalty_score = NULL, updated_at = ?, checked_at = ? WHERE id = ?', ['checked', checkerName, checkerNote || null, now, now, fileId]);
     invalidateCache();
 
     // Notify the file submitter that their file was checked

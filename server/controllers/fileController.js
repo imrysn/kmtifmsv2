@@ -740,7 +740,7 @@ class FileController {
     const fileId = req.params.id;
     const { penalty_percentage } = req.body;
 
-    if (penalty_percentage == null || isNaN(penalty_percentage) || penalty_percentage < 0 || penalty_percentage > 100) {
+    if (penalty_percentage == null || isNaN(penalty_percentage) || penalty_percentage < 0) {
       throw new ValidationError('Invalid penalty percentage');
     }
 
@@ -794,7 +794,14 @@ class FileController {
     }
 
     // Invalidate the cache so the dashboard immediately reflects the new penalty
-    invalidateCache();
+    if (typeof invalidateCache === 'function') invalidateCache();
+    else if (global.invalidateCache) global.invalidateCache();
+    else {
+      try {
+        const { invalidateCache } = require('./dashboardController');
+        if (invalidateCache) invalidateCache();
+      } catch (e) {}
+    }
 
     res.json({ success: true, message: 'Penalty applied successfully' });
   });

@@ -1478,17 +1478,10 @@ const TasksTab = memo(({
       const el = document.querySelector(`[data-file-id="${fid}"]`);
       if (!el) return;
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Pulse highlight: indigo ring + light indigo background, fades after 2.5s
-      el.style.transition = 'box-shadow 0.3s, background-color 0.3s';
-      el.style.boxShadow = '0 0 0 3px #6366f1';
-      el.style.backgroundColor = '#eef2ff';
-      const cleanup = setTimeout(() => {
-        el.style.boxShadow = '';
-        el.style.backgroundColor = '';
-      }, 2500);
-      return () => clearTimeout(cleanup);
     }, 500); // 500ms — tab switch + folder expand + see-all settle
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [highlightedFileId, assignments, activeTab]); // activeTab ensures re-run after tab switch
 
   // Auto-open ChecklistViewModal when navigating from a "Submission Needs Editing" notification
