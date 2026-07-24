@@ -139,7 +139,7 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
-  // ── SSE — instant push the moment a notification is created ───────────────
+  // ── SSE — instant push the moment a notification is created ────────  ───────
   useEffect(() => {
     let es;
     let reconnectTimer;

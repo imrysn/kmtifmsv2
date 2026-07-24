@@ -15,4 +15,12 @@ pkg.version = parts.join('.');
 
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
 
+// Also sync client/package.json version
+const clientPkgPath = path.join(__dirname, 'client', 'package.json');
+if (fs.existsSync(clientPkgPath)) {
+    const clientPkg = JSON.parse(fs.readFileSync(clientPkgPath, 'utf-8'));
+    clientPkg.version = pkg.version;
+    fs.writeFileSync(clientPkgPath, JSON.stringify(clientPkg, null, 2) + '\n', 'utf-8');
+}
+
 console.log('Version bumped to ' + pkg.version);

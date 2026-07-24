@@ -1,6 +1,6 @@
 {
   "name": "kmti-file-management",
-  "version": "2.3.25",
+  "version": "2.3.26",
   "description": "Desktop application used for file management, checking, and approval of files.",
   "author": "OJT Team",
   "main": "main.js",
@@ -18,7 +18,7 @@
     "prod": "npm run client:build && npm run electron:prod",
     "client:build": "cd client && npm run build",
     "electron:pack": "electron-builder",
-    "build": "npm run client:build && node build-server.js && npm run electron:pack",
+    "build": "node bump-version.js && npm run client:build && node build-server.js && npm run electron:pack",
     "build:installer": "npm run build",
     "build:server": "node build-server.js",
     "build:server-standalone": "npm run client:build && ncc build server.js -o dist-server && xcopy client\\dist dist-server\\client-dist /E /I /Y",
