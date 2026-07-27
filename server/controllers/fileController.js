@@ -113,11 +113,17 @@ class FileController {
   });
 
   /**
-     * Approve file by team leader
-     */
+   * Approve file by team leader (or reject if action === 'reject')
+   */
   approveByTeamLeader = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { comments } = req.body;
+    const { action, comments, reason } = req.body;
+
+    if (action === 'reject') {
+      const file = await fileService.rejectByTeamLeader(id, req.user, reason || comments);
+      invalidateCache();
+      return res.json({ success: true, message: 'File rejected by team leader', file });
+    }
 
     const file = await fileService.approveByTeamLeader(id, req.user, comments);
     invalidateCache();
@@ -436,8 +442,17 @@ class FileController {
      */
   getTeamFiles = asyncHandler(async (req, res) => {
     const { team } = req.params;
-    if (req.user.role === 'TEAM_LEADER' && team !== req.user.team) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+    if (req.user.role === 'TEAM_LEADER' && req.user.team?.toLowerCase() !== team?.toLowerCase()) {
+      // Check if team leader is assigned to team in team_leaders table
+      const { queryOne } = require('../config/database');
+      const isAssignedLeader = await queryOne(
+        'SELECT DISTINCT 1 FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ? AND LOWER(TRIM(t.name)) = LOWER(TRIM(?))',
+        [req.user.id, team]
+      ).catch(() => null);
+
+      if (!isAssignedLeader) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
     }
     const limit = parseInt(req.query.limit) || 1000;
     const files = await fileService.getAllFiles({ team, limit });

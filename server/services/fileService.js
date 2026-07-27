@@ -932,6 +932,27 @@ async function bulkUploadMoveToNas(fileRecords, user, assignmentId, assignmentLi
 }
 
 /**
+/**
+ * Helper to check if a user (Team Leader / Admin) is authorized for a file's team
+ */
+async function checkTeamLeaderPermission(user, targetTeam) {
+  if (!user) return false;
+  if (user.role === 'ADMIN') return true;
+  if (!targetTeam || !targetTeam.trim()) return true;
+  if (user.team && user.team.trim().toLowerCase() === targetTeam.trim().toLowerCase()) return true;
+
+  try {
+    const row = await queryOne(
+      'SELECT DISTINCT 1 FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ? AND LOWER(TRIM(t.name)) = LOWER(TRIM(?))',
+      [user.id, targetTeam]
+    );
+    if (row) return true;
+  } catch (_) {}
+
+  return false;
+}
+
+/**
  * Approve file by team leader
  */
 async function approveByTeamLeader(fileId, teamLeader, comments = '') {
@@ -948,13 +969,24 @@ async function approveByTeamLeader(fileId, teamLeader, comments = '') {
     throw new NotFoundError('File');
   }
 
-  if (teamLeader.role !== 'ADMIN' && file.user_team !== teamLeader.team) {
+  const isAllowed = await checkTeamLeaderPermission(teamLeader, file.user_team);
+  if (!isAllowed) {
     throw new ValidationError('You can only approve files from your team');
   }
 
-  // Attachments might not have a current_stage in the same way, but we can check status
+  // If already approved by team leader or admin, return current file gracefully
+  if (file.status === 'team_leader_approved' || file.status === 'final_approved') {
+    return file;
+  }
+
+  // Validate current stage/status for pre-approval
   const currentStage = file.current_stage || file.status;
-  if (currentStage !== 'pending_team_leader' && currentStage !== 'uploaded' && currentStage !== 'submitted') {
+  const validStages = [
+    'pending_team_leader', 'uploaded', 'submitted', 'checked', 'for_checking',
+    'under_revision', 'revision', 'in_review', 'pending', 're_uploaded',
+    'resubmitted', 'pending_approval'
+  ];
+  if (!validStages.includes(currentStage) && !validStages.includes(file.status)) {
     throw new ValidationError('File is not in the correct stage for team leader approval');
   }
 
@@ -1031,7 +1063,8 @@ async function rejectByTeamLeader(fileId, teamLeader, reason) {
     throw new NotFoundError('File');
   }
 
-  if (teamLeader.role !== 'ADMIN' && file.user_team !== teamLeader.team) {
+  const isAllowed = await checkTeamLeaderPermission(teamLeader, file.user_team);
+  if (!isAllowed) {
     throw new ValidationError('You can only reject files from your team');
   }
 

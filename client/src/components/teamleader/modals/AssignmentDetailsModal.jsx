@@ -252,11 +252,12 @@ const AssignmentDetailsModal = ({
 
     setIsProcessing(true)
     try {
-      const data = await apiFetch(`/api/files/${selectedSubmission.id}/team-leader-review`, {
+      const data = await apiFetch(`/api/files/${selectedSubmission.id}/team-leader-reject`, {
         method: 'POST',
         body: JSON.stringify({
           action: 'reject',
           comments: reviewComment.trim(),
+          reason: reviewComment.trim(),
           teamLeaderId,
           teamLeaderUsername,
           teamLeaderRole: 'TEAM_LEADER',

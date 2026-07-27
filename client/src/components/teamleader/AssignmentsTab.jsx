@@ -2149,7 +2149,7 @@ const AssignmentsTab = ({
                     disabled={isFolderProcessing}
                     onClick={async () => {
                       const approvable = folderReviewModal.folderFiles.filter(f =>
-                        f.status === 'uploaded' || f.current_stage === 'pending_team_leader'
+                        f.status !== 'team_leader_approved' && f.status !== 'final_approved' && f.status !== 'rejected_by_team_leader' && f.status !== 'rejected_by_admin'
                       )
                       if (approvable.length === 0) {
                         alert('No files are pending team leader approval.')
@@ -2195,7 +2195,7 @@ const AssignmentsTab = ({
                     disabled={isFolderProcessing}
                     onClick={async () => {
                       const rejectable = folderReviewModal.folderFiles.filter(f =>
-                        f.status === 'uploaded' || f.current_stage === 'pending_team_leader'
+                        f.status !== 'team_leader_approved' && f.status !== 'final_approved' && f.status !== 'rejected_by_team_leader' && f.status !== 'rejected_by_admin'
                       )
                       if (rejectable.length === 0) {
                         alert('No files are pending team leader approval.')
