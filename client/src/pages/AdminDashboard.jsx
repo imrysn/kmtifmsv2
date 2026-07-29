@@ -32,7 +32,7 @@ import {
 import { BroadcastModal } from '../components/admin/modals'
 
 // Memoized sidebar so state changes in the main dashboard don't re-render it
-const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, user, handleTabChange, closeSidebar, handleLogout, setShowBroadcastModal }) => (
+const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, unreadBroadcastCount, setUnreadBroadcastCount, user, handleTabChange, closeSidebar, handleLogout, setShowBroadcastModal }) => (
   <div className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`} ref={sidebarRef}>
     <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
       <Avatar user={user} size="md" editable />
@@ -105,12 +105,14 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
       <button 
         type="button" 
         className="nav-item" 
-        onClick={() => setShowBroadcastModal(true)} 
+        onClick={() => {
+          setShowBroadcastModal(true);
+        }} 
         style={{ marginBottom: '8px', width: '100%', border: '1px solid var(--border-color)', background: 'transparent' }} 
         aria-label="Send Broadcast"
       >
-        <span className="nav-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="18" height="18">
+        <span className="nav-icon" style={{ position: 'relative' }}>
+          <svg width="22" height="22" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
             <path d="M 75.8,20.4 86.4,12.7 89.2,21.5 Z" fill="#64748b"/>
             <path d="M 85.1,38.9 97.4,32.3 98.4,41.9 Z" fill="#64748b"/>
             <path d="M 86.6,56.8 98.9,56.1 97.1,65.3 Z" fill="#64748b"/>
@@ -121,6 +123,11 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
             <ellipse cx="61.5" cy="49" rx="11" ry="24" fill="#64748b" transform="rotate(-12 61.5 49)"/>
             <ellipse cx="60" cy="49" rx="5" ry="12" fill="#ffffff" transform="rotate(-12 60 49)"/>
           </svg>
+          {unreadBroadcastCount > 0 && (
+            <span className="sidebar-notification-badge">
+              {unreadBroadcastCount > 99 ? '99+' : unreadBroadcastCount}
+            </span>
+          )}
         </span>
         <span className="nav-label">Broadcast</span>
       </button>
@@ -141,6 +148,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [success, setSuccess] = useState('')
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [unreadBroadcastCount, setUnreadBroadcastCount] = useState(0)
   const [contextData, setContextData] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showBroadcastModal, setShowBroadcastModal] = useState(false)
@@ -192,6 +200,11 @@ const AdminDashboard = ({ user, onLogout }) => {
         setNotifications(data.notifications || [])
         setUnreadCount(data.unreadCount || 0)
       }
+      
+      const broadcastData = await apiFetch(`/api/notifications/user/${user.id}?limit=1&type=broadcast_reply&unreadOnly=true`);
+      if (broadcastData.success) {
+        setUnreadBroadcastCount(broadcastData.unreadCount || 0);
+      }
     } catch (error) {
       console.error('Error fetching notifications:', error)
     }
@@ -228,8 +241,15 @@ const AdminDashboard = ({ user, onLogout }) => {
             const data = JSON.parse(event.data);
             setDebugSseData(event.data); // UPDATE DEBUG STATE
             if (data.type === 'broadcast') {
-              console.log('Broadcasting alert!', data);
-              setActiveBroadcast({ title: data.title, message: data.message });
+              setActiveBroadcast({ 
+                title: data.title, 
+                message: data.message,
+                senderId: data.senderId,
+                senderName: data.senderName
+              });
+              
+              // Also fetch notifications to update the broadcast reply badge
+              fetchNotifications();
             }
           } catch(e) {
             console.error('SSE Parse Error:', e);
@@ -346,6 +366,8 @@ const AdminDashboard = ({ user, onLogout }) => {
                 activeTab={activeTab}
                 sidebarOpen={sidebarOpen}
                 unreadCount={unreadCount}
+                unreadBroadcastCount={unreadBroadcastCount}
+                setUnreadBroadcastCount={setUnreadBroadcastCount}
                 user={user}
                 handleTabChange={handleTabChange}
                 closeSidebar={closeSidebar}
@@ -392,6 +414,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                 <BroadcastModal
                   isOpen={showBroadcastModal}
                   onClose={() => setShowBroadcastModal(false)}
+                  onReplyRead={() => setUnreadBroadcastCount(prev => Math.max(0, prev - 1))}
                   onSuccess={(count) => {
                     window.toastContainer?.addToast({
                       type: 'success',

@@ -167,7 +167,7 @@ const createAdminNotification = async (fileId, type, title, message, actionById,
 router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { unreadOnly, page = 1, limit = 20, panelType } = req.query;
+    const { unreadOnly, page = 1, limit = 20, panelType, type } = req.query;
 
     // Ownership check: users can only see their own notifications; ADMIN can see any
     // Use loose == comparison so string userId from URL matches integer req.user.id from JWT
@@ -195,6 +195,14 @@ router.get('/user/:userId', async (req, res) => {
       countQuery += " AND (panel_type IS NULL OR panel_type != 'user')";
     } else if (panelType === 'user') {
       countQuery += " AND (panel_type IS NULL OR panel_type != 'teamleader')";
+    }
+    
+    // Type filtering for broadcast replies
+    if (type) {
+      countQuery += " AND type = ?";
+      countParams.push(type);
+    } else {
+      countQuery += " AND type NOT IN ('broadcast_reply', 'broadcast')";
     }
     const countResult = await queryOne(countQuery, countParams);
     const totalCount = countResult?.total || 0;
@@ -229,6 +237,14 @@ router.get('/user/:userId', async (req, res) => {
       queryStr += " AND (n.panel_type IS NULL OR n.panel_type != 'teamleader')";
     }
 
+    // Type filtering for broadcast replies
+    if (type) {
+      queryStr += " AND n.type = ?";
+      queryParams.push(type);
+    } else {
+      queryStr += " AND n.type NOT IN ('broadcast_reply', 'broadcast')";
+    }
+
     queryStr += ` ORDER BY n.created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
 
     const notifications = await query(queryStr, queryParams);
@@ -242,6 +258,14 @@ router.get('/user/:userId', async (req, res) => {
       unreadCountQuery += " AND (panel_type IS NULL OR panel_type != 'user')";
     } else if (panelType === 'user') {
       unreadCountQuery += " AND (panel_type IS NULL OR panel_type != 'teamleader')";
+    }
+    
+    // Exclude broadcast replies from unread count
+    if (type) {
+      unreadCountQuery += " AND type = ?";
+      unreadParams.push(type);
+    } else {
+      unreadCountQuery += " AND type != 'broadcast_reply'";
     }
     const unreadCountResult = await queryOne(unreadCountQuery, unreadParams);
     const unreadCount = unreadCountResult?.count || 0;
@@ -280,7 +304,7 @@ router.get('/user/:userId/unread-count', async (req, res) => {
 
     const { panelType } = req.query;
 
-    let unreadQuery = 'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0';
+    let unreadQuery = "SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0 AND type NOT IN ('broadcast_reply', 'broadcast')";
     const unreadParams = [userId];
     if (panelType === 'teamleader') {
       unreadQuery += " AND (panel_type IS NULL OR panel_type != 'user')";
@@ -339,12 +363,20 @@ router.put('/user/:userId/read-all', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const result = await query(
-      'UPDATE notifications SET is_read = 1, read_at = ? WHERE user_id = ? AND is_read = 0',
-      [now, userId]
-    );
+    const { type } = req.query;
+
+    let queryStr = 'UPDATE notifications SET is_read = 1, read_at = ? WHERE user_id = ? AND is_read = 0';
+    const params = [now, userId];
+
+    if (type) {
+      queryStr += ' AND type = ?';
+      params.push(type);
+    }
+
+    const result = await query(queryStr, params);
 
     console.log(`✅ Marked all notifications as read for user ${userId}`);
+    pushToUser(userId); // Trigger SSE ping to update frontend badge
 
     res.json({
       success: true,
@@ -389,6 +421,7 @@ router.delete('/:notificationId', async (req, res) => {
 router.delete('/user/:userId/delete-all', async (req, res) => {
   try {
     const { userId } = req.params;
+    const { type } = req.query;
 
     // Ownership check (loose == to handle string/int mismatch between URL param and JWT)
     if (req.user.id !== parseInt(userId, 10) && req.user.role !== 'ADMIN') {
@@ -397,10 +430,15 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
 
     console.log(`🗑️ Deleting all notifications for user ${userId}`);
 
-    const result = await query(
-      'DELETE FROM notifications WHERE user_id = ?',
-      [userId]
-    );
+    let queryStr = 'DELETE FROM notifications WHERE user_id = ?';
+    const params = [userId];
+
+    if (type) {
+      queryStr += ' AND type = ?';
+      params.push(type);
+    }
+
+    const result = await query(queryStr, params);
 
     console.log(`✅ Deleted ${result.affectedRows || 0} notifications for user ${userId}`);
 
@@ -418,36 +456,52 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
   }
 });
 
-// Broadcast a notification to all users (Admin only)
+// Broadcast a notification
 router.post('/broadcast', async (req, res) => {
   try {
     const { title, message, targetUserIds } = req.body;
-    
-    if (req.user.role !== 'ADMIN') {
-      return res.status(403).json({ success: false, message: 'Access denied: Only admins can broadcast' });
-    }
     
     if (!title || !message) {
       return res.status(400).json({ success: false, message: 'Title and message are required' });
     }
 
-    console.log(`📢 Sending broadcast announcement: ${title}`);
+    console.log(`📢 Sending broadcast announcement: ${title} from ${req.user.username}`);
 
-    // Get users based on targetUserIds or get all users
     let users = [];
-    if (targetUserIds && Array.isArray(targetUserIds) && targetUserIds.length > 0) {
-      // Fetch only specific users
-      const placeholders = targetUserIds.map(() => '?').join(',');
-      users = await query(`SELECT id FROM users WHERE id IN (${placeholders})`, targetUserIds);
+    if (req.user.role !== 'ADMIN') {
+      // Non-admins can only send messages to admins
+      users = await query("SELECT id FROM users WHERE role = 'ADMIN'");
     } else {
-      // Send to all users
-      users = await query("SELECT id FROM users");
+      // Admin: Get users based on targetUserIds or get all users
+      if (targetUserIds && Array.isArray(targetUserIds) && targetUserIds.length > 0) {
+        // Fetch only specific users
+        const placeholders = targetUserIds.map(() => '?').join(',');
+        users = await query(`SELECT id FROM users WHERE id IN (${placeholders})`, targetUserIds);
+      } else {
+        // Send to all users
+        users = await query("SELECT id FROM users");
+      }
     }
 
     let count = 0;
+    const isNonAdmin = req.user.role !== 'ADMIN';
+    const dbType = isNonAdmin ? 'broadcast_reply' : 'broadcast';
+
     for (const user of users) {
-      // Push SSE ping with broadcast payload ONLY (do not save to DB)
-      pushToUser(user.id, { type: 'broadcast', title, message });
+      // Save to database so it persists and appears in Messages tab if needed
+      await query(
+        'INSERT INTO notifications (user_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [user.id, dbType, title, message, req.user.id, req.user.username, req.user.role]
+      );
+
+      // Push SSE ping with broadcast payload (triggers the alert popup)
+      pushToUser(user.id, { 
+        type: 'broadcast', 
+        title, 
+        message,
+        senderId: req.user.id,
+        senderName: req.user.username
+      });
       count++;
     }
 
@@ -463,6 +517,57 @@ router.post('/broadcast', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to send broadcast'
+    });
+  }
+});
+
+// Reply to a broadcast
+router.post('/broadcast/reply', async (req, res) => {
+  try {
+    const { broadcastSenderId, originalMessage, replyMessage } = req.body;
+    
+    if (!broadcastSenderId || !replyMessage) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    console.log(`💬 User ${req.user.id} replying to broadcast from ${broadcastSenderId}`);
+
+    // Create a notification for the broadcast sender (but it won't show in standard feed)
+    // We do NOT call createNotification directly because it pushes a 'ping' that triggers a toast.
+    // Instead we insert it silently so it's available for the "Replies" tab.
+    await query(
+      `INSERT INTO notifications (user_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        broadcastSenderId,
+        null,
+        'broadcast_reply',
+        'Broadcast Reply',
+        `${req.user.username || 'A user'} replied to your broadcast:\n\n"${replyMessage}"`,
+        req.user.id,
+        req.user.username,
+        req.user.role
+      ]
+    );
+
+    // Also push a real-time popup to the sender so they see it instantly
+    pushToUser(broadcastSenderId, {
+      type: 'broadcast',
+      title: `Reply from ${req.user.username || 'A user'}`,
+      message: replyMessage,
+      senderId: req.user.id,
+      senderName: req.user.username
+    });
+
+    res.json({
+      success: true,
+      message: 'Reply sent successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error sending broadcast reply:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send reply'
     });
   }
 });

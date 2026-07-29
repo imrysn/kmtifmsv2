@@ -35,6 +35,7 @@ const MemberFilesModal = lazy(() => import('../components/teamleader').then(modu
 const CreateAssignmentModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.CreateAssignmentModal })))
 const ReviewModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.ReviewModal })))
 const FileViewModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.FileViewModal })))
+const BroadcastModal = lazy(() => import('../components/admin/modals').then(module => ({ default: module.BroadcastModal })))
 
 const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -57,6 +58,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [fileComments, setFileComments] = useState([])
   const [openMenuId, setOpenMenuId] = useState(null)
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false)
 
   // Bulk action states
   const [selectedFileIds, setSelectedFileIds] = useState([])
@@ -223,7 +225,12 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'broadcast') {
-              setActiveBroadcast({ title: data.title, message: data.message });
+              setActiveBroadcast({ 
+                title: data.title, 
+                message: data.message,
+                senderId: data.senderId,
+                senderName: data.senderName
+              });
             }
           } catch (e) { }
         }
@@ -1441,6 +1448,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               onLogout={onLogout}
               user={user}
               unreadCount={unreadCount}
+              setShowBroadcastModal={setShowBroadcastModal}
             />
 
             <main className="tl-main">
@@ -1602,6 +1610,17 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               <BroadcastAlert
                 broadcast={activeBroadcast}
                 onClose={() => setActiveBroadcast(null)}
+              />
+            )}
+
+            {showBroadcastModal && (
+              <BroadcastModal
+                isOpen={showBroadcastModal}
+                onClose={() => setShowBroadcastModal(false)}
+                onSuccess={() => {
+                  setSuccess('Message sent successfully')
+                  setTimeout(clearMessages, 3000)
+                }}
               />
             )}
           </div>

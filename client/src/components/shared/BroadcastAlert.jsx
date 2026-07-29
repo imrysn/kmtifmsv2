@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useStore from '../../store/useStore';
+import { apiFetch } from '../../config/api';
 
 const BroadcastAlert = ({ broadcast, onClose }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -11,6 +12,7 @@ const BroadcastAlert = ({ broadcast, onClose }) => {
     // Small delay to trigger CSS entrance animation
     setTimeout(() => setIsVisible(true), 10);
   }, []);
+
 
   const handleClose = () => {
     setIsVisible(false);
@@ -93,7 +95,7 @@ const BroadcastAlert = ({ broadcast, onClose }) => {
         </h2>
         
         <p style={{ 
-          margin: '0 0 32px 0', 
+          margin: '0 0 24px 0', 
           fontSize: '16px', 
           color: isLight ? '#475569' : '#cbd5e1', 
           lineHeight: '1.6',
@@ -101,33 +103,27 @@ const BroadcastAlert = ({ broadcast, onClose }) => {
         }}>
           {broadcast.message}
         </p>
-        
-        <button 
-          onClick={handleClose}
-          style={{
-            padding: '14px 32px',
-            background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '14px',
-            fontSize: '15px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)',
-            transition: 'all 0.2s',
-            width: '100%'
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.transform = 'translateY(-2px)';
-            e.target.style.boxShadow = '0 6px 16px rgba(249, 115, 22, 0.4)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.transform = 'none';
-            e.target.style.boxShadow = '0 4px 12px rgba(249, 115, 22, 0.3)';
-          }}
-        >
-          Got it
-        </button>
+
+        <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+          <button 
+            onClick={handleClose}
+            style={{
+              flex: 1,
+              padding: '14px 20px',
+              background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '14px',
+              fontSize: '15px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)',
+              transition: 'all 0.2s',
+            }}
+          >
+            Got it
+          </button>
+        </div>
       </div>
 
       <style>{`

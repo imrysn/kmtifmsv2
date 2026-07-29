@@ -6,6 +6,7 @@ import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage } from '../components/shared'
 import OnlineMembersPanel from '../components/shared/OnlineMembersPanel'
 import BroadcastAlert from '../components/shared/BroadcastAlert'
+import { BroadcastModal } from '../components/admin/modals'
 
 // Sync unread count to Electron taskbar badge + icon flash
 const syncElectronBadge = (count) => {
@@ -35,6 +36,7 @@ const UserDashboard = ({ user, onLogout }) => {
   const [showFileModal, setShowFileModal] = useState(false)
   const [fileComments, setFileComments] = useState([])
   const [notificationCount, setNotificationCount] = useState(0)
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false)
 
   // Wrap in startTransition so badge updates never block scroll/interaction
   const handleUpdateUnreadCount = useCallback((count) => {
@@ -75,7 +77,12 @@ const UserDashboard = ({ user, onLogout }) => {
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'broadcast') {
-              setActiveBroadcast({ title: data.title, message: data.message });
+              setActiveBroadcast({ 
+                title: data.title, 
+                message: data.message,
+                senderId: data.senderId,
+                senderName: data.senderName
+              });
             }
           } catch (e) { }
         }
@@ -319,13 +326,14 @@ const UserDashboard = ({ user, onLogout }) => {
   return (
     <Suspense fallback={<SkeletonLoader type="dashboard" />}>
       <div className="minimal-dashboard user-dashboard">
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={handleTabChange}
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab}
           filesCount={filesCount}
           notificationCount={notificationCount}
           onLogout={handleLogout}
           user={user}
+          setShowBroadcastModal={setShowBroadcastModal}
         />
 
         {/* Main Content */}
@@ -366,6 +374,15 @@ const UserDashboard = ({ user, onLogout }) => {
         <BroadcastAlert
           broadcast={activeBroadcast}
           onClose={() => setActiveBroadcast(null)}
+        />
+      )}
+      {showBroadcastModal && (
+        <BroadcastModal 
+          isOpen={showBroadcastModal} 
+          onClose={() => setShowBroadcastModal(false)}
+          onSuccess={() => {
+            // Optional success handling
+          }}
         />
       )}
     </Suspense>
