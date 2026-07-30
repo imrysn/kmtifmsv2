@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { apiFetch } from '@/config/api';
+import { apiFetch, API_BASE_URL } from '@/config/api';
 import useStore from '../../../store/useStore';
 import Avatar from '@/components/shared/Avatar';
 
@@ -8,6 +8,8 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
   const isLight = theme === 'light';
 
   const [message, setMessage] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [users, setUsers] = useState([]);
@@ -39,6 +41,8 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
       document.body.style.overflow = '';
       setTargetType('all');
       setMessage('');
+      setImageFile(null);
+      setImagePreview(null);
       setSearchQuery('');
       setSelectedUserIds(new Set());
       setReplies([]);
@@ -76,6 +80,27 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
     setTimeout(onClose, 300);
   };
 
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          setImageFile(file);
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setImagePreview(reader.result);
+          };
+          reader.readAsDataURL(file);
+          break; // Only handle one image
+        }
+      }
+    }
+  };
+
   const handleMarkAsRead = (replyId) => {
     const reply = replies.find(r => r.id === replyId);
     if (!reply || reply.is_read === 1) return;
@@ -106,8 +131,8 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!message.trim()) {
-      setError('Message is required.');
+    if (!message.trim() && !imageFile) {
+      setError('Message or image is required.');
       return;
     }
 
@@ -120,15 +145,28 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
     setError('');
 
     try {
+      const formData = new FormData();
+      formData.append('title', user.role === 'ADMIN' 
+        ? (targetType === 'specific' ? 'Message from Admin' : 'Announcement') 
+        : `Message from ${user.username || 'User'}`);
+      formData.append('message', message);
+      
+      if (targetType === 'specific') {
+        formData.append('targetUserIds', JSON.stringify(Array.from(selectedUserIds)));
+      }
+      
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
+      
+      console.log('--- FORM DATA ---');
+      console.log('title:', formData.get('title'));
+      console.log('message:', formData.get('message'));
+      console.log('image:', formData.get('image'));
+
       const response = await apiFetch('/api/notifications/broadcast', {
         method: 'POST',
-        body: JSON.stringify({ 
-          title: user.role === 'ADMIN' 
-            ? (targetType === 'specific' ? 'Message from Admin' : 'Announcement') 
-            : `Message from ${user.username || 'User'}`, 
-          message,
-          targetUserIds: targetType === 'specific' ? Array.from(selectedUserIds) : []
-        })
+        body: formData
       });
 
       if (response.success) {
@@ -652,12 +690,43 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                       <div style={{ color: '#64748b', fontSize: '11px' }}>{new Date(reply.created_at).toLocaleString()}</div>
                     </div>
                     <div style={{ 
-                      color: isLight ? '#1e293b' : '#e2e8f0', 
+                      color: isLight ? '#334155' : '#cbd5e1',
                       fontSize: '14px',
-                      lineHeight: '1.5',
-                      whiteSpace: 'pre-wrap' 
+                      lineHeight: '1.6',
+                      paddingLeft: '48px',
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap'
                     }}>
-                      {reply.message.replace(/.*replied to your broadcast:\n\n"/, '').replace(/"$/, '')}
+                      {(() => {
+                        const rawMessage = reply.message.replace(/.*replied to your broadcast:\n\n"/, '').replace(/"$/, '');
+                        const imgRegex = /!\[.*?\]\((.*?)\)/g;
+                        const parts = [];
+                        let lastIndex = 0;
+                        let match;
+                        
+                        while ((match = imgRegex.exec(rawMessage)) !== null) {
+                          if (match.index > lastIndex) {
+                            parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex, match.index)}</span>);
+                          }
+                          parts.push(
+                            <div key={`img-${match.index}`} style={{ marginTop: '8px', marginBottom: '8px' }}>
+                              <img 
+                                src={match[1].startsWith('/') ? `${API_BASE_URL}${match[1]}` : match[1]} 
+                                alt="Attachment" 
+                                style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}` }} 
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                            </div>
+                          );
+                          lastIndex = imgRegex.lastIndex;
+                        }
+                        
+                        if (lastIndex < rawMessage.length) {
+                          parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex)}</span>);
+                        }
+                        
+                        return parts;
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -670,18 +739,17 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
             <div style={{ marginTop: '20px', marginBottom: '16px' }}>
               <label style={{ display: 'block', fontSize: '14px', color: isLight ? '#475569' : '#cbd5e1', marginBottom: '8px', fontWeight: '600' }}>Message</label>
               <textarea
-                id="broadcast-message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder={user.role === 'ADMIN' ? "Type your announcement here..." : "Type your message to administrators here..."}
-                required
-                rows={4}
-                style={{ 
-                  width: '100%', 
-                  padding: '16px', 
-                  background: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.6)', 
-                  border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)'}`, 
-                  borderRadius: '16px', 
+                onPaste={handlePaste}
+                placeholder="Type your message here... (You can also paste images)"
+                style={{
+                  width: '100%',
+                  minHeight: '120px',
+                  padding: '16px',
+                  background: isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.5)',
+                  border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: '12px',
                   color: isLight ? '#0f172a' : '#f8fafc',
                   fontSize: '15px',
                   lineHeight: '1.5',
@@ -702,6 +770,79 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                   e.target.style.boxShadow = isLight ? 'inset 0 1px 2px rgba(0,0,0,0.05)' : 'inset 0 2px 4px rgba(0,0,0,0.2)';
                 }}
               />
+              
+              {imagePreview && (
+                <div style={{ marginTop: '12px', position: 'relative', display: 'inline-block' }}>
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview" 
+                    style={{ maxWidth: '200px', maxHeight: '150px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}` }} 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageFile(null);
+                      setImagePreview(null);
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      right: '-8px',
+                      background: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '24px',
+                      height: '24px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              
+              <div style={{ display: 'flex', alignItems: 'center', marginTop: '12px' }}>
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  cursor: 'pointer',
+                  color: isLight ? '#64748b' : '#94a3b8',
+                  fontSize: '13px',
+                  padding: '6px 12px',
+                  background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.05)',
+                  borderRadius: '6px',
+                  transition: 'background 0.2s'
+                }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                  Attach Image
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setImageFile(file);
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setImagePreview(reader.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
             </div>
           )}
           
@@ -739,7 +880,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
             {targetType !== 'replies' && targetType !== 'broadcast_history' && targetType !== 'message_history' && (
               <button 
                 type="submit" 
-                disabled={isLoading || !message.trim() || (targetType === 'specific' && selectedUserIds.size === 0)}
+                disabled={isLoading || (!message.trim() && !imageFile) || (targetType === 'specific' && selectedUserIds.size === 0)}
                 style={{
                   padding: '12px 28px',
                   background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
@@ -748,8 +889,8 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                   borderRadius: '12px',
                   fontSize: '14px',
                   fontWeight: '600',
-                  cursor: (isLoading || !message.trim() || (targetType === 'specific' && selectedUserIds.size === 0)) ? 'not-allowed' : 'pointer',
-                  opacity: (isLoading || !message.trim() || (targetType === 'specific' && selectedUserIds.size === 0)) ? 0.7 : 1,
+                  cursor: (isLoading || (!message.trim() && !imageFile) || (targetType === 'specific' && selectedUserIds.size === 0)) ? 'not-allowed' : 'pointer',
+                  opacity: (isLoading || (!message.trim() && !imageFile) || (targetType === 'specific' && selectedUserIds.size === 0)) ? 0.7 : 1,
                   boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)',
                   display: 'flex',
                   alignItems: 'center',

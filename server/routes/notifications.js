@@ -1,6 +1,9 @@
 const express = require('express');
 const { query, queryOne } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { upload, uploadsDir } = require('../config/middleware');
+const fs = require('fs').promises;
+const path = require('path');
 
 const router = express.Router();
 
@@ -513,16 +516,48 @@ router.get('/user/:userId/unread-broadcasts', async (req, res) => {
       success: false,
       message: 'Failed to get unread broadcasts'
     });
-  }
-});
-
 // Broadcast a notification
-router.post('/broadcast', async (req, res) => {
+router.post('/broadcast', upload.single('image'), async (req, res) => {
   try {
-    const { title, message, targetUserIds } = req.body;
+    let { title, message, targetUserIds } = req.body;
     
-    if (!title || !message) {
-      return res.status(400).json({ success: false, message: 'Title and message are required' });
+    // targetUserIds might come as a JSON string when sent via FormData
+    if (typeof targetUserIds === 'string') {
+      try {
+        targetUserIds = JSON.parse(targetUserIds);
+      } catch (e) {
+        targetUserIds = [];
+      }
+    }
+    
+    if (!title || (!message && !req.file)) {
+      return res.status(400).json({ success: false, message: 'Title and message or image are required' });
+    }
+
+    message = message || '';
+
+    // Process image upload if present
+    if (req.file) {
+      const broadcastsDir = path.join(uploadsDir, 'broadcasts');
+      try {
+        // Ensure broadcasts directory exists
+        await fs.mkdir(broadcastsDir, { recursive: true });
+        
+        // Use original extension
+        const ext = path.extname(req.file.originalname) || '.png';
+        const finalFilename = `broadcast_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
+        const finalPath = path.join(broadcastsDir, finalFilename);
+        
+        // Move file from temp to final destination (copy then delete to avoid EXDEV cross-device errors)
+        await fs.copyFile(req.file.path, finalPath);
+        await fs.unlink(req.file.path);
+        
+        // Append image to message
+        message += `\n\n![Image](/uploads/broadcasts/${finalFilename})`;
+      } catch (err) {
+        console.error('Failed to process broadcast image:', err);
+        // Continue even if image fails, or you could return an error
+      }
     }
 
     console.log(`📢 Sending broadcast announcement: ${title} from ${req.user.username}`);

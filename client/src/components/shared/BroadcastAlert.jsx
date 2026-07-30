@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useStore from '../../store/useStore';
-import { apiFetch } from '../../config/api';
+import { apiFetch, API_BASE_URL } from '../../config/api';
 
 const BroadcastAlert = ({ broadcast, onClose, remainingCount = 0 }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -94,15 +94,46 @@ const BroadcastAlert = ({ broadcast, onClose, remainingCount = 0 }) => {
           {broadcast.title || 'Announcement'}
         </h2>
         
-        <p style={{ 
+        <div style={{ 
           margin: '0 0 24px 0', 
           fontSize: '16px', 
           color: isLight ? '#475569' : '#cbd5e1', 
           lineHeight: '1.6',
-          whiteSpace: 'pre-wrap'
+          whiteSpace: 'pre-wrap',
+          width: '100%'
         }}>
-          {broadcast.message}
-        </p>
+          {(() => {
+            if (!broadcast.message) return null;
+            const rawMessage = broadcast.message;
+            const imgRegex = /!\[.*?\]\((.*?)\)/g;
+            const parts = [];
+            let lastIndex = 0;
+            let match;
+            
+            while ((match = imgRegex.exec(rawMessage)) !== null) {
+              if (match.index > lastIndex) {
+                parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex, match.index)}</span>);
+              }
+              parts.push(
+                <div key={`img-${match.index}`} style={{ marginTop: '8px', marginBottom: '8px' }}>
+                  <img 
+                    src={match[1].startsWith('/') ? `${API_BASE_URL}${match[1]}` : match[1]} 
+                    alt="Attachment" 
+                    style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '6px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}` }} 
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                </div>
+              );
+              lastIndex = imgRegex.lastIndex;
+            }
+            
+            if (lastIndex < rawMessage.length) {
+              parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex)}</span>);
+            }
+            
+            return parts;
+          })()}
+        </div>
 
         <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
           <button 

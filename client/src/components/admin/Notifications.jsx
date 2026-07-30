@@ -24,7 +24,39 @@ const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNoti
         <div className="notification-title">
           {notification.title}
         </div>
-        <div className="notification-message">{notification.message}</div>
+        <div className="notification-message">
+          {(() => {
+            if (!notification.message) return null;
+            const rawMessage = notification.message.replace(/.*replied to your broadcast:\n\n"/, '').replace(/"$/, '');
+            const imgRegex = /!\[.*?\]\((.*?)\)/g;
+            const parts = [];
+            let lastIndex = 0;
+            let match;
+            
+            while ((match = imgRegex.exec(rawMessage)) !== null) {
+              if (match.index > lastIndex) {
+                parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex, match.index)}</span>);
+              }
+              parts.push(
+                <div key={`img-${match.index}`} style={{ marginTop: '8px', marginBottom: '8px' }}>
+                  <img 
+                    src={match[1].startsWith('/') ? `${API_BASE_URL}${match[1]}` : match[1]} 
+                    alt="Attachment" 
+                    style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: '1px solid #e2e8f0' }} 
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                </div>
+              );
+              lastIndex = imgRegex.lastIndex;
+            }
+            
+            if (lastIndex < rawMessage.length) {
+              parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex)}</span>);
+            }
+            
+            return parts;
+          })()}
+        </div>
 
         <div className="notification-meta">
           <span className="notification-author">
