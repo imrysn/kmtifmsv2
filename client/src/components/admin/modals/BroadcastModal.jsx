@@ -19,6 +19,8 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState(new Set());
   const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
+  const [isDeletingMessage, setIsDeletingMessage] = useState(false);
   const modalRef = useRef(null);
 
   useEffect(() => {
@@ -101,6 +103,34 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
     }
   };
 
+  // We use a useEffect to listen to paste events globally while the modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const globalHandlePaste = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            setImageFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              setImagePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+            break; 
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', globalHandlePaste);
+    return () => window.removeEventListener('paste', globalHandlePaste);
+  }, [isOpen]);
+
   const handleMarkAsRead = (replyId) => {
     const reply = replies.find(r => r.id === replyId);
     if (!reply || reply.is_read === 1) return;
@@ -118,6 +148,32 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
       .catch(err => {
         console.error('Error marking reply as read:', err);
       });
+  };
+
+  const handleDeleteReply = (replyId, e) => {
+    e.stopPropagation(); // Prevent marking as read when clicking delete
+    setMessageToDelete(replyId);
+  };
+
+  const confirmDeleteMessage = async () => {
+    if (!messageToDelete) return;
+    setIsDeletingMessage(true);
+    
+    try {
+      const response = await apiFetch(`/api/notifications/${messageToDelete}`, {
+        method: 'DELETE'
+      });
+      if (response.success) {
+        setReplies(prev => prev.filter(r => r.id !== messageToDelete));
+      } else {
+        console.error('Failed to delete message:', response.message);
+      }
+    } catch (err) {
+      console.error('Error deleting message:', err);
+    } finally {
+      setIsDeletingMessage(false);
+      setMessageToDelete(null);
+    }
   };
 
   const toggleUserSelection = (userId) => {
@@ -687,7 +743,33 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                           {reply.action_by_username || (user.role === 'ADMIN' ? 'A user' : 'Admin')}
                         </div>
                       </div>
-                      <div style={{ color: '#64748b', fontSize: '11px' }}>{new Date(reply.created_at).toLocaleString()}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ color: '#64748b', fontSize: '11px' }}>{new Date(reply.created_at).toLocaleString()}</div>
+                        <button
+                          onClick={(e) => handleDeleteReply(reply.id, e)}
+                          title="Delete message"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '4px',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseOver={(e) => e.currentTarget.style.background = isLight ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.2)'}
+                          onMouseOut={(e) => e.currentTarget.style.background = 'none'}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <div style={{ 
                       color: isLight ? '#334155' : '#cbd5e1',
@@ -1021,6 +1103,92 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
           display: none;
         }
       `}</style>
+      {!!messageToDelete && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(15, 23, 42, 0.8)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10,
+          borderRadius: '24px',
+          animation: 'fadeIn 0.2s ease'
+        }}>
+          <div style={{
+            background: isLight ? '#ffffff' : '#1e293b',
+            border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)'}`,
+            borderRadius: '16px',
+            padding: '24px',
+            width: '85%',
+            maxWidth: '320px',
+            boxShadow: isLight ? '0 10px 25px rgba(0,0,0,0.1)' : '0 10px 25px rgba(0,0,0,0.5)',
+            textAlign: 'center',
+            animation: 'scaleUp 0.2s ease'
+          }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px'
+            }}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#ef4444" width="24" height="24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h4 style={{ margin: '0 0 8px', fontSize: '18px', color: isLight ? '#0f172a' : '#f8fafc' }}>Delete Message</h4>
+            <p style={{ margin: '0 0 24px', fontSize: '14px', color: isLight ? '#64748b' : '#94a3b8' }}>
+              Are you sure you want to permanently delete this message? This action cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => !isDeletingMessage && setMessageToDelete(null)}
+                disabled={isDeletingMessage}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.05)',
+                  color: isLight ? '#475569' : '#cbd5e1',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: isDeletingMessage ? 'not-allowed' : 'pointer',
+                  opacity: isDeletingMessage ? 0.7 : 1
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteMessage}
+                disabled={isDeletingMessage}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: isDeletingMessage ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                  opacity: isDeletingMessage ? 0.7 : 1
+                }}
+              >
+                {isDeletingMessage ? 'Processing...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
