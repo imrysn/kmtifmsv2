@@ -226,13 +226,16 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const data = await apiFetch(`/api/notifications/user/${user.id}?page=1&limit=20`)
+      const [data, broadcastData] = await Promise.all([
+        apiFetch(`/api/notifications/user/${user.id}?page=1&limit=20`),
+        apiFetch(`/api/notifications/user/${user.id}?limit=1&type=broadcast_reply&unreadOnly=true`)
+      ]);
+
       if (data.success) {
         setNotifications(data.notifications || [])
         setUnreadCount(data.unreadCount || 0)
       }
       
-      const broadcastData = await apiFetch(`/api/notifications/user/${user.id}?limit=1&type=broadcast_reply&unreadOnly=true`);
       if (broadcastData.success) {
         setUnreadBroadcastCount(broadcastData.unreadCount || 0);
       }
@@ -274,6 +277,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             if (data.type === 'broadcast') {
               if (seenBroadcasts.current.has(data.id)) return;
               seenBroadcasts.current.add(data.id);
+              setUnreadBroadcastCount(prev => prev + 1); // Optimistically increment
               setBroadcastQueue(prev => [...prev, {
                 id: data.id,
                 title: data.title, 
@@ -448,7 +452,13 @@ const AdminDashboard = ({ user, onLogout }) => {
                 <BroadcastModal
                   isOpen={showBroadcastModal}
                   onClose={() => setShowBroadcastModal(false)}
-                  onReplyRead={() => setUnreadBroadcastCount(prev => Math.max(0, prev - 1))}
+                  onReplyRead={(clearAll) => {
+          if (clearAll) {
+            setUnreadBroadcastCount(0);
+          } else {
+            setUnreadBroadcastCount(prev => Math.max(0, prev - 1));
+          }
+        }}
                   onSuccess={(count) => {
                     window.toastContainer?.addToast({
                       type: 'success',

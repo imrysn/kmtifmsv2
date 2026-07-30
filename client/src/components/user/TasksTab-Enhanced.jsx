@@ -1383,7 +1383,6 @@ const TasksTab = memo(({
           openCommentsModal(assignment);
           setTimeout(() => {
             document.querySelector('.tasks-modal-body')?.scrollTo(0, 0);
-            setTimeout(() => setHighlightCommentBy(null), 3000);
           }, 100);
         }, 500);
       }
@@ -1851,7 +1850,11 @@ const TasksTab = memo(({
     return name.substring(0, 2).toUpperCase();
   }, []);
 
-  const handleCloseCommentsModal = useCallback(() => setShowCommentsModal(false), []);
+  const handleCloseCommentsModal = useCallback(() => {
+    setShowCommentsModal(false);
+    setHighlightCommentBy(null);
+    setHighlightTargetCommentId(null);
+  }, []);
 
   const handleSetNewComment = useCallback((val) =>
     setNewComment(prev => ({ ...prev, [currentAssignmentIdRef.current]: val })), []);

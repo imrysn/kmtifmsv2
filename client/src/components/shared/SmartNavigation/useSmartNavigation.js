@@ -68,10 +68,10 @@ export function useSmartNavigation({
 
         if (setHighlightCommentId && ctx.commentId) {
             setHighlightCommentId(ctx.commentId);
-            setTimeout(() => setHighlightCommentId(null), 4000);
+            // Highlight remains until modal is closed or user interacts
         } else if (setHighlightUsername && ctx.highlightUser) {
             setHighlightUsername(ctx.highlightUser);
-            setTimeout(() => setHighlightUsername(null), 4000);
+            // Highlight remains until modal is closed or user interacts
         }
 
         if (openCommentsModal) {
@@ -137,20 +137,35 @@ export function useSmartNavigation({
             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
             element.classList.add(`${prefix}-assignment-highlighted`);
 
-            const clearTimer = setTimeout(() => {
+            const clickHandler = () => {
                 element.classList.remove(`${prefix}-assignment-highlighted`);
                 if (onClearHighlight) onClearHighlight();
-            }, 3000);
+                element.removeEventListener('click', clickHandler);
+            };
+            element.addEventListener('click', clickHandler);
 
             // Replace cleanup timer reference so the return below cancels it too
-            timer = clearTimer;
+            // We also store the clickHandler cleanup so it can be removed if the component unmounts
+            timer = { 
+                isListener: true, 
+                clear: () => {
+                    element.classList.remove(`${prefix}-assignment-highlighted`);
+                    element.removeEventListener('click', clickHandler);
+                } 
+            };
         };
 
         // Small initial delay so a simultaneous tab-switch re-render can settle first,
         // and to ensure the smooth scroll animation is visible to the user rather than jumping.
         timer = setTimeout(tryHighlight, 400);
 
-        return () => clearTimeout(timer);
+        return () => {
+            if (timer && timer.isListener) {
+                timer.clear();
+            } else {
+                clearTimeout(timer);
+            }
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [highlightedItemId, items]);
 
@@ -191,14 +206,30 @@ export function useSmartNavigation({
 
             el.classList.add(highlightClass);
 
-            setTimeout(() => {
+            const clickHandler = () => {
                 el.classList.remove(highlightClass);
                 if (onClearFileHighlight) onClearFileHighlight();
-            }, 3000);
+                el.removeEventListener('click', clickHandler);
+            };
+            el.addEventListener('click', clickHandler);
+
+            timer = {
+                isListener: true,
+                clear: () => {
+                    el.classList.remove(highlightClass);
+                    el.removeEventListener('click', clickHandler);
+                }
+            };
         };
 
         let timer = setTimeout(tryHighlight, 400); // Increased delay so folder expand fires first and scroll animation is smooth
-        return () => clearTimeout(timer);
+        return () => {
+            if (timer && timer.isListener) {
+                timer.clear();
+            } else {
+                clearTimeout(timer);
+            }
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [highlightedFileId, highlightedItemId, highlightedFileStatus, items]);
 

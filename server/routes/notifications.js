@@ -219,7 +219,8 @@ router.get('/user/:userId', async (req, res) => {
         f.status as file_status,
         a.title as assignment_title,
         a.due_date as assignment_due_date,
-        ac.id as comment_id
+        ac.id as comment_id,
+        u.profile_picture as action_by_profile_picture
       FROM notifications n
       LEFT JOIN files f ON n.file_id = f.id
       LEFT JOIN assignments a ON n.assignment_id = a.id
@@ -227,6 +228,7 @@ router.get('/user/:userId', async (req, res) => {
         AND n.type IN ('comment', 'mention', 'reply')
         AND n.created_at <= DATE_ADD(ac.created_at, INTERVAL 1 SECOND)
         AND n.created_at >= DATE_SUB(ac.created_at, INTERVAL 1 SECOND)
+      LEFT JOIN users u ON n.action_by_id = u.id
       WHERE n.user_id = ?
     `;
 

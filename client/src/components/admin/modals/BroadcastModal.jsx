@@ -65,18 +65,6 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
     }
   }, [isOpen, user]);
 
-  useEffect(() => {
-    if ((targetType === 'replies' || targetType === 'broadcast_history' || targetType === 'message_history') && user) {
-      // Mark specific type of replies as read for this user
-      let readType = 'broadcast_history';
-      if (user.role === 'ADMIN') readType = 'broadcast_reply';
-      else if (targetType === 'broadcast_history') readType = 'broadcast_announcements';
-      else if (targetType === 'message_history') readType = 'broadcast_messages';
-
-      apiFetch(`/api/notifications/user/${user.id}/read-all?type=${readType}`, { method: 'PUT' })
-        .catch(err => console.error('Error marking replies as read:', err));
-    }
-  }, [targetType, user]);
 
   if (!isOpen) return null;
 
@@ -339,6 +327,41 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                     }}
                   >
                     Specific Users
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('replies')}
+                    style={{
+                      padding: '6px 16px',
+                      background: targetType === 'replies' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      color: targetType === 'replies' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
+                      fontWeight: targetType === 'replies' ? '600' : '500',
+                      fontSize: '13px',
+                      boxShadow: targetType === 'replies' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    Messages
+                    {replies.filter(r => r.is_read === 0 || !r.is_read).length > 0 && (
+                      <span style={{
+                        background: '#ea580c',
+                        color: 'white',
+                        fontSize: '10px',
+                        fontWeight: '700',
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        lineHeight: '1'
+                      }}>
+                        {replies.filter(r => r.is_read === 0 || !r.is_read).length}
+                      </span>
+                    )}
                   </button>
                 </>
               ) : (
@@ -611,7 +634,21 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                       }} />
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
-                      <div style={{ color: '#f97316', fontSize: '13px', fontWeight: '600' }}>{reply.action_by_username || (user.role === 'ADMIN' ? 'A user' : 'Admin')}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Avatar 
+                          user={{ 
+                            id: reply.action_by_id || (user.role === 'ADMIN' ? '0' : '1'), 
+                            username: reply.action_by_username || (user.role === 'ADMIN' ? 'A user' : 'Admin'), 
+                            fullName: reply.action_by_username || (user.role === 'ADMIN' ? 'A user' : 'Admin'), 
+                            role: reply.action_by_role || (user.role === 'ADMIN' ? 'USER' : 'ADMIN'),
+                            profile_picture: reply.action_by_profile_picture 
+                          }} 
+                          size="sm" 
+                        />
+                        <div style={{ color: '#f97316', fontSize: '13px', fontWeight: '600' }}>
+                          {reply.action_by_username || (user.role === 'ADMIN' ? 'A user' : 'Admin')}
+                        </div>
+                      </div>
                       <div style={{ color: '#64748b', fontSize: '11px' }}>{new Date(reply.created_at).toLocaleString()}</div>
                     </div>
                     <div style={{ 

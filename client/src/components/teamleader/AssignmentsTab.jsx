@@ -906,7 +906,11 @@ const AssignmentsTab = ({
             }
             folderEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             folderEl.classList.add('tl-assignment-folder-highlighted');
-            setTimeout(() => folderEl.classList.remove('tl-assignment-folder-highlighted'), 3000);
+            const clearHighlight = () => {
+              folderEl.classList.remove('tl-assignment-folder-highlighted');
+              folderEl.removeEventListener('click', clearHighlight);
+            };
+            folderEl.addEventListener('click', clearHighlight);
           };
           setTimeout(tryHighlightFolder, 400);
         } else {
@@ -930,12 +934,15 @@ const AssignmentsTab = ({
             fileEl.style.transition = 'background-color 0.3s ease, border-color 0.3s ease';
             fileEl.style.backgroundColor = 'var(--status-pending)';
             fileEl.style.borderColor = 'var(--status-pending-text)';
-            setTimeout(() => {
+            const clearHighlight = () => {
                 fileEl.classList.remove('tl-assignment-folder-highlighted');
                 fileEl.style.backgroundColor = originalBg;
                 fileEl.style.borderColor = '';
                 setTimeout(() => { fileEl.style.transition = originalTransition; }, 300);
-            }, 3000);
+                if (onClearFileHighlight) onClearFileHighlight();
+                fileEl.removeEventListener('click', clearHighlight);
+            };
+            fileEl.addEventListener('click', clearHighlight);
           };
           setTimeout(tryHighlightFile, 80);
         }
