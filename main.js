@@ -1130,6 +1130,8 @@ if (app) {
   // CRITICAL: Disable hardware acceleration to prevent GPU crashes
   // GPU crashes confirmed on this system - must use software rendering
   app.disableHardwareAcceleration();
+  // Silence Chromium internal info/warning logs (like simple_index_file.cc warnings)
+  app.commandLine.appendSwitch('log-level', '3');
   log(LogLevel.INFO, 'Hardware acceleration disabled (prevents GPU crashes)');
 
   app.on('ready', async () => {

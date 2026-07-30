@@ -149,7 +149,7 @@ const MyFilesTab = ({
     const saved = localStorage.getItem('myFilesItemsPerPage');
     return saved ? parseInt(saved, 10) : 10;
   });
-  
+
   const {
     currentPage,
     paginatedItems: paginatedDisplayItems,
@@ -260,24 +260,24 @@ const MyFilesTab = ({
     if (!folderFiles || folderFiles.length === 0) return { label: 'Pending Team Leader', cls: 'status-pending' };
 
     const statuses = folderFiles.map(f => f.status);
-    const allFinalApproved  = statuses.every(s => s === 'final_approved');
-    const anyRejected       = statuses.some(s => s === 'rejected_by_team_leader' || s === 'rejected_by_admin');
-    const anyPendingTL      = statuses.some(s => s === 'uploaded' || s === 'under_revision' || s === 'revision' || s === 'pending_team_leader');
-    const allTLApproved     = statuses.every(s => s === 'team_leader_approved' || s === 'final_approved');
-    const allChecked        = statuses.every(s => s === 'checked' || s === 'final_approved' || s === 'team_leader_approved');
-    const anyChecked        = statuses.some(s => s === 'checked');
+    const allFinalApproved = statuses.every(s => s === 'final_approved');
+    const anyRejected = statuses.some(s => s === 'rejected_by_team_leader' || s === 'rejected_by_admin');
+    const anyPendingTL = statuses.some(s => s === 'uploaded' || s === 'under_revision' || s === 'revision' || s === 'pending_team_leader');
+    const allTLApproved = statuses.every(s => s === 'team_leader_approved' || s === 'final_approved');
+    const allChecked = statuses.every(s => s === 'checked' || s === 'final_approved' || s === 'team_leader_approved');
+    const anyChecked = statuses.some(s => s === 'checked');
 
-    if (allFinalApproved)  return { label: 'Approved',            cls: 'status-approved' };
-    if (anyPendingTL)      return { label: 'Pending Team Leader',  cls: 'status-pending'  };
-    if (allTLApproved)     return { label: 'Pending Admin',        cls: 'status-pending'  };
+    if (allFinalApproved) return { label: 'Approved', cls: 'status-approved' };
+    if (anyPendingTL) return { label: 'Pending Team Leader', cls: 'status-pending' };
+    if (allTLApproved) return { label: 'Pending Admin', cls: 'status-pending' };
     if (statuses.some(s => s === 'team_leader_approved')) return { label: 'Pending Admin', cls: 'status-pending' };
     if (anyRejected) {
       const hasTLRejection = statuses.some(s => s === 'rejected_by_team_leader');
       return hasTLRejection
         ? { label: 'Rejected by Team Leader', cls: 'status-rejected' }
-        : { label: 'Rejected by Admin',       cls: 'status-rejected' };
+        : { label: 'Rejected by Admin', cls: 'status-rejected' };
     }
-    if (anyChecked)        return { label: 'Checked',              cls: 'status-checked'  };
+    if (anyChecked) return { label: 'Checked', cls: 'status-checked' };
 
     return { label: 'Pending Team Leader', cls: 'status-pending' };
   }, []);
@@ -477,7 +477,7 @@ const MyFilesTab = ({
             <p className="delete-warning">Are you sure you want to delete this {deleteModal.isFolder ? 'folder' : 'file'}?</p>
             <p className="delete-filename">{deleteModal.isFolder ? deleteModal.folderName : deleteModal.fileName}</p>
             <p className="delete-note">
-              {deleteModal.isFolder 
+              {deleteModal.isFolder
                 ? `This will permanently delete all ${deleteModal.folderFiles?.length || 0} file(s) in this folder. This action cannot be undone.`
                 : 'This action cannot be undone. The file will be permanently deleted from the system.'}
             </p>
@@ -649,8 +649,8 @@ const MyFilesTab = ({
                   key={file.id}
                   data-file-id={file.id}
                   className="file-row-new"
-                onClick={(e) => handleFileClick(file, e)}
-            >
+                  onClick={(e) => handleFileClick(file, e)}
+                >
                   <div className="col-filename">
                     <div className="tl-tree-container">
                       {parentIsLastArr.map((isLastParent, i) => (
@@ -806,7 +806,7 @@ const MyFilesTab = ({
                     {sortOrder === 'approved' && `Approved (${approvedFiles.length})`}
                     {sortOrder === 'rejected' && `Rejected (${rejectedFiles.length})`}
                     <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-                      <path d="M1 1.5L6 6.5L11 1.5" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M1 1.5L6 6.5L11 1.5" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </button>
                   {sortDropdownOpen && (

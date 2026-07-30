@@ -211,14 +211,14 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
         formData.append('targetUserIds', JSON.stringify(Array.from(selectedUserIds)));
       }
       
-      if (imageFile) {
-        formData.append('image', imageFile);
+      if (imagePreview) {
+        formData.append('imageBase64', imagePreview);
       }
       
       console.log('--- FORM DATA ---');
       console.log('title:', formData.get('title'));
       console.log('message:', formData.get('message'));
-      console.log('image:', formData.get('image'));
+      console.log('imageBase64 attached:', !!formData.get('imageBase64'));
 
       const response = await apiFetch('/api/notifications/broadcast', {
         method: 'POST',
@@ -746,6 +746,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{ color: '#64748b', fontSize: '11px' }}>{new Date(reply.created_at).toLocaleString()}</div>
                         <button
+                          type="button"
                           onClick={(e) => handleDeleteReply(reply.id, e)}
                           title="Delete message"
                           style={{
@@ -1062,6 +1063,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
             </p>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
+                type="button"
                 onClick={() => setShowConfirmClear(false)}
                 style={{
                   flex: 1,
@@ -1078,6 +1080,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={executeClearAllReplies}
                 style={{
                   flex: 1,
@@ -1149,6 +1152,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
             </p>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
+                type="button"
                 onClick={() => !isDeletingMessage && setMessageToDelete(null)}
                 disabled={isDeletingMessage}
                 style={{
@@ -1167,6 +1171,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={confirmDeleteMessage}
                 disabled={isDeletingMessage}
                 style={{

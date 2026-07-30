@@ -519,7 +519,7 @@ router.get('/user/:userId/unread-broadcasts', async (req, res) => {
 // Broadcast a notification
 router.post('/broadcast', upload.single('image'), async (req, res) => {
   try {
-    let { title, message, targetUserIds } = req.body;
+    let { title, message, targetUserIds, imageBase64 } = req.body;
     
     // targetUserIds might come as a JSON string when sent via FormData
     if (typeof targetUserIds === 'string') {
@@ -530,7 +530,7 @@ router.post('/broadcast', upload.single('image'), async (req, res) => {
       }
     }
     
-    if (!title || (!message && !req.file)) {
+    if (!title || (!message && !req.file && !imageBase64)) {
       return res.status(400).json({ success: false, message: 'Title and message or image are required' });
     }
 
@@ -558,6 +558,8 @@ router.post('/broadcast', upload.single('image'), async (req, res) => {
         console.error('Failed to process broadcast image:', err);
         // Continue even if image fails, or you could return an error
       }
+    } else if (imageBase64) {
+      message += `\n\n![Image](${imageBase64})`;
     }
 
     console.log(`📢 Sending broadcast announcement: ${title} from ${req.user.username}`);
