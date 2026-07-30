@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react'
+import React, { useState, useEffect, Suspense, lazy, useRef } from 'react'
 import { apiFetch, API_BASE_URL, uploadWithProgress, uploadBatchWithProgress } from '@/config/api'
 import useStore from '../store/useStore'
 import '../css/TeamLeaderDashboard.css'
@@ -127,6 +127,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [highlightedSubmissionFileId, setHighlightedSubmissionFileId] = useState(null)
   const [highlightedFileStatus, setHighlightedFileStatus] = useState(null)
   const [activeBroadcast, setActiveBroadcast] = useState(null)
+  const [broadcastQueue, setBroadcastQueue] = useState([])
+  const seenBroadcasts = useRef(new Set())
   const updateUser = useStore(state => state.updateUser)
 
   const refreshUserProfile = async () => {
@@ -143,7 +145,38 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   // Refresh profile on mount
   useEffect(() => {
     refreshUserProfile()
+
+    // Fetch offline broadcasts
+    const fetchOfflineBroadcasts = async () => {
+      try {
+        const data = await apiFetch(`/api/notifications/user/${user.id}/unread-broadcasts`);
+        if (data.success && data.broadcasts?.length > 0) {
+          const formatted = data.broadcasts.map(b => ({
+            id: b.id,
+            title: b.title,
+            message: b.message,
+            senderId: b.action_by_id,
+            senderName: b.action_by_username
+          }));
+          setBroadcastQueue(prev => {
+            const newItems = formatted.filter(f => !seenBroadcasts.current.has(f.id));
+            newItems.forEach(f => seenBroadcasts.current.add(f.id));
+            return [...prev, ...newItems];
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching unread broadcasts:', err);
+      }
+    };
+    if (user?.id) fetchOfflineBroadcasts();
   }, [])
+
+  useEffect(() => {
+    if (!activeBroadcast && broadcastQueue.length > 0) {
+      setActiveBroadcast(broadcastQueue[0]);
+      setBroadcastQueue(prev => prev.slice(1));
+    }
+  }, [activeBroadcast, broadcastQueue])
 
 
   // Fetch data whenever the user's active team changes
@@ -225,11 +258,16 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'broadcast') {
-              setActiveBroadcast({ 
-                title: data.title, 
-                message: data.message,
-                senderId: data.senderId,
-                senderName: data.senderName
+              setBroadcastQueue(prev => {
+                if (seenBroadcasts.current.has(data.id)) return prev;
+                seenBroadcasts.current.add(data.id);
+                return [...prev, {
+                  id: data.id,
+                  title: data.title, 
+                  message: data.message,
+                  senderId: data.senderId,
+                  senderName: data.senderName
+                }];
               });
             }
           } catch (e) { }
@@ -1609,7 +1647,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             {activeBroadcast && (
               <BroadcastAlert
                 broadcast={activeBroadcast}
-                onClose={() => setActiveBroadcast(null)}
+                remainingCount={broadcastQueue.length}
+                onClose={() => {
+                  if (activeBroadcast?.id) {
+                    apiFetch(`/api/notifications/${activeBroadcast.id}/read`, { method: 'PUT' }).catch(console.error);
+                  }
+                  setActiveBroadcast(null);
+                }}
               />
             )}
 

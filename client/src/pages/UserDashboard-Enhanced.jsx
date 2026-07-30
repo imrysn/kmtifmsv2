@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy, useCallback, useMemo, startTransition } from 'react'
+import { useState, useEffect, Suspense, lazy, useCallback, useMemo, startTransition, useRef } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import useStore from '../store/useStore'
 import '../css/UserDashboard.css'
@@ -30,6 +30,8 @@ const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [files, setFiles] = useState([])
   const [activeBroadcast, setActiveBroadcast] = useState(null)
+  const [broadcastQueue, setBroadcastQueue] = useState([])
+  const seenBroadcasts = useRef(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
@@ -64,6 +66,30 @@ const UserDashboard = ({ user, onLogout }) => {
       }
     }).catch(err => console.error('Failed to fetch user profile:', err))
 
+    // Fetch offline broadcasts
+    const fetchOfflineBroadcasts = async () => {
+      try {
+        const data = await apiFetch(`/api/notifications/user/${user.id}/unread-broadcasts`);
+        if (data.success && data.broadcasts?.length > 0) {
+          const formatted = data.broadcasts.map(b => ({
+            id: b.id,
+            title: b.title,
+            message: b.message,
+            senderId: b.action_by_id,
+            senderName: b.action_by_username
+          }));
+          setBroadcastQueue(prev => {
+            const newItems = formatted.filter(f => !seenBroadcasts.current.has(f.id));
+            newItems.forEach(f => seenBroadcasts.current.add(f.id));
+            return [...prev, ...newItems];
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching unread broadcasts:', err);
+      }
+    };
+    if (user?.id) fetchOfflineBroadcasts();
+
     let es
     let reconnectTimer
     const connect = () => {
@@ -77,11 +103,16 @@ const UserDashboard = ({ user, onLogout }) => {
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'broadcast') {
-              setActiveBroadcast({ 
-                title: data.title, 
-                message: data.message,
-                senderId: data.senderId,
-                senderName: data.senderName
+              setBroadcastQueue(prev => {
+                if (seenBroadcasts.current.has(data.id)) return prev;
+                seenBroadcasts.current.add(data.id);
+                return [...prev, {
+                  id: data.id,
+                  title: data.title, 
+                  message: data.message,
+                  senderId: data.senderId,
+                  senderName: data.senderName
+                }];
               });
             }
           } catch (e) { }
@@ -98,6 +129,13 @@ const UserDashboard = ({ user, onLogout }) => {
       clearTimeout(reconnectTimer)
     }
   }, [user.id, fetchUnreadCount])
+
+  useEffect(() => {
+    if (!activeBroadcast && broadcastQueue.length > 0) {
+      setActiveBroadcast(broadcastQueue[0]);
+      setBroadcastQueue(prev => prev.slice(1));
+    }
+  }, [activeBroadcast, broadcastQueue])
 
   // Smart Navigation State
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
@@ -373,7 +411,13 @@ const UserDashboard = ({ user, onLogout }) => {
       {activeBroadcast && (
         <BroadcastAlert
           broadcast={activeBroadcast}
-          onClose={() => setActiveBroadcast(null)}
+          remainingCount={broadcastQueue.length}
+          onClose={() => {
+            if (activeBroadcast?.id) {
+              apiFetch(`/api/notifications/${activeBroadcast.id}/read`, { method: 'PUT' }).catch(console.error);
+            }
+            setActiveBroadcast(null);
+          }}
         />
       )}
       {showBroadcastModal && (

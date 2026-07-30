@@ -52,7 +52,8 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
     if (isOpen && user) {
       setIsLoadingReplies(true);
       // Fetch notifications and filter for broadcast replies
-      apiFetch(`/api/notifications/user/${user.id}?limit=100&type=broadcast_reply`)
+      const fetchType = user.role === 'ADMIN' ? 'broadcast_reply' : 'broadcast_history';
+      apiFetch(`/api/notifications/user/${user.id}?limit=100&type=${fetchType}`)
         .then(res => {
           if (res.success && res.notifications) {
             setReplies(res.notifications);
@@ -65,9 +66,14 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
   }, [isOpen, user]);
 
   useEffect(() => {
-    if (targetType === 'replies' && user) {
-      // Mark all broadcast replies as read for this user
-      apiFetch(`/api/notifications/user/${user.id}/read-all?type=broadcast_reply`, { method: 'PUT' })
+    if ((targetType === 'replies' || targetType === 'broadcast_history' || targetType === 'message_history') && user) {
+      // Mark specific type of replies as read for this user
+      let readType = 'broadcast_history';
+      if (user.role === 'ADMIN') readType = 'broadcast_reply';
+      else if (targetType === 'broadcast_history') readType = 'broadcast_announcements';
+      else if (targetType === 'message_history') readType = 'broadcast_messages';
+
+      apiFetch(`/api/notifications/user/${user.id}/read-all?type=${readType}`, { method: 'PUT' })
         .catch(err => console.error('Error marking replies as read:', err));
     }
   }, [targetType, user]);
@@ -154,11 +160,25 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
 
   const executeClearAllReplies = async () => {
     try {
-      const res = await apiFetch(`/api/notifications/user/${user.id}/delete-all?type=broadcast_reply`, {
+      let deleteType = 'broadcast_history';
+      if (user?.role === 'ADMIN') deleteType = 'broadcast_reply';
+      else if (targetType === 'broadcast_history') deleteType = 'broadcast_announcements';
+      else if (targetType === 'message_history') deleteType = 'broadcast_messages';
+
+      const res = await apiFetch(`/api/notifications/user/${user.id}/delete-all?type=${deleteType}`, {
         method: 'DELETE'
       });
       if (res.success) {
-        setReplies([]);
+        if (user?.role === 'ADMIN') {
+          setReplies([]);
+        } else {
+          // Remove only the messages of the current tab from the replies array
+          if (targetType === 'broadcast_history') {
+            setReplies(prev => prev.filter(r => r.title === 'Message from Admin' || r.type === 'broadcast_reply'));
+          } else if (targetType === 'message_history') {
+            setReplies(prev => prev.filter(r => r.title !== 'Message from Admin' && r.type !== 'broadcast_reply'));
+          }
+        }
         setShowConfirmClear(false);
       } else {
         setError('Failed to clear messages');
@@ -270,92 +290,151 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
             </div>
           )}
 
-          {/* Target Selection (Admins only) */}
-          {user.role === 'ADMIN' && (
-            <div style={{ marginTop: '16px' }}>
-              <label style={{ display: 'block', fontSize: '14px', color: isLight ? '#475569' : '#cbd5e1', marginBottom: '8px', fontWeight: '600' }}>Target Audience</label>
-              <div style={{ 
-                display: 'inline-flex', 
-                background: isLight ? '#f1f5f9' : 'rgba(15, 23, 42, 0.6)', 
-                borderRadius: '8px', 
-                padding: '3px',
-                border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.05)'}`
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setTargetType('all')}
-                  style={{
-                    padding: '6px 16px',
-                    background: targetType === 'all' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
-                    border: 'none',
-                    borderRadius: '6px',
-                    color: targetType === 'all' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
-                    fontWeight: targetType === 'all' ? '600' : '500',
-                    fontSize: '13px',
-                    boxShadow: targetType === 'all' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  All Users
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTargetType('specific')}
-                  style={{
-                    padding: '6px 16px',
-                    background: targetType === 'specific' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
-                    border: 'none',
-                    borderRadius: '6px',
-                    color: targetType === 'specific' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
-                    fontWeight: targetType === 'specific' ? '600' : '500',
-                    fontSize: '13px',
-                    boxShadow: targetType === 'specific' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  Specific Users
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTargetType('replies')}
-                  style={{
-                    padding: '6px 16px',
-                    background: targetType === 'replies' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
-                    border: 'none',
-                    borderRadius: '6px',
-                    color: targetType === 'replies' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
-                    fontWeight: targetType === 'replies' ? '600' : '500',
-                    fontSize: '13px',
-                    boxShadow: targetType === 'replies' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    position: 'relative',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  Messages
-                  {replies.filter(r => r.is_read === 0 || !r.is_read).length > 0 && (
-                    <span style={{
-                      background: '#ea580c',
-                      color: 'white',
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      padding: '2px 6px',
-                      borderRadius: '10px',
-                      lineHeight: '1'
-                    }}>
-                      {replies.filter(r => r.is_read === 0 || !r.is_read).length}
-                    </span>
-                  )}
-                </button>
-              </div>
+          {/* Target Selection / Tab Toggle */}
+          <div style={{ marginTop: '16px' }}>
+            <label style={{ display: 'block', fontSize: '14px', color: isLight ? '#475569' : '#cbd5e1', marginBottom: '8px', fontWeight: '600' }}>
+              {user.role === 'ADMIN' ? 'Target Audience' : 'Action'}
+            </label>
+            <div style={{ 
+              display: 'inline-flex', 
+              background: isLight ? '#f1f5f9' : 'rgba(15, 23, 42, 0.6)', 
+              borderRadius: '8px', 
+              padding: '3px',
+              border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.05)'}`
+            }}>
+              {user.role === 'ADMIN' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('all')}
+                    style={{
+                      padding: '6px 16px',
+                      background: targetType === 'all' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      color: targetType === 'all' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
+                      fontWeight: targetType === 'all' ? '600' : '500',
+                      fontSize: '13px',
+                      boxShadow: targetType === 'all' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    All Users
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('specific')}
+                    style={{
+                      padding: '6px 16px',
+                      background: targetType === 'specific' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      color: targetType === 'specific' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
+                      fontWeight: targetType === 'specific' ? '600' : '500',
+                      fontSize: '13px',
+                      boxShadow: targetType === 'specific' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Specific Users
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('all')}
+                    style={{
+                      padding: '6px 16px',
+                      background: targetType === 'all' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      color: targetType === 'all' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
+                      fontWeight: targetType === 'all' ? '600' : '500',
+                      fontSize: '13px',
+                      boxShadow: targetType === 'all' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Send Message
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('broadcast_history')}
+                    style={{
+                      padding: '6px 16px',
+                      background: targetType === 'broadcast_history' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      color: targetType === 'broadcast_history' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
+                      fontWeight: targetType === 'broadcast_history' ? '600' : '500',
+                      fontSize: '13px',
+                      boxShadow: targetType === 'broadcast_history' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    Broadcast History
+                    {replies.filter(r => (r.is_read === 0 || !r.is_read) && r.title !== 'Message from Admin' && r.type !== 'broadcast_reply').length > 0 && (
+                      <span style={{
+                        background: '#ea580c',
+                        color: 'white',
+                        fontSize: '10px',
+                        fontWeight: '700',
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        lineHeight: '1'
+                      }}>
+                        {replies.filter(r => (r.is_read === 0 || !r.is_read) && r.title !== 'Message from Admin' && r.type !== 'broadcast_reply').length}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('message_history')}
+                    style={{
+                      padding: '6px 16px',
+                      background: targetType === 'message_history' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      color: targetType === 'message_history' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
+                      fontWeight: targetType === 'message_history' ? '600' : '500',
+                      fontSize: '13px',
+                      boxShadow: targetType === 'message_history' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    Message History
+                    {replies.filter(r => (r.is_read === 0 || !r.is_read) && (r.title === 'Message from Admin' || r.type === 'broadcast_reply')).length > 0 && (
+                      <span style={{
+                        background: '#ea580c',
+                        color: 'white',
+                        fontSize: '10px',
+                        fontWeight: '700',
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        lineHeight: '1'
+                      }}>
+                        {replies.filter(r => (r.is_read === 0 || !r.is_read) && (r.title === 'Message from Admin' || r.type === 'broadcast_reply')).length}
+                      </span>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
-          )}
-
+          </div>
           {/* User List for Specific Target */}
           {targetType === 'specific' && (
             <div style={{ marginTop: '16px' }}>
@@ -455,7 +534,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
           )}
 
           {/* Replies List */}
-          {targetType === 'replies' && (
+          {(targetType === 'replies' || targetType === 'broadcast_history' || targetType === 'message_history') && (
             <div 
               className="hide-scrollbar"
               style={{ 
@@ -471,7 +550,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
             }}>
               {isLoadingReplies ? (
                 <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading replies...</div>
-              ) : replies.length === 0 ? (
+              ) : (user.role === 'ADMIN' ? replies : (targetType === 'broadcast_history' ? replies.filter(r => r.title !== 'Message from Admin' && r.type !== 'broadcast_reply') : replies.filter(r => r.title === 'Message from Admin' || r.type === 'broadcast_reply'))).length === 0 ? (
                 <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748b' }}>
                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 16px', display: 'block', opacity: 0.5 }}>
                     <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
@@ -501,7 +580,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                       Clear All Messages
                     </button>
                   </div>
-                  {replies.map(reply => (
+                  {(user.role === 'ADMIN' ? replies : (targetType === 'broadcast_history' ? replies.filter(r => r.title !== 'Message from Admin' && r.type !== 'broadcast_reply') : replies.filter(r => r.title === 'Message from Admin' || r.type === 'broadcast_reply'))).map(reply => (
                   <div 
                     key={reply.id}
                     onClick={() => handleMarkAsRead(reply.id)}
@@ -532,7 +611,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                       }} />
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
-                      <div style={{ color: '#f97316', fontSize: '13px', fontWeight: '600' }}>{reply.action_by_username || 'A user'}</div>
+                      <div style={{ color: '#f97316', fontSize: '13px', fontWeight: '600' }}>{reply.action_by_username || (user.role === 'ADMIN' ? 'A user' : 'Admin')}</div>
                       <div style={{ color: '#64748b', fontSize: '11px' }}>{new Date(reply.created_at).toLocaleString()}</div>
                     </div>
                     <div style={{ 
@@ -550,7 +629,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
             </div>
           )}
           
-          {targetType !== 'replies' && (
+          {targetType !== 'replies' && targetType !== 'broadcast_history' && targetType !== 'message_history' && (
             <div style={{ marginTop: '20px', marginBottom: '16px' }}>
               <label style={{ display: 'block', fontSize: '14px', color: isLight ? '#475569' : '#cbd5e1', marginBottom: '8px', fontWeight: '600' }}>Message</label>
               <textarea
@@ -618,9 +697,9 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
               onMouseEnter={(e) => !isLoading && (e.target.style.background = isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)')}
               onMouseLeave={(e) => !isLoading && (e.target.style.background = 'transparent')}
             >
-              {targetType === 'replies' ? 'Close' : 'Cancel'}
+              {(targetType === 'replies' || targetType === 'broadcast_history' || targetType === 'message_history') ? 'Close' : 'Cancel'}
             </button>
-            {targetType !== 'replies' && (
+            {targetType !== 'replies' && targetType !== 'broadcast_history' && targetType !== 'message_history' && (
               <button 
                 type="submit" 
                 disabled={isLoading || !message.trim() || (targetType === 'specific' && selectedUserIds.size === 0)}
@@ -667,7 +746,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                       <line x1="22" y1="2" x2="11" y2="13"></line>
                       <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                     </svg>
-                    {user.role === 'ADMIN' ? 'Broadcast Now' : 'Send Message'}
+                    {user.role === 'ADMIN' ? (targetType === 'specific' ? 'Send' : 'Broadcast Now') : 'Send Message'}
                   </>
                 )}
               </button>

@@ -153,7 +153,38 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showBroadcastModal, setShowBroadcastModal] = useState(false)
   const [activeBroadcast, setActiveBroadcast] = useState(null)
+  const [broadcastQueue, setBroadcastQueue] = useState([])
   const [debugSseData, setDebugSseData] = useState('No SSE received yet')
+
+  // On mount, fetch offline broadcasts
+  useEffect(() => {
+    if (!user?.id) return;
+    const fetchOfflineBroadcasts = async () => {
+      try {
+        const data = await apiFetch(`/api/notifications/user/${user.id}/unread-broadcasts`);
+        if (data.success && data.broadcasts?.length > 0) {
+          const formatted = data.broadcasts.map(b => ({
+            id: b.id,
+            title: b.title,
+            message: b.message,
+            senderId: b.action_by_id,
+            senderName: b.action_by_username
+          }));
+          setBroadcastQueue(prev => [...prev, ...formatted]);
+        }
+      } catch (err) {
+        console.error('Error fetching unread broadcasts:', err);
+      }
+    };
+    fetchOfflineBroadcasts();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!activeBroadcast && broadcastQueue.length > 0) {
+      setActiveBroadcast(broadcastQueue[0]);
+      setBroadcastQueue(prev => prev.slice(1));
+    }
+  }, [activeBroadcast, broadcastQueue]);
 
   // Smart Navigation State
   const [highlightedFileId, setHighlightedFileId] = useState(null)
@@ -241,12 +272,15 @@ const AdminDashboard = ({ user, onLogout }) => {
             const data = JSON.parse(event.data);
             setDebugSseData(event.data); // UPDATE DEBUG STATE
             if (data.type === 'broadcast') {
-              setActiveBroadcast({ 
+              if (seenBroadcasts.current.has(data.id)) return;
+              seenBroadcasts.current.add(data.id);
+              setBroadcastQueue(prev => [...prev, {
+                id: data.id,
                 title: data.title, 
                 message: data.message,
                 senderId: data.senderId,
                 senderName: data.senderName
-              });
+              }]);
               
               // Also fetch notifications to update the broadcast reply badge
               fetchNotifications();
@@ -428,7 +462,13 @@ const AdminDashboard = ({ user, onLogout }) => {
               {activeBroadcast && (
                 <BroadcastAlert 
                   broadcast={activeBroadcast} 
-                  onClose={() => setActiveBroadcast(null)} 
+                  remainingCount={broadcastQueue.length}
+                  onClose={() => {
+                    if (activeBroadcast?.id) {
+                      apiFetch(`/api/notifications/${activeBroadcast.id}/read`, { method: 'PUT' }).catch(console.error);
+                    }
+                    setActiveBroadcast(null);
+                  }} 
                 />
               )}
             </div>

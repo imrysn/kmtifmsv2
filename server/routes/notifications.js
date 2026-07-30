@@ -199,8 +199,12 @@ router.get('/user/:userId', async (req, res) => {
     
     // Type filtering for broadcast replies
     if (type) {
-      countQuery += " AND type = ?";
-      countParams.push(type);
+      if (type === 'broadcast_history') {
+        countQuery += " AND type IN ('broadcast', 'broadcast_reply')";
+      } else {
+        countQuery += " AND type = ?";
+        countParams.push(type);
+      }
     } else {
       countQuery += " AND type NOT IN ('broadcast_reply', 'broadcast')";
     }
@@ -239,8 +243,12 @@ router.get('/user/:userId', async (req, res) => {
 
     // Type filtering for broadcast replies
     if (type) {
-      queryStr += " AND n.type = ?";
-      queryParams.push(type);
+      if (type === 'broadcast_history') {
+        queryStr += " AND n.type IN ('broadcast', 'broadcast_reply')";
+      } else {
+        queryStr += " AND n.type = ?";
+        queryParams.push(type);
+      }
     } else {
       queryStr += " AND n.type NOT IN ('broadcast_reply', 'broadcast')";
     }
@@ -262,8 +270,12 @@ router.get('/user/:userId', async (req, res) => {
     
     // Exclude broadcast replies from unread count
     if (type) {
-      unreadCountQuery += " AND type = ?";
-      unreadParams.push(type);
+      if (type === 'broadcast_history') {
+        unreadCountQuery += " AND type IN ('broadcast', 'broadcast_reply')";
+      } else {
+        unreadCountQuery += " AND type = ?";
+        unreadParams.push(type);
+      }
     } else {
       unreadCountQuery += " AND type != 'broadcast_reply'";
     }
@@ -369,8 +381,16 @@ router.put('/user/:userId/read-all', async (req, res) => {
     const params = [now, userId];
 
     if (type) {
-      queryStr += ' AND type = ?';
-      params.push(type);
+      if (type === 'broadcast_history') {
+        queryStr += " AND type IN ('broadcast', 'broadcast_reply')";
+      } else if (type === 'broadcast_announcements') {
+        queryStr += " AND type = 'broadcast' AND title != 'Message from Admin'";
+      } else if (type === 'broadcast_messages') {
+        queryStr += " AND (type = 'broadcast_reply' OR (type = 'broadcast' AND title = 'Message from Admin'))";
+      } else {
+        queryStr += ' AND type = ?';
+        params.push(type);
+      }
     }
 
     const result = await query(queryStr, params);
@@ -434,8 +454,16 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
     const params = [userId];
 
     if (type) {
-      queryStr += ' AND type = ?';
-      params.push(type);
+      if (type === 'broadcast_history') {
+        queryStr += " AND type IN ('broadcast', 'broadcast_reply')";
+      } else if (type === 'broadcast_announcements') {
+        queryStr += " AND type = 'broadcast' AND title != 'Message from Admin'";
+      } else if (type === 'broadcast_messages') {
+        queryStr += " AND (type = 'broadcast_reply' OR (type = 'broadcast' AND title = 'Message from Admin'))";
+      } else {
+        queryStr += ' AND type = ?';
+        params.push(type);
+      }
     }
 
     const result = await query(queryStr, params);
@@ -452,6 +480,36 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete all notifications'
+    });
+  }
+});
+
+// Get unread broadcasts for a user
+router.get('/user/:userId/unread-broadcasts', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Ownership check (loose == to handle string/int mismatch between URL param and JWT)
+    if (req.user.id !== parseInt(userId, 10) && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const broadcasts = await query(
+      `SELECT * FROM notifications 
+       WHERE user_id = ? AND is_read = 0 AND type IN ('broadcast', 'broadcast_reply') 
+       ORDER BY created_at ASC`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      broadcasts
+    });
+  } catch (error) {
+    console.error('❌ Error getting unread broadcasts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get unread broadcasts'
     });
   }
 });
@@ -489,13 +547,14 @@ router.post('/broadcast', async (req, res) => {
 
     for (const user of users) {
       // Save to database so it persists and appears in Messages tab if needed
-      await query(
+      const result = await query(
         'INSERT INTO notifications (user_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [user.id, dbType, title, message, req.user.id, req.user.username, req.user.role]
       );
 
       // Push SSE ping with broadcast payload (triggers the alert popup)
       pushToUser(user.id, { 
+        id: result.insertId,
         type: 'broadcast', 
         title, 
         message,
@@ -535,7 +594,7 @@ router.post('/broadcast/reply', async (req, res) => {
     // Create a notification for the broadcast sender (but it won't show in standard feed)
     // We do NOT call createNotification directly because it pushes a 'ping' that triggers a toast.
     // Instead we insert it silently so it's available for the "Replies" tab.
-    await query(
+    const result = await query(
       `INSERT INTO notifications (user_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -552,6 +611,7 @@ router.post('/broadcast/reply', async (req, res) => {
 
     // Also push a real-time popup to the sender so they see it instantly
     pushToUser(broadcastSenderId, {
+      id: result.insertId,
       type: 'broadcast',
       title: `Reply from ${req.user.username || 'A user'}`,
       message: replyMessage,

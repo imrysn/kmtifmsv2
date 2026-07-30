@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import useStore from '../../store/useStore';
 import { apiFetch } from '../../config/api';
 
-const BroadcastAlert = ({ broadcast, onClose }) => {
+const BroadcastAlert = ({ broadcast, onClose, remainingCount = 0 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const { theme } = useStore();
   const isLight = theme === 'light';
@@ -121,7 +121,7 @@ const BroadcastAlert = ({ broadcast, onClose }) => {
               transition: 'all 0.2s',
             }}
           >
-            Got it
+            {remainingCount > 0 ? `Next (${remainingCount} remaining)` : 'Got it'}
           </button>
         </div>
       </div>
