@@ -340,7 +340,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: isLight ? '#0f172a' : '#f8fafc', letterSpacing: '-0.02em' }}>
-                {user.role === 'ADMIN' ? 'Send Broadcast' : 'Message Administrators'}
+                {user.role === 'ADMIN' ? 'Send Broadcast' : 'Report Admin'}
               </h3>
               <p style={{ margin: '4px 0 0', fontSize: '13px', color: isLight ? '#64748b' : '#94a3b8' }}>
                 {user.role === 'ADMIN' ? 'Notify users instantly' : 'Send a direct message to the admin team'}

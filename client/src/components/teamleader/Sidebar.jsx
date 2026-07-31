@@ -212,7 +212,7 @@ const Sidebar = memo(({
           className="tl-nav-item" 
           onClick={() => setShowBroadcastModal(true)} 
           style={{ marginBottom: '8px', width: '100%', border: '1px solid var(--border-color)', background: 'transparent' }} 
-          aria-label="Message Administrators"
+          aria-label="Report Admin"
         >
           <svg className="tl-nav-icon" width="20" height="20" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{ transform: 'scale(1.15)' }}>
             <path d="M 75.8,20.4 86.4,12.7 89.2,21.5 Z" fill="#64748b"/>
@@ -225,7 +225,7 @@ const Sidebar = memo(({
             <ellipse cx="61.5" cy="49" rx="11" ry="24" fill="#64748b" transform="rotate(-12 61.5 49)"/>
             <ellipse cx="60" cy="49" rx="5" ry="12" fill="#ffffff" transform="rotate(-12 60 49)"/>
           </svg>
-          <span>Message Admin</span>
+          <span>Report Admin</span>
         </button>
         <ThemeToggle variant="tl" />
         <button className="tl-logout-btn" onClick={onLogout}>

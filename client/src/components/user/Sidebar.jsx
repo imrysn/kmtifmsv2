@@ -71,7 +71,7 @@ const Sidebar = memo(({ activeTab, setActiveTab, filesCount, notificationCount, 
           className="nav-item" 
           onClick={() => setShowBroadcastModal(true)} 
           style={{ marginBottom: '8px', width: '100%', border: '1px solid var(--border-color)', background: 'transparent' }} 
-          aria-label="Message Administrators"
+          aria-label="Report Admin"
         >
           <span className="nav-icon" style={{ position: 'relative' }}>
             <svg width="22" height="22" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -86,7 +86,7 @@ const Sidebar = memo(({ activeTab, setActiveTab, filesCount, notificationCount, 
               <ellipse cx="60" cy="49" rx="5" ry="12" fill="#ffffff" transform="rotate(-12 60 49)"/>
             </svg>
           </span>
-          <span className="nav-label">Message Admin</span>
+          <span className="nav-label">Report Admin</span>
         </button>
         <ThemeToggle />
         <button className="logout-btn" onClick={onLogout}>

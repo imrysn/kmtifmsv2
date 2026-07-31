@@ -516,6 +516,9 @@ router.get('/user/:userId/unread-broadcasts', async (req, res) => {
       success: false,
       message: 'Failed to get unread broadcasts'
     });
+  }
+});
+
 // Broadcast a notification
 router.post('/broadcast', upload.single('image'), async (req, res) => {
   try {
