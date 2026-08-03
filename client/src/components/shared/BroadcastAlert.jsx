@@ -115,7 +115,7 @@ const BroadcastAlert = ({ broadcast, onClose, remainingCount = 0 }) => {
                 parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex, match.index)}</span>);
               }
               parts.push(
-                <div key={`img-${match.index}`} style={{ marginTop: '8px', marginBottom: '8px' }}>
+                <div key={`img-${match.index}`} style={{ marginTop: '8px', marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>
                   <img 
                     src={match[1].startsWith('/') ? `${API_BASE_URL}${match[1]}` : match[1]} 
                     alt="Attachment" 

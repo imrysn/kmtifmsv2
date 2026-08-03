@@ -227,10 +227,12 @@ router.get('/user/:userId', async (req, res) => {
       FROM notifications n
       LEFT JOIN files f ON n.file_id = f.id
       LEFT JOIN assignments a ON n.assignment_id = a.id
-      LEFT JOIN assignment_comments ac ON n.assignment_id = ac.assignment_id 
+      LEFT JOIN assignment_comments ac 
+        ON n.assignment_id IS NOT NULL
         AND n.type IN ('comment', 'mention', 'reply')
-        AND n.created_at <= DATE_ADD(ac.created_at, INTERVAL 1 SECOND)
-        AND n.created_at >= DATE_SUB(ac.created_at, INTERVAL 1 SECOND)
+        AND ac.assignment_id = n.assignment_id
+        AND ac.created_at BETWEEN DATE_SUB(n.created_at, INTERVAL 1 SECOND)
+                               AND DATE_ADD(n.created_at, INTERVAL 1 SECOND)
       LEFT JOIN users u ON n.action_by_id = u.id
       WHERE n.user_id = ?
     `;
@@ -309,7 +311,78 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
-// Get unread notification count
+// ── Fast broadcast-messages endpoint (no heavy JOINs) ──────────────────────
+// Used exclusively by the BroadcastModal Messages/History tab.
+// Skips the files/assignments/assignment_comments JOINs entirely since
+// broadcast notifications never have file_id or assignment_id set.
+router.get('/user/:userId/broadcasts', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { limit = 50, type } = req.query;
+
+    if (req.user.id !== parseInt(userId, 10) && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const limitNum = Math.min(parseInt(limit) || 50, 100);
+    const params = [userId];
+
+    // Two separate filters: one with the `n.` alias (for the JOIN query),
+    // one plain (for the simple COUNT query with no alias)
+    let typeFilterAliased = '';  // used in SELECT ... FROM notifications n
+    let typeFilterPlain   = '';  // used in SELECT COUNT(*) FROM notifications
+
+    if (type === 'broadcast_reply') {
+      typeFilterAliased = "AND n.type = 'broadcast_reply'";
+      typeFilterPlain   = "AND type = 'broadcast_reply'";
+    } else {
+      // covers 'broadcast_history' and any other value
+      typeFilterAliased = "AND n.type IN ('broadcast', 'broadcast_reply')";
+      typeFilterPlain   = "AND type IN ('broadcast', 'broadcast_reply')";
+    }
+
+    const rows = await query(
+      `SELECT n.id, n.user_id, n.type, n.title, n.message, n.is_read, n.created_at,
+              n.action_by_id, n.action_by_username, n.action_by_role,
+              u.profile_picture as action_by_profile_picture
+       FROM notifications n
+       LEFT JOIN users u ON n.action_by_id = u.id
+       WHERE n.user_id = ? ${typeFilterAliased}
+       ORDER BY n.created_at DESC
+       LIMIT ?`,
+      [...params, limitNum]
+    );
+
+    const unreadResult = await query(
+      `SELECT COUNT(*) as count FROM notifications
+       WHERE user_id = ? AND is_read = 0 ${typeFilterPlain}`,
+      params
+    );
+
+    // Strip any legacy inline base64 from old DB records before returning.
+    // Old messages stored raw base64 (500KB-2MB each); replace with [Image]
+    // placeholder so the API response stays small. New messages already use URL paths.
+    const sanitized = (rows || []).map(row => ({
+      ...row,
+      message: row.message
+        ? row.message.replace(/!\[.*?\]\(data:image\/[^)]+\)/g, '![Image](/api/placeholder-image)')
+        : row.message
+    }));
+
+    console.log(`✅ Fast broadcast fetch: ${sanitized.length} messages for user ${userId}`);
+
+    res.json({
+      success: true,
+      notifications: sanitized,
+      unreadCount: unreadResult[0]?.count || 0
+    });
+  } catch (error) {
+    console.error('❌ Error fetching broadcasts:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch broadcasts' });
+  }
+});
+
+
 router.get('/user/:userId/unread-count', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -562,7 +635,23 @@ router.post('/broadcast', upload.single('image'), async (req, res) => {
         // Continue even if image fails, or you could return an error
       }
     } else if (imageBase64) {
-      message += `\n\n![Image](${imageBase64})`;
+      // Save base64 image to disk — storing raw base64 inline in DB causes
+      // the broadcasts API to return megabytes per fetch, lagging the UI.
+      try {
+        const broadcastsDir = path.join(uploadsDir, 'broadcasts');
+        await fs.mkdir(broadcastsDir, { recursive: true });
+        const mimeMatch = imageBase64.match(/^data:image\/(\w+);base64,/);
+        const ext = mimeMatch ? `.${mimeMatch[1].replace('jpeg', 'jpg')}` : '.png';
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        const finalFilename = `broadcast_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
+        const finalPath = path.join(uploadsDir, 'broadcasts', finalFilename);
+        await fs.writeFile(finalPath, Buffer.from(base64Data, 'base64'));
+        message += `\n\n![Image](/uploads/broadcasts/${finalFilename})`;
+        console.log(`✅ Broadcast image saved: ${finalFilename}`);
+      } catch (err) {
+        console.error('⚠️ Failed to save broadcast image:', err.message);
+        // Skip the image rather than storing huge base64 inline
+      }
     }
 
     console.log(`📢 Sending broadcast announcement: ${title} from ${req.user.username}`);
@@ -587,6 +676,10 @@ router.post('/broadcast', upload.single('image'), async (req, res) => {
     const isNonAdmin = req.user.role !== 'ADMIN';
     const dbType = isNonAdmin ? 'broadcast_reply' : 'broadcast';
 
+    // Strip base64 image data from SSE payload — sending megabytes via SSE
+    // freezes every connected client's UI. The alert popup only needs the title.
+    const sseMessage = message.replace(/!\[.*?\]\(data:image\/[^)]+\)/g, '[Image]');
+
     for (const user of users) {
       // Save to database so it persists and appears in Messages tab if needed
       const result = await query(
@@ -595,11 +688,12 @@ router.post('/broadcast', upload.single('image'), async (req, res) => {
       );
 
       // Push SSE ping with broadcast payload (triggers the alert popup)
+      // Use sseMessage — base64 stripped — to keep the SSE payload tiny
       pushToUser(user.id, { 
         id: result.insertId,
         type: 'broadcast', 
         title, 
-        message,
+        message: sseMessage,
         senderId: req.user.id,
         senderName: req.user.username
       });

@@ -45,6 +45,7 @@ async function runMigrations() {
       { name: '025-add-checker-penalty',                     run: require('./025-add-checker-penalty') },
       { name: '026-add-complexity-and-checked-at',           run: require('./026-add-complexity-and-checked-at') },
       { name: '027-add-panel-type-to-notifications',         run: require('./027-add-panel-type-to-notifications') },
+      { name: '028-add-notifications-type-index',            run: require('./028-add-notifications-type-index') },
     ];
 
     // Fetch all already-applied migrations in one query

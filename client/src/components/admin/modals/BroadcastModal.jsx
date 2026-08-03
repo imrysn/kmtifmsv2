@@ -1,7 +1,112 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { apiFetch, API_BASE_URL } from '@/config/api';
 import useStore from '../../../store/useStore';
 import Avatar from '@/components/shared/Avatar';
+
+// ── Memoized message item ─────────────────────────────────────────────────────
+// Extracted from inline JSX so the expensive regex only runs when the message
+// content actually changes — not on every parent re-render.
+const MessageItem = React.memo(function MessageItem({ reply, isLight, currentUserRole, onMarkRead, onDelete }) {
+  // Parse message content once per message change — NOT on every parent render
+  const parsedContent = useMemo(() => {
+    const rawMessage = (reply.message || '')
+      .replace(/.*replied to your broadcast:\n\n"/, '')
+      .replace(/"$/, '');
+
+    const imgRegex = /!\[.*?\]\((.*?)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = imgRegex.exec(rawMessage)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex, match.index)}</span>);
+      }
+      const src = match[1].startsWith('/') ? `${API_BASE_URL}${match[1]}` : match[1];
+      parts.push(
+        <div key={`img-${match.index}`} style={{ marginTop: '8px', marginBottom: '8px', display: 'flex', justifyContent: 'center', marginLeft: '-48px' }}>
+          <img
+            src={src}
+            alt="Attachment"
+            loading="lazy"
+            decoding="async"
+            style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}` }}
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        </div>
+      );
+
+      lastIndex = imgRegex.lastIndex;
+    }
+    if (lastIndex < rawMessage.length) {
+      parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex)}</span>);
+    }
+    return parts;
+  }, [reply.message, isLight]);
+
+  const isUnread = reply.is_read === 0 || !reply.is_read;
+  const senderName = reply.action_by_username || (currentUserRole === 'ADMIN' ? 'A user' : 'Admin');
+
+  return (
+    <div
+      key={reply.id}
+      onClick={() => isUnread && onMarkRead(reply.id)}
+      style={{
+        padding: '12px',
+        marginBottom: '8px',
+        background: isUnread
+          ? (isLight ? 'rgba(234, 88, 12, 0.05)' : 'rgba(234, 88, 12, 0.15)')
+          : (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)'),
+        border: isUnread
+          ? `1px solid ${isLight ? 'rgba(234, 88, 12, 0.2)' : 'rgba(234, 88, 12, 0.3)'}`
+          : `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.05)'}`,
+        borderRadius: '8px',
+        cursor: isUnread ? 'pointer' : 'default',
+        transition: 'all 0.2s ease',
+        position: 'relative'
+      }}
+    >
+      {isUnread && (
+        <div style={{ position: 'absolute', top: '12px', right: '12px', width: '8px', height: '8px', borderRadius: '50%', background: '#ea580c' }} />
+      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Avatar
+            user={{
+              id: reply.action_by_id || (currentUserRole === 'ADMIN' ? '0' : '1'),
+              username: senderName,
+              fullName: senderName,
+              role: reply.action_by_role || (currentUserRole === 'ADMIN' ? 'USER' : 'ADMIN'),
+              profile_picture: reply.action_by_profile_picture
+            }}
+            size="sm"
+          />
+          <div style={{ color: '#f97316', fontSize: '13px', fontWeight: '600' }}>{senderName}</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ color: '#64748b', fontSize: '11px' }}>{new Date(reply.created_at).toLocaleString()}</div>
+          <button
+            type="button"
+            onClick={(e) => onDelete(reply.id, e)}
+            title="Delete message"
+            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', transition: 'background 0.2s' }}
+            onMouseOver={(e) => e.currentTarget.style.background = isLight ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.2)'}
+            onMouseOut={(e) => e.currentTarget.style.background = 'none'}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div style={{ color: isLight ? '#334155' : '#cbd5e1', fontSize: '14px', lineHeight: '1.6', paddingLeft: '48px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+        {parsedContent}
+      </div>
+    </div>
+  );
+});
+
+
 
 const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
   const { theme, user } = useStore();
@@ -22,6 +127,38 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [isDeletingMessage, setIsDeletingMessage] = useState(false);
   const modalRef = useRef(null);
+  const repliesLoaded = useRef(false); // prevent redundant fetches on every tab switch
+
+  // Memoized filtered lists — avoid re-filtering on every render (e.g. while typing)
+  const adminRepliesList = useMemo(() => replies, [replies]);
+  const broadcastHistoryList = useMemo(
+    () => replies.filter(r => r.title !== 'Message from Admin' && r.type !== 'broadcast_reply'),
+    [replies]
+  );
+  const messageHistoryList = useMemo(
+    () => replies.filter(r => r.title === 'Message from Admin' || r.type === 'broadcast_reply'),
+    [replies]
+  );
+  const unreadAdminCount = useMemo(() => replies.filter(r => r.is_read === 0 || !r.is_read).length, [replies]);
+  const unreadBroadcastHistoryCount = useMemo(
+    () => broadcastHistoryList.filter(r => r.is_read === 0 || !r.is_read).length,
+    [broadcastHistoryList]
+  );
+  const unreadMessageHistoryCount = useMemo(
+    () => messageHistoryList.filter(r => r.is_read === 0 || !r.is_read).length,
+    [messageHistoryList]
+  );
+  // Derive the active list for the current tab
+  const activeRepliesList = useMemo(() => {
+    if (user?.role === 'ADMIN') return adminRepliesList;
+    if (targetType === 'broadcast_history') return broadcastHistoryList;
+    return messageHistoryList;
+  }, [user?.role, targetType, adminRepliesList, broadcastHistoryList, messageHistoryList]);
+  // Filtered users for the search box
+  const filteredUsers = useMemo(
+    () => users.filter(u => (u.fullName || u.username).toLowerCase().includes(searchQuery.toLowerCase())),
+    [users, searchQuery]
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -54,22 +191,54 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
     };
   }, [isOpen]);
 
+  // Reset repliesLoaded when modal closes so next open re-fetches
   useEffect(() => {
-    if (isOpen && user) {
-      setIsLoadingReplies(true);
-      // Fetch notifications and filter for broadcast replies
-      const fetchType = user.role === 'ADMIN' ? 'broadcast_reply' : 'broadcast_history';
-      apiFetch(`/api/notifications/user/${user.id}?limit=100&type=${fetchType}`)
-        .then(res => {
-          if (res.success && res.notifications) {
-            setReplies(res.notifications);
-          }
-        })
-        .finally(() => {
-          setIsLoadingReplies(false);
-        });
+    if (!isOpen) {
+      repliesLoaded.current = false;
     }
+  }, [isOpen]);
+
+  // Fetch messages immediately when the modal opens and silently poll every 3 seconds while open.
+  // This ensures that if the modal is already open when a new message arrives via SSE,
+  // the messages list and badges automatically update without the user needing to close and reopen.
+  useEffect(() => {
+    if (!isOpen || !user) return;
+
+    let controller = new AbortController();
+
+    const fetchMessages = async () => {
+      // Only show the loading spinner on the very first fetch
+      if (!repliesLoaded.current) {
+        setIsLoadingReplies(true);
+      }
+      
+      const fetchType = user.role === 'ADMIN' ? 'broadcast_reply' : 'broadcast_history';
+      
+      try {
+        const res = await apiFetch(`/api/notifications/user/${user.id}/broadcasts?limit=50&type=${fetchType}`, { signal: controller.signal });
+        if (res.success && res.notifications) {
+          setReplies(res.notifications);
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') console.error('Error fetching replies:', err);
+      } finally {
+        setIsLoadingReplies(false);
+        repliesLoaded.current = true;
+      }
+    };
+
+    // Initial fetch
+    fetchMessages();
+
+    // Silent background poll every 3 seconds
+    const intervalId = setInterval(fetchMessages, 3000);
+
+    return () => {
+      clearInterval(intervalId);
+      controller.abort();
+    };
   }, [isOpen, user]);
+
 
 
   if (!isOpen) return null;
@@ -131,7 +300,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
     return () => window.removeEventListener('paste', globalHandlePaste);
   }, [isOpen]);
 
-  const handleMarkAsRead = (replyId) => {
+  const handleMarkAsRead = useCallback((replyId) => {
     const reply = replies.find(r => r.id === replyId);
     if (!reply || reply.is_read === 1) return;
 
@@ -148,7 +317,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
       .catch(err => {
         console.error('Error marking reply as read:', err);
       });
-  };
+  }, [replies, onReplyRead]);
 
   const handleDeleteReply = (replyId, e) => {
     e.stopPropagation(); // Prevent marking as read when clicking delete
@@ -176,14 +345,14 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
     }
   };
 
-  const toggleUserSelection = (userId) => {
+  const toggleUserSelection = useCallback((userId) => {
     setSelectedUserIds(prev => {
       const newSet = new Set(prev);
       if (newSet.has(userId)) newSet.delete(userId);
       else newSet.add(userId);
       return newSet;
     });
-  };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -443,7 +612,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                     }}
                   >
                     Messages
-                    {replies.filter(r => r.is_read === 0 || !r.is_read).length > 0 && (
+                    {unreadAdminCount > 0 && (
                       <span style={{
                         background: '#ea580c',
                         color: 'white',
@@ -453,7 +622,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                         borderRadius: '10px',
                         lineHeight: '1'
                       }}>
-                        {replies.filter(r => r.is_read === 0 || !r.is_read).length}
+                        {unreadAdminCount}
                       </span>
                     )}
                   </button>
@@ -499,7 +668,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                     }}
                   >
                     Broadcast History
-                    {replies.filter(r => (r.is_read === 0 || !r.is_read) && r.title !== 'Message from Admin' && r.type !== 'broadcast_reply').length > 0 && (
+                    {unreadBroadcastHistoryCount > 0 && (
                       <span style={{
                         background: '#ea580c',
                         color: 'white',
@@ -509,7 +678,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                         borderRadius: '10px',
                         lineHeight: '1'
                       }}>
-                        {replies.filter(r => (r.is_read === 0 || !r.is_read) && r.title !== 'Message from Admin' && r.type !== 'broadcast_reply').length}
+                        {unreadBroadcastHistoryCount}
                       </span>
                     )}
                   </button>
@@ -534,7 +703,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                     }}
                   >
                     Message History
-                    {replies.filter(r => (r.is_read === 0 || !r.is_read) && (r.title === 'Message from Admin' || r.type === 'broadcast_reply')).length > 0 && (
+                    {unreadMessageHistoryCount > 0 && (
                       <span style={{
                         background: '#ea580c',
                         color: 'white',
@@ -544,7 +713,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                         borderRadius: '10px',
                         lineHeight: '1'
                       }}>
-                        {replies.filter(r => (r.is_read === 0 || !r.is_read) && (r.title === 'Message from Admin' || r.type === 'broadcast_reply')).length}
+                        {unreadMessageHistoryCount}
                       </span>
                     )}
                   </button>
@@ -605,7 +774,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                 {users.length === 0 ? (
                   <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading users...</div>
                 ) : (
-                  users.filter(u => (u.fullName || u.username).toLowerCase().includes(searchQuery.toLowerCase())).map(u => (
+                  filteredUsers.map(u => (
                     <div 
                       key={u.id}
                       onClick={() => toggleUserSelection(u.id)}
@@ -667,7 +836,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
             }}>
               {isLoadingReplies ? (
                 <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading replies...</div>
-              ) : (user.role === 'ADMIN' ? replies : (targetType === 'broadcast_history' ? replies.filter(r => r.title !== 'Message from Admin' && r.type !== 'broadcast_reply') : replies.filter(r => r.title === 'Message from Admin' || r.type === 'broadcast_reply'))).length === 0 ? (
+              ) : activeRepliesList.length === 0 ? (
                 <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748b' }}>
                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 16px', display: 'block', opacity: 0.5 }}>
                     <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
@@ -697,122 +866,17 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                       Clear All Messages
                     </button>
                   </div>
-                  {(user.role === 'ADMIN' ? replies : (targetType === 'broadcast_history' ? replies.filter(r => r.title !== 'Message from Admin' && r.type !== 'broadcast_reply') : replies.filter(r => r.title === 'Message from Admin' || r.type === 'broadcast_reply'))).map(reply => (
-                  <div 
-                    key={reply.id}
-                    onClick={() => handleMarkAsRead(reply.id)}
-                    style={{
-                      padding: '12px',
-                      marginBottom: '8px',
-                      background: (reply.is_read === 0 || !reply.is_read) 
-                        ? (isLight ? 'rgba(234, 88, 12, 0.05)' : 'rgba(234, 88, 12, 0.15)') 
-                        : (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)'),
-                      border: (reply.is_read === 0 || !reply.is_read)
-                        ? `1px solid ${isLight ? 'rgba(234, 88, 12, 0.2)' : 'rgba(234, 88, 12, 0.3)'}`
-                        : `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.05)'}`,
-                      borderRadius: '8px',
-                      cursor: (reply.is_read === 0 || !reply.is_read) ? 'pointer' : 'default',
-                      transition: 'all 0.2s ease',
-                      position: 'relative'
-                    }}
-                  >
-                    {(reply.is_read === 0 || !reply.is_read) && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        background: '#ea580c'
-                      }} />
-                    )}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Avatar 
-                          user={{ 
-                            id: reply.action_by_id || (user.role === 'ADMIN' ? '0' : '1'), 
-                            username: reply.action_by_username || (user.role === 'ADMIN' ? 'A user' : 'Admin'), 
-                            fullName: reply.action_by_username || (user.role === 'ADMIN' ? 'A user' : 'Admin'), 
-                            role: reply.action_by_role || (user.role === 'ADMIN' ? 'USER' : 'ADMIN'),
-                            profile_picture: reply.action_by_profile_picture 
-                          }} 
-                          size="sm" 
-                        />
-                        <div style={{ color: '#f97316', fontSize: '13px', fontWeight: '600' }}>
-                          {reply.action_by_username || (user.role === 'ADMIN' ? 'A user' : 'Admin')}
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ color: '#64748b', fontSize: '11px' }}>{new Date(reply.created_at).toLocaleString()}</div>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteReply(reply.id, e)}
-                          title="Delete message"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            padding: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: '4px',
-                            transition: 'background 0.2s'
-                          }}
-                          onMouseOver={(e) => e.currentTarget.style.background = isLight ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.2)'}
-                          onMouseOut={(e) => e.currentTarget.style.background = 'none'}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                    <div style={{ 
-                      color: isLight ? '#334155' : '#cbd5e1',
-                      fontSize: '14px',
-                      lineHeight: '1.6',
-                      paddingLeft: '48px',
-                      wordBreak: 'break-word',
-                      whiteSpace: 'pre-wrap'
-                    }}>
-                      {(() => {
-                        const rawMessage = reply.message.replace(/.*replied to your broadcast:\n\n"/, '').replace(/"$/, '');
-                        const imgRegex = /!\[.*?\]\((.*?)\)/g;
-                        const parts = [];
-                        let lastIndex = 0;
-                        let match;
-                        
-                        while ((match = imgRegex.exec(rawMessage)) !== null) {
-                          if (match.index > lastIndex) {
-                            parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex, match.index)}</span>);
-                          }
-                          parts.push(
-                            <div key={`img-${match.index}`} style={{ marginTop: '8px', marginBottom: '8px' }}>
-                              <img 
-                                src={match[1].startsWith('/') ? `${API_BASE_URL}${match[1]}` : match[1]} 
-                                alt="Attachment" 
-                                style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}` }} 
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                              />
-                            </div>
-                          );
-                          lastIndex = imgRegex.lastIndex;
-                        }
-                        
-                        if (lastIndex < rawMessage.length) {
-                          parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex)}</span>);
-                        }
-                        
-                        return parts;
-                      })()}
-                    </div>
-                  </div>
-                ))}
+                  {activeRepliesList.map(reply => (
+                    <MessageItem
+                      key={reply.id}
+                      reply={reply}
+                      isLight={isLight}
+                      currentUserRole={user?.role}
+                      onMarkRead={handleMarkAsRead}
+                      onDelete={handleDeleteReply}
+                    />
+                  ))}
+
                 </>
               )}
             </div>

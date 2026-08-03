@@ -194,6 +194,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const sidebarRef = useRef(null)
   const mainContentRef = useRef(null)
   const lastNotifFetch = useRef(0) // debounce guard for SSE pings
+  const seenBroadcasts = useRef(new Set()) // deduplicate broadcast events from SSE
 
   // Initial animations on component mount only
   useEffect(() => {

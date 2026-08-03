@@ -113,3 +113,4 @@ out/
 .env.production
 trash/
 client/src/components/trash/
+server/uploads/
