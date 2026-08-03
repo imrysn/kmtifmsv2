@@ -11,6 +11,27 @@ const router = express.Router();
 router.use(authenticateToken);
 
 
+// Helper to delete physical images linked in messages
+const deleteImagesFromMessages = async (messages) => {
+  const imgRegex = /!\[.*?\]\(\/uploads\/broadcasts\/(.*?)\)/g;
+  for (const msg of messages) {
+    if (!msg || !msg.message) continue;
+    let match;
+    while ((match = imgRegex.exec(msg.message)) !== null) {
+      const filename = match[1];
+      const filepath = path.join(uploadsDir, 'broadcasts', filename);
+      try {
+        if (await fs.stat(filepath).then(() => true).catch(() => false)) {
+          await fs.unlink(filepath);
+          console.log(`✅ Deleted physical broadcast image: ${filename}`);
+        }
+      } catch (err) {
+        console.error(`⚠️ Failed to delete physical broadcast image ${filename}:`, err);
+      }
+    }
+  }
+};
+
 // ── SSE broadcaster ──────────────────────────────────────────────────────────
 // Map<userId, Set<res>> — one user may have multiple open tabs
 const sseClients = new Map();
@@ -495,10 +516,18 @@ router.delete('/:notificationId', async (req, res) => {
   try {
     const { notificationId } = req.params;
 
+    // Fetch the notification first so we can check for physical images
+    const notif = await queryOne('SELECT message FROM notifications WHERE id = ?', [notificationId]);
+
     await query(
       'DELETE FROM notifications WHERE id = ?',
       [notificationId]
     );
+
+    // Delete any attached physical images
+    if (notif && notif.message) {
+      await deleteImagesFromMessages([{ message: notif.message }]);
+    }
 
     console.log(`✅ Notification ${notificationId} deleted`);
 
@@ -544,7 +573,15 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
       }
     }
 
+    // Fetch notifications before deleting so we can clean up their physical images
+    const notificationsToDelete = await query(`SELECT message FROM notifications WHERE user_id = ? ${queryStr.replace('DELETE FROM notifications WHERE user_id = ?', '')}`, params);
+
     const result = await query(queryStr, params);
+
+    // Clean up physical images linked in these notifications
+    if (notificationsToDelete && notificationsToDelete.length > 0) {
+      await deleteImagesFromMessages(notificationsToDelete);
+    }
 
     console.log(`✅ Deleted ${result.affectedRows || 0} notifications for user ${userId}`);
 
