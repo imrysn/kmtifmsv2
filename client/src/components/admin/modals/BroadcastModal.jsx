@@ -8,41 +8,26 @@ import Avatar from '@/components/shared/Avatar';
 // content actually changes — not on every parent re-render.
 const MessageItem = React.memo(function MessageItem({ reply, isLight, currentUserRole, onMarkRead, onDelete }) {
   // Parse message content once per message change — NOT on every parent render
-  const parsedContent = useMemo(() => {
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  const { text, images } = useMemo(() => {
     const rawMessage = (reply.message || '')
       .replace(/.*replied to your broadcast:\n\n"/, '')
       .replace(/"$/, '');
 
-    const imgRegex = /!\[.*?\]\((.*?)\)/g;
-    const parts = [];
-    let lastIndex = 0;
+    const images = [];
+    const matchRegex = /!\[.*?\]\((.*?)\)/g;
     let match;
-
-    while ((match = imgRegex.exec(rawMessage)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex, match.index)}</span>);
-      }
+    while ((match = matchRegex.exec(rawMessage)) !== null) {
       const src = match[1].startsWith('/') ? `${API_BASE_URL}${match[1]}` : match[1];
-      parts.push(
-        <div key={`img-${match.index}`} style={{ marginTop: '8px', marginBottom: '8px', display: 'flex', justifyContent: 'center', marginLeft: '-48px' }}>
-          <img
-            src={src}
-            alt="Attachment"
-            loading="lazy"
-            decoding="async"
-            style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}` }}
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-        </div>
-      );
-
-      lastIndex = imgRegex.lastIndex;
+      images.push(src);
     }
-    if (lastIndex < rawMessage.length) {
-      parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex)}</span>);
-    }
-    return parts;
-  }, [reply.message, isLight]);
+    
+    // Remove all image markdown from text
+    const text = rawMessage.replace(/!\[.*?\]\((.*?)\)/g, '').trim();
+    
+    return { text, images };
+  }, [reply.message]);
 
   const isUnread = reply.is_read === 0 || !reply.is_read;
   const senderName = reply.action_by_username || (currentUserRole === 'ADMIN' ? 'A user' : 'Admin');
@@ -100,7 +85,103 @@ const MessageItem = React.memo(function MessageItem({ reply, isLight, currentUse
         </div>
       </div>
       <div style={{ color: isLight ? '#334155' : '#cbd5e1', fontSize: '14px', lineHeight: '1.6', paddingLeft: '48px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-        {parsedContent}
+        {text && <div style={{ marginBottom: images.length > 0 ? '12px' : '0' }}>{text}</div>}
+        
+        {images.length > 0 && (
+          <div style={{ position: 'relative', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', marginLeft: '-24px' }}>
+            <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
+              <img 
+                src={images[currentSlide]} 
+                alt={`Attachment ${currentSlide + 1}`} 
+                loading="lazy"
+                decoding="async"
+                style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}`, objectFit: 'contain', display: 'block' }} 
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+              
+              {images.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentSlide((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '8px',
+                      transform: 'translateY(-50%)',
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: 'white',
+                      transition: 'background 0.2s',
+                      zIndex: 10
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.6)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.4)'}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentSlide((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      right: '8px',
+                      transform: 'translateY(-50%)',
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: 'white',
+                      transition: 'background 0.2s',
+                      zIndex: 10
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.6)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.4)'}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </button>
+
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '8px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(0, 0, 0, 0.6)',
+                    color: 'white',
+                    padding: '4px 10px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    zIndex: 10,
+                    pointerEvents: 'none'
+                  }}>
+                    {currentSlide + 1} / {images.length}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -113,8 +194,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
   const isLight = theme === 'light';
 
   const [message, setMessage] = useState('');
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [users, setUsers] = useState([]);
@@ -180,8 +260,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
       document.body.style.overflow = '';
       setTargetType('all');
       setMessage('');
-      setImageFile(null);
-      setImagePreview(null);
+      setImagePreviews([]);
       setSearchQuery('');
       setSelectedUserIds(new Set());
       setReplies([]);
@@ -255,20 +334,22 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
+    let hasImage = false;
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1) {
         const file = items[i].getAsFile();
         if (file) {
-          e.preventDefault();
-          setImageFile(file);
+          hasImage = true;
           const reader = new FileReader();
           reader.onloadend = () => {
-            setImagePreview(reader.result);
+            setImagePreviews(prev => [...prev, reader.result]);
           };
           reader.readAsDataURL(file);
-          break; // Only handle one image
         }
       }
+    }
+    if (hasImage) {
+      e.preventDefault();
     }
   };
 
@@ -277,6 +358,11 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
     if (!isOpen) return;
     
     const globalHandlePaste = (e) => {
+      // Ignore if pasting directly into an input or textarea (they handle their own onPaste)
+      if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) {
+        return;
+      }
+
       const items = e.clipboardData?.items;
       if (!items) return;
 
@@ -284,13 +370,11 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
         if (items[i].type.indexOf('image') !== -1) {
           const file = items[i].getAsFile();
           if (file) {
-            setImageFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
-              setImagePreview(reader.result);
+              setImagePreviews(prev => [...prev, reader.result]);
             };
             reader.readAsDataURL(file);
-            break; 
           }
         }
       }
@@ -356,7 +440,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!message.trim() && !imageFile) {
+    if (!message.trim() && imagePreviews.length === 0) {
       setError('Message or image is required.');
       return;
     }
@@ -380,14 +464,14 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
         formData.append('targetUserIds', JSON.stringify(Array.from(selectedUserIds)));
       }
       
-      if (imagePreview) {
-        formData.append('imageBase64', imagePreview);
+      if (imagePreviews.length > 0) {
+        formData.append('imagesBase64', JSON.stringify(imagePreviews));
       }
       
       console.log('--- FORM DATA ---');
       console.log('title:', formData.get('title'));
       console.log('message:', formData.get('message'));
-      console.log('imageBase64 attached:', !!formData.get('imageBase64'));
+      console.log('imagesBase64 count:', imagePreviews.length);
 
       const response = await apiFetch('/api/notifications/broadcast', {
         method: 'POST',
@@ -557,7 +641,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                 <>
                   <button
                     type="button"
-                    onClick={() => setTargetType('all')}
+                    onClick={() => { setTargetType('all'); setError(''); }}
                     style={{
                       padding: '6px 16px',
                       background: targetType === 'all' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
@@ -575,7 +659,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTargetType('specific')}
+                    onClick={() => { setTargetType('specific'); setError(''); }}
                     style={{
                       padding: '6px 16px',
                       background: targetType === 'specific' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
@@ -593,7 +677,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTargetType('replies')}
+                    onClick={() => { setTargetType('replies'); setError(''); }}
                     style={{
                       padding: '6px 16px',
                       background: targetType === 'replies' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
@@ -649,7 +733,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTargetType('broadcast_history')}
+                    onClick={() => { setTargetType('broadcast_history'); setError(''); }}
                     style={{
                       padding: '6px 16px',
                       background: targetType === 'broadcast_history' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
@@ -684,7 +768,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTargetType('message_history')}
+                    onClick={() => { setTargetType('message_history'); setError(''); }}
                     style={{
                       padding: '6px 16px',
                       background: targetType === 'message_history' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
@@ -736,6 +820,11 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                   placeholder="Search users..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                    }
+                  }}
                   style={{
                     width: '100%',
                     padding: '8px 12px 8px 36px',
@@ -762,14 +851,10 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
               <div 
                 className="hide-scrollbar"
                 style={{ 
-                maxHeight: '200px', 
-                overflowY: 'auto',
                 background: isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.4)',
                 border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.05)'}`,
                 borderRadius: '12px',
                 padding: '8px',
-                scrollbarWidth: 'none', // Firefox
-                msOverflowStyle: 'none' // IE/Edge
               }}>
                 {users.length === 0 ? (
                   <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading users...</div>
@@ -821,64 +906,65 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
 
           {/* Replies List */}
           {(targetType === 'replies' || targetType === 'broadcast_history' || targetType === 'message_history') && (
-            <div 
-              className="hide-scrollbar"
-              style={{ 
-              marginTop: '16px', 
-              maxHeight: '300px', 
-              overflowY: 'auto',
-              background: isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.4)',
-              border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.05)'}`,
-              borderRadius: '12px',
-              padding: '12px',
-              scrollbarWidth: 'none', // Firefox
-              msOverflowStyle: 'none' // IE/Edge
-            }}>
-              {isLoadingReplies ? (
-                <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading replies...</div>
-              ) : activeRepliesList.length === 0 ? (
-                <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748b' }}>
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 16px', display: 'block', opacity: 0.5 }}>
-                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-                  </svg>
-                  <div>No messages yet.</div>
+            <div style={{ marginTop: '16px' }}>
+              {!isLoadingReplies && activeRepliesList.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleClearAllReplies}
+                    style={{
+                      padding: '6px 12px',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      color: '#ef4444',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.2)'}
+                    onMouseLeave={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.1)'}
+                  >
+                    Clear All Messages
+                  </button>
                 </div>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-                    <button
-                      type="button"
-                      onClick={handleClearAllReplies}
-                      style={{
-                        padding: '6px 12px',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        color: '#ef4444',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.2)'}
-                      onMouseLeave={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.1)'}
-                    >
-                      Clear All Messages
-                    </button>
-                  </div>
-                  {activeRepliesList.map(reply => (
-                    <MessageItem
-                      key={reply.id}
-                      reply={reply}
-                      isLight={isLight}
-                      currentUserRole={user?.role}
-                      onMarkRead={handleMarkAsRead}
-                      onDelete={handleDeleteReply}
-                    />
-                  ))}
-
-                </>
               )}
+              
+              <div 
+                className="hide-scrollbar"
+                style={{ 
+                background: isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.4)',
+                border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.05)'}`,
+                borderRadius: '12px',
+                padding: '12px',
+              }}>
+                {isLoadingReplies ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading replies...</div>
+                ) : activeRepliesList.length === 0 ? (
+                  <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748b' }}>
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 16px', display: 'block', opacity: 0.5 }}>
+                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                    </svg>
+                    <div>No messages yet.</div>
+                  </div>
+                ) : (
+                  <>
+                    {activeRepliesList.map(reply => (
+                      <MessageItem
+                        key={reply.id}
+                        reply={reply}
+                        isLight={isLight}
+                        currentUserRole={user?.role}
+                        onMarkRead={handleMarkAsRead}
+                        onDelete={handleDeleteReply}
+                      />
+                    ))}
+                    {/* Spacer to fix WebKit scroll padding bug causing the last item's bottom to be clipped */}
+                    <div style={{ height: '12px', width: '100%', flexShrink: 0 }}></div>
+                  </>
+                )}
+              </div>
             </div>
           )}
           
@@ -918,38 +1004,42 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                 }}
               />
               
-              {imagePreview && (
-                <div style={{ marginTop: '12px', position: 'relative', display: 'inline-block' }}>
-                  <img 
-                    src={imagePreview} 
-                    alt="Preview" 
-                    style={{ maxWidth: '200px', maxHeight: '150px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}` }} 
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImageFile(null);
-                      setImagePreview(null);
-                    }}
-                    style={{
-                      position: 'absolute',
-                      top: '-8px',
-                      right: '-8px',
-                      background: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '50%',
-                      width: '24px',
-                      height: '24px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px'
-                    }}
-                  >
-                    ✕
-                  </button>
+              {imagePreviews.length > 0 && (
+                <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                  {imagePreviews.map((preview, idx) => (
+                    <div key={idx} style={{ position: 'relative', display: 'inline-block' }}>
+                      <img 
+                        src={preview} 
+                        alt={`Preview ${idx + 1}`} 
+                        style={{ maxWidth: '150px', maxHeight: '100px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}`, objectFit: 'cover' }} 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImagePreviews(prev => prev.filter((_, i) => i !== idx));
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '-8px',
+                          right: '-8px',
+                          background: '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '22px',
+                          height: '22px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '10px',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               
@@ -975,17 +1065,18 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                   <input 
                     type="file" 
                     accept="image/*" 
+                    multiple
                     style={{ display: 'none' }}
                     onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        setImageFile(file);
+                      const files = Array.from(e.target.files);
+                      files.forEach(file => {
                         const reader = new FileReader();
                         reader.onloadend = () => {
-                          setImagePreview(reader.result);
+                          setImagePreviews(prev => [...prev, reader.result]);
                         };
                         reader.readAsDataURL(file);
-                      }
+                      });
+                      e.target.value = ''; // Reset input to allow selecting the same file again
                     }}
                   />
                 </label>
@@ -1027,7 +1118,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
             {targetType !== 'replies' && targetType !== 'broadcast_history' && targetType !== 'message_history' && (
               <button 
                 type="submit" 
-                disabled={isLoading || (!message.trim() && !imageFile) || (targetType === 'specific' && selectedUserIds.size === 0)}
+                disabled={isLoading || (!message.trim() && imagePreviews.length === 0) || (targetType === 'specific' && selectedUserIds.size === 0)}
                 style={{
                   padding: '12px 28px',
                   background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
@@ -1036,8 +1127,8 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                   borderRadius: '12px',
                   fontSize: '14px',
                   fontWeight: '600',
-                  cursor: (isLoading || (!message.trim() && !imageFile) || (targetType === 'specific' && selectedUserIds.size === 0)) ? 'not-allowed' : 'pointer',
-                  opacity: (isLoading || (!message.trim() && !imageFile) || (targetType === 'specific' && selectedUserIds.size === 0)) ? 0.7 : 1,
+                  cursor: (isLoading || (!message.trim() && imagePreviews.length === 0) || (targetType === 'specific' && selectedUserIds.size === 0)) ? 'not-allowed' : 'pointer',
+                  opacity: (isLoading || (!message.trim() && imagePreviews.length === 0) || (targetType === 'specific' && selectedUserIds.size === 0)) ? 0.7 : 1,
                   boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)',
                   display: 'flex',
                   alignItems: 'center',

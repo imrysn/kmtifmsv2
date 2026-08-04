@@ -632,7 +632,7 @@ router.get('/user/:userId/unread-broadcasts', async (req, res) => {
 // Broadcast a notification
 router.post('/broadcast', upload.single('image'), async (req, res) => {
   try {
-    let { title, message, targetUserIds, imageBase64 } = req.body;
+    let { title, message, targetUserIds, imageBase64, imagesBase64 } = req.body;
     
     // targetUserIds might come as a JSON string when sent via FormData
     if (typeof targetUserIds === 'string') {
@@ -643,7 +643,12 @@ router.post('/broadcast', upload.single('image'), async (req, res) => {
       }
     }
     
-    if (!title || (!message && !req.file && !imageBase64)) {
+    let hasImages = false;
+    try {
+      if (imagesBase64 && JSON.parse(imagesBase64).length > 0) hasImages = true;
+    } catch(e) {}
+
+    if (!title || (!message && !req.file && !imageBase64 && !hasImages)) {
       return res.status(400).json({ success: false, message: 'Title and message or image are required' });
     }
 
@@ -671,20 +676,30 @@ router.post('/broadcast', upload.single('image'), async (req, res) => {
         console.error('Failed to process broadcast image:', err);
         // Continue even if image fails, or you could return an error
       }
-    } else if (imageBase64) {
+    } else if (imageBase64 || imagesBase64) {
       // Save base64 image to disk — storing raw base64 inline in DB causes
       // the broadcasts API to return megabytes per fetch, lagging the UI.
       try {
         const broadcastsDir = path.join(uploadsDir, 'broadcasts');
         await fs.mkdir(broadcastsDir, { recursive: true });
-        const mimeMatch = imageBase64.match(/^data:image\/(\w+);base64,/);
-        const ext = mimeMatch ? `.${mimeMatch[1].replace('jpeg', 'jpg')}` : '.png';
-        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-        const finalFilename = `broadcast_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
-        const finalPath = path.join(uploadsDir, 'broadcasts', finalFilename);
-        await fs.writeFile(finalPath, Buffer.from(base64Data, 'base64'));
-        message += `\n\n![Image](/uploads/broadcasts/${finalFilename})`;
-        console.log(`✅ Broadcast image saved: ${finalFilename}`);
+        
+        let base64Array = [];
+        if (imagesBase64) {
+          base64Array = typeof imagesBase64 === 'string' ? JSON.parse(imagesBase64) : imagesBase64;
+        } else if (imageBase64) {
+          base64Array = [imageBase64];
+        }
+        
+        for (const base64Str of base64Array) {
+          const mimeMatch = base64Str.match(/^data:image\/(\w+);base64,/);
+          const ext = mimeMatch ? `.${mimeMatch[1].replace('jpeg', 'jpg')}` : '.png';
+          const base64Data = base64Str.replace(/^data:image\/\w+;base64,/, '');
+          const finalFilename = `broadcast_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
+          const finalPath = path.join(uploadsDir, 'broadcasts', finalFilename);
+          await fs.writeFile(finalPath, Buffer.from(base64Data, 'base64'));
+          message += `\n\n![Image](/uploads/broadcasts/${finalFilename})`;
+          console.log(`✅ Broadcast image saved: ${finalFilename}`);
+        }
       } catch (err) {
         console.error('⚠️ Failed to save broadcast image:', err.message);
         // Skip the image rather than storing huge base64 inline

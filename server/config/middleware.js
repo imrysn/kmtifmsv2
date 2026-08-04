@@ -44,6 +44,7 @@ const upload = multer({
   // Security limits to prevent DoS attacks
   limits: {
     fileSize: 50 * 1024 * 1024 * 1024, // 50GB max file size (effectively limitless)
+    fieldSize: 50 * 1024 * 1024, // 50MB max field size for base64 arrays
     defCharset: 'utf8' // Hint to busboy to use UTF-8 for filenames
   }
 });
@@ -108,12 +109,12 @@ function setupMiddleware(app) {
 
   // JSON parsing with extended options to handle UTF-8 special characters
   app.use(express.json({
-    limit: '10mb' // JSON payloads are never large; files go through multer
+    limit: '50mb' // JSON payloads are never large; files go through multer
   }));
 
   app.use(express.urlencoded({
     extended: true,
-    limit: '10mb',
+    limit: '50mb',
     parameterLimit: 50000
   }));
 

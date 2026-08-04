@@ -5,6 +5,7 @@ import { apiFetch, API_BASE_URL } from '../../config/api';
 
 const BroadcastAlert = ({ broadcast, onClose, remainingCount = 0 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
   const { theme } = useStore();
   const isLight = theme === 'light';
 
@@ -106,32 +107,123 @@ const BroadcastAlert = ({ broadcast, onClose, remainingCount = 0 }) => {
             if (!broadcast.message) return null;
             const rawMessage = broadcast.message;
             const imgRegex = /!\[.*?\]\((.*?)\)/g;
-            const parts = [];
-            let lastIndex = 0;
+            const images = [];
+            let textWithoutImages = rawMessage;
             let match;
             
-            while ((match = imgRegex.exec(rawMessage)) !== null) {
-              if (match.index > lastIndex) {
-                parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex, match.index)}</span>);
-              }
-              parts.push(
-                <div key={`img-${match.index}`} style={{ marginTop: '8px', marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>
-                  <img 
-                    src={match[1].startsWith('/') ? `${API_BASE_URL}${match[1]}` : match[1]} 
-                    alt="Attachment" 
-                    style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '6px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}` }} 
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                </div>
-              );
-              lastIndex = imgRegex.lastIndex;
+            // Reusable regex because replacing doesn't advance lastIndex on the same string well
+            const matchRegex = /!\[.*?\]\((.*?)\)/g;
+            while ((match = matchRegex.exec(rawMessage)) !== null) {
+              const src = match[1].startsWith('/') ? `${API_BASE_URL}${match[1]}` : match[1];
+              images.push(src);
             }
             
-            if (lastIndex < rawMessage.length) {
-              parts.push(<span key={`text-${lastIndex}`}>{rawMessage.substring(lastIndex)}</span>);
-            }
-            
-            return parts;
+            // Remove all image markdown from text
+            textWithoutImages = textWithoutImages.replace(/!\[.*?\]\((.*?)\)/g, '').trim();
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {textWithoutImages && (
+                  <div style={{ textAlign: 'left', wordBreak: 'break-word' }}>
+                    {textWithoutImages}
+                  </div>
+                )}
+                
+                {images.length > 0 && (
+                  <div style={{ position: 'relative', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
+                      <img 
+                        src={images[currentSlide]} 
+                        alt={`Attachment ${currentSlide + 1}`} 
+                        style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}`, objectFit: 'contain', display: 'block' }} 
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                      
+                      {images.length > 1 && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCurrentSlide((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: '50%',
+                              left: '8px',
+                              transform: 'translateY(-50%)',
+                              background: 'rgba(0, 0, 0, 0.4)',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: '32px',
+                              height: '32px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              color: 'white',
+                              transition: 'background 0.2s',
+                              zIndex: 10
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.6)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.4)'}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCurrentSlide((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: '50%',
+                              right: '8px',
+                              transform: 'translateY(-50%)',
+                              background: 'rgba(0, 0, 0, 0.4)',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: '32px',
+                              height: '32px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              color: 'white',
+                              transition: 'background 0.2s',
+                              zIndex: 10
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.6)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.4)'}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                          </button>
+
+                          <div style={{
+                            position: 'absolute',
+                            bottom: '8px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            background: 'rgba(0, 0, 0, 0.6)',
+                            color: 'white',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            zIndex: 10,
+                            pointerEvents: 'none'
+                          }}>
+                            {currentSlide + 1} / {images.length}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
           })()}
         </div>
 
@@ -152,7 +244,7 @@ const BroadcastAlert = ({ broadcast, onClose, remainingCount = 0 }) => {
               transition: 'all 0.2s',
             }}
           >
-            {remainingCount > 0 ? `Next (${remainingCount} remaining)` : 'Got it'}
+            Got it
           </button>
         </div>
       </div>
