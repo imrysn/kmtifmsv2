@@ -126,7 +126,7 @@ const BroadcastAlert = ({ broadcast, onClose, remainingCount = 0 }) => {
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {textWithoutImages && (
-                  <div style={{ textAlign: 'left', wordBreak: 'break-word' }}>
+                  <div style={{ textAlign: 'center', wordBreak: 'break-word' }}>
                     {textWithoutImages}
                   </div>
                 )}
