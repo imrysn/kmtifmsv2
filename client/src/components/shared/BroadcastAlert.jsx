@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useStore from '../../store/useStore';
 import { apiFetch, API_BASE_URL } from '../../config/api';
+import FullscreenImageViewer from './FullscreenImageViewer';
 
 const BroadcastAlert = ({ broadcast, onClose, remainingCount = 0 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [fullScreenImage, setFullScreenImage] = useState(null);
   const { theme } = useStore();
   const isLight = theme === 'light';
 
@@ -135,7 +137,8 @@ const BroadcastAlert = ({ broadcast, onClose, remainingCount = 0 }) => {
                       <img 
                         src={images[currentSlide]} 
                         alt={`Attachment ${currentSlide + 1}`} 
-                        style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}`, objectFit: 'contain', display: 'block' }} 
+                        onClick={() => setFullScreenImage(images[currentSlide])}
+                        style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}`, objectFit: 'contain', display: 'block', cursor: 'pointer' }} 
                         onError={(e) => { e.target.style.display = 'none'; }}
                       />
                       
@@ -264,6 +267,13 @@ const BroadcastAlert = ({ broadcast, onClose, remainingCount = 0 }) => {
           100% { transform: rotate(0deg); }
         }
       `}</style>
+      
+      {fullScreenImage && (
+        <FullscreenImageViewer 
+          imageUrl={fullScreenImage} 
+          onClose={() => setFullScreenImage(null)} 
+        />
+      )}
     </div>,
     document.body
   );

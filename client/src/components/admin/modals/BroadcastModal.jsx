@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api';
 import useStore from '../../../store/useStore';
 import Avatar from '@/components/shared/Avatar';
+import FullscreenImageViewer from '@/components/shared/FullscreenImageViewer';
 
 // ── Memoized message item ─────────────────────────────────────────────────────
 // Extracted from inline JSX so the expensive regex only runs when the message
@@ -9,6 +10,7 @@ import Avatar from '@/components/shared/Avatar';
 const MessageItem = React.memo(function MessageItem({ reply, isLight, currentUserRole, onMarkRead, onDelete }) {
   // Parse message content once per message change — NOT on every parent render
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [fullScreenImage, setFullScreenImage] = useState(null);
 
   const { text, images } = useMemo(() => {
     const rawMessage = (reply.message || '')
@@ -95,7 +97,8 @@ const MessageItem = React.memo(function MessageItem({ reply, isLight, currentUse
                 alt={`Attachment ${currentSlide + 1}`} 
                 loading="lazy"
                 decoding="async"
-                style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}`, objectFit: 'contain', display: 'block' }} 
+                onClick={() => setFullScreenImage(images[currentSlide])}
+                style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}`, objectFit: 'contain', display: 'block', cursor: 'pointer' }} 
                 onError={(e) => { e.target.style.display = 'none'; }}
               />
               
@@ -183,6 +186,13 @@ const MessageItem = React.memo(function MessageItem({ reply, isLight, currentUse
           </div>
         )}
       </div>
+
+      {fullScreenImage && (
+        <FullscreenImageViewer 
+          imageUrl={fullScreenImage} 
+          onClose={() => setFullScreenImage(null)} 
+        />
+      )}
     </div>
   );
 });
@@ -204,6 +214,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState(new Set());
   const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [fullScreenImage, setFullScreenImage] = useState(null);
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [isDeletingMessage, setIsDeletingMessage] = useState(false);
   const modalRef = useRef(null);
@@ -1011,7 +1022,8 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                       <img 
                         src={preview} 
                         alt={`Preview ${idx + 1}`} 
-                        style={{ maxWidth: '150px', maxHeight: '100px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}`, objectFit: 'cover' }} 
+                        onClick={() => setFullScreenImage(preview)}
+                        style={{ maxWidth: '150px', maxHeight: '100px', borderRadius: '8px', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}`, objectFit: 'cover', cursor: 'pointer' }} 
                       />
                       <button
                         type="button"
@@ -1348,6 +1360,14 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Fullscreen Image Viewer for Draft Attachments */}
+      {fullScreenImage && (
+        <FullscreenImageViewer 
+          imageUrl={fullScreenImage} 
+          onClose={() => setFullScreenImage(null)} 
+        />
       )}
     </div>
   );
