@@ -777,41 +777,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
                       </span>
                     )}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { setTargetType('message_history'); setError(''); }}
-                    style={{
-                      padding: '6px 16px',
-                      background: targetType === 'message_history' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
-                      border: 'none',
-                      borderRadius: '6px',
-                      color: targetType === 'message_history' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
-                      fontWeight: targetType === 'message_history' ? '600' : '500',
-                      fontSize: '13px',
-                      boxShadow: targetType === 'message_history' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    Message History
-                    {unreadMessageHistoryCount > 0 && (
-                      <span style={{
-                        background: '#ea580c',
-                        color: 'white',
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        padding: '2px 6px',
-                        borderRadius: '10px',
-                        lineHeight: '1'
-                      }}>
-                        {unreadMessageHistoryCount}
-                      </span>
-                    )}
-                  </button>
+
                 </>
               )}
             </div>
