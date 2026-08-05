@@ -1,10 +1,10 @@
 {
   "name": "electron-react-client",
   "private": true,
-  "version": "2.3.28",
+  "version": "2.3.29",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --force",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest",
