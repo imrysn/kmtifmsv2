@@ -12,6 +12,7 @@ import { API_BASE_URL } from './config/api'
 import Login from './components/Login'
 import LoadingSpinner from './components/LoadingSpinner'
 import ToastContainer from './components/common/ToastContainer'
+import GoodMorningAlert from './components/shared/GoodMorningAlert'
 
 // Lazy load dashboards (only when needed)
 const UserDashboard = lazy(() => import('./pages/UserDashboard-Enhanced'))
@@ -142,6 +143,9 @@ function App() {
         <div className="app">
           {/* Toast notifications - handles ALL notifications including updates */}
           <ToastContainer />
+          
+          {/* Automatic Morning Popup */}
+          <GoodMorningAlert />
 
           <Suspense fallback={<LoadingSpinner message="Loading dashboard..." fullPage={true} />}>
             <Routes>
