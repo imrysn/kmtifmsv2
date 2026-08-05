@@ -44,10 +44,11 @@ const GoodMorningAlert = () => {
   const imageSrc = isMorning ? 'good_morning.png' : 'good_afternoon.png';
   const title = isMorning ? 'Good Morning' : 'Good Afternoon';
 
-  // The markdown image below will trigger the "Gift Mode" in BroadcastAlert
+  // By starting with a slash, BroadcastAlert will automatically prepend the API_BASE_URL
+  // fetching the image from the backend, which now serves the NAS assets directory!
   const mockBroadcast = {
     title: title,
-    message: `![${title}](${window.location.origin}/${imageSrc})`
+    message: `![${title}](/api/assets/${imageSrc})`
   };
 
   return <BroadcastAlert broadcast={mockBroadcast} onClose={() => setShow(false)} />;

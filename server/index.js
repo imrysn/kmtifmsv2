@@ -161,6 +161,9 @@ app.use('/api/assignments', dbReadyGuard, assignmentsRoutes);
 app.use('/api/custom-tags', dbReadyGuard, customTagsRoutes);
 app.use('/api/presence', dbReadyGuard, presenceRoutes);
 
+// Serve global assets from NAS (or local-test data path)
+app.use('/api/assets', express.static(path.join(networkDataPath, 'assets')));
+
 // Serve static files from the React app build directory
 // In bundled mode, client files are in client-dist, otherwise in ../client/dist
 const clientBuildPath = path.join(__dirname, 'client-dist');
