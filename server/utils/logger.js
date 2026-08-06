@@ -143,7 +143,17 @@ function logActivity(db, userId, username, role, team, action) {
   mysqlDb.query(
     'INSERT INTO activity_logs (user_id, username, role, team, activity, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
     [userId, username, normalizedRole, team, action, timestamp]
-  ).catch(err => {
+  ).then(() => {
+    // Automatically keep only the latest 100 logs (FIFO)
+    return mysqlDb.query(`
+      DELETE FROM activity_logs 
+      WHERE id NOT IN (
+        SELECT id FROM (
+          SELECT id FROM activity_logs ORDER BY id DESC LIMIT 100
+        ) as tmp
+      )
+    `);
+  }).catch(err => {
     logger.error('Failed to log activity to MySQL database', {
       error: err.message,
       userId,

@@ -9,8 +9,15 @@ const ONLINE_THRESHOLD_MS = 35 * 1000; // 35 seconds — user drops offline quic
 // SSE clients: Set of res objects
 const sseClients = new Set();
 
+// ── In-memory state cache: track who is currently online ─────────────────────
+// Avoids a full DB query on every ping when nothing has changed.
+// Map<userId(string), lastSeen(number)>
+const onlineStateCache = new Map();
+
 // ── Broadcast updated online list to all SSE clients ─────────────────────────
 async function broadcastOnlineUsers() {
+  if (sseClients.size === 0) return; // no one listening — skip entirely
+
   try {
     const cutoff = Date.now() - ONLINE_THRESHOLD_MS;
 
@@ -26,6 +33,12 @@ async function broadcastOnlineUsers() {
       userId: String(u.userId)
     }));
 
+    // Sync cache with DB result
+    onlineStateCache.clear();
+    for (const u of online) {
+      onlineStateCache.set(String(u.userId), u.lastSeen);
+    }
+
     const payload = `data: ${JSON.stringify({ online, count: online.length })}\n\n`;
     for (const client of sseClients) {
       try {
@@ -39,13 +52,14 @@ async function broadcastOnlineUsers() {
   }
 }
 
-// Cleanup stale entries every 15s and broadcast if anyone changed state
-// With DB-driven presence, we must poll to see if other server instances updated presence
+// ── Lazy sync every 60s (was 15s) ─────────────────────────────────────────────
+// Acts as a safety net in case a client reconnects or a ping was missed.
+// Smart ping logic below means most updates happen without a full DB broadcast.
 setInterval(() => {
   if (sseClients.size > 0) {
     broadcastOnlineUsers();
   }
-}, 15 * 1000);
+}, 60 * 1000);
 
 // ── GET /api/presence/stream — real-time SSE stream ──────────────────────────
 router.get('/stream', authenticateToken, async (req, res) => {
@@ -88,18 +102,29 @@ router.get('/stream', authenticateToken, async (req, res) => {
 // ── POST /api/presence/ping — heartbeat OR sendBeacon offline signal ────────
 router.post('/ping', authenticateToken, asyncHandler(async (req, res) => {
   const { id: userId } = req.user;
+  const userIdStr = String(userId);
 
   // navigator.sendBeacon() can only POST. Detect ?_method=DELETE as offline signal.
   if (req.query._method === 'DELETE') {
     await dbQuery('UPDATE users SET last_seen = 0 WHERE id = ?', [userId]);
-    broadcastOnlineUsers();
+    onlineStateCache.delete(userIdStr);
+    broadcastOnlineUsers(); // user went offline — always broadcast this state change
     return res.json({ success: true });
   }
 
-  await dbQuery('UPDATE users SET last_seen = ? WHERE id = ?', [Date.now(), userId]);
+  const now = Date.now();
+  const cachedLastSeen = onlineStateCache.get(userIdStr) || 0;
+  const wasConsideredOnline = (now - cachedLastSeen) < ONLINE_THRESHOLD_MS;
 
-  // Always broadcast — ensures reconnects and new logins appear instantly for all viewers
-  broadcastOnlineUsers();
+  // Always update last_seen in DB (so other clients see fresh timestamp)
+  await dbQuery('UPDATE users SET last_seen = ? WHERE id = ?', [now, userId]);
+  onlineStateCache.set(userIdStr, now);
+
+  // Only broadcast if this user just came online (first ping or was stale/absent)
+  // This eliminates the DB query + SSE push on every heartbeat of already-online users
+  if (!wasConsideredOnline) {
+    broadcastOnlineUsers();
+  }
 
   res.json({ success: true });
 }));
@@ -108,6 +133,7 @@ router.post('/ping', authenticateToken, asyncHandler(async (req, res) => {
 router.delete('/ping', authenticateToken, asyncHandler(async (req, res) => {
   const { id: userId } = req.user;
   await dbQuery('UPDATE users SET last_seen = 0 WHERE id = ?', [userId]);
+  onlineStateCache.delete(String(userId));
   broadcastOnlineUsers();
   res.json({ success: true });
 }));

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
 import ReactDOM from 'react-dom'
 import { apiFetch, API_BASE_URL, getAuthToken } from '@/config/api'
 import './css/TeamTasksTab.css'
@@ -186,7 +186,7 @@ const groupBySubfolder = (files) => {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
-const TeamTasksTab = ({ user }) => {
+const TeamTasksTab = memo(({ user }) => {
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -233,6 +233,44 @@ const TeamTasksTab = ({ user }) => {
   // Refs
   const observerRef = useRef(null)
   const loadMoreRef = useRef(null)
+
+  // Team filtered data and pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+
+  const { teamFiltered, paginatedTeamFiltered, totalPages } = useMemo(() => {
+    const activeFilteredBase = assignments.filter(a => activeTab === 'done-tasks' ? a.status === 'completed' : a.status !== 'completed');
+    const searchFiltered = searchQuery.trim() ? activeFilteredBase.filter(a => {
+      const q = searchQuery.toLowerCase();
+      return (
+        (a.title || '').toLowerCase().includes(q) ||
+        (a.description || '').toLowerCase().includes(q) ||
+        (a.team_leader_fullname || '').toLowerCase().includes(q) ||
+        (a.team_leader_username || '').toLowerCase().includes(q) ||
+        (a.attachments || []).some(f =>
+          (f.original_name || '').toLowerCase().includes(q) ||
+          (f.file_name || '').toLowerCase().includes(q) ||
+          (f.folder_name || '').toLowerCase().includes(q)
+        ) ||
+        (a.recent_submissions || []).some(f =>
+          (f.original_name || '').toLowerCase().includes(q) ||
+          (f.file_name || '').toLowerCase().includes(q) ||
+          (f.folder_name || '').toLowerCase().includes(q)
+        )
+      );
+    }) : activeFilteredBase;
+    const filteredByTeam = teamFilter === 'all' ? searchFiltered : searchFiltered.filter(a => (a.team || 'IT Dept') === teamFilter);
+
+    const start = (currentPage - 1) * itemsPerPage
+    const paged = filteredByTeam.slice(start, start + itemsPerPage)
+    const total = Math.ceil(filteredByTeam.length / itemsPerPage)
+
+    return { teamFiltered: filteredByTeam, paginatedTeamFiltered: paged, totalPages: total }
+  }, [assignments, activeTab, searchQuery, teamFilter, currentPage, itemsPerPage])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, teamFilter, searchQuery])
 
   // ── Persistent storage for viewed file IDs ────────────────────────────────
   useEffect(() => {
@@ -947,27 +985,6 @@ const TeamTasksTab = ({ user }) => {
 
       <div className="team-tasks-count">
         {(() => {
-          const activeFilteredBase = assignments.filter(a => activeTab === 'done-tasks' ? a.status === 'completed' : a.status !== 'completed');
-          const searchFiltered = searchQuery.trim() ? activeFilteredBase.filter(a => {
-            const q = searchQuery.toLowerCase();
-            return (
-              (a.title || '').toLowerCase().includes(q) ||
-              (a.description || '').toLowerCase().includes(q) ||
-              (a.team_leader_fullname || '').toLowerCase().includes(q) ||
-              (a.team_leader_username || '').toLowerCase().includes(q) ||
-              (a.attachments || []).some(f =>
-                (f.original_name || '').toLowerCase().includes(q) ||
-                (f.file_name || '').toLowerCase().includes(q) ||
-                (f.folder_name || '').toLowerCase().includes(q)
-              ) ||
-              (a.recent_submissions || []).some(f =>
-                (f.original_name || '').toLowerCase().includes(q) ||
-                (f.file_name || '').toLowerCase().includes(q) ||
-                (f.folder_name || '').toLowerCase().includes(q)
-              )
-            );
-          }) : activeFilteredBase;
-          const teamFiltered = teamFilter === 'all' ? searchFiltered : searchFiltered.filter(a => (a.team || 'IT Dept') === teamFilter);
           return searchQuery
             ? `${teamFiltered.length} result${teamFiltered.length !== 1 ? 's' : ''} for "${searchQuery}"`
             : `${teamFiltered.length} task${teamFiltered.length !== 1 ? 's' : ''}${hasMore ? ' • Scroll for more' : ''}`;
@@ -976,29 +993,6 @@ const TeamTasksTab = ({ user }) => {
 
       <div className="team-tasks-container">
         {(() => {
-          const activeFilteredBase = assignments.filter(a => activeTab === 'done-tasks' ? a.status === 'completed' : a.status !== 'completed');
-          const filtered = searchQuery.trim()
-            ? activeFilteredBase.filter(a => {
-              const q = searchQuery.toLowerCase()
-              return (
-                (a.title || '').toLowerCase().includes(q) ||
-                (a.description || '').toLowerCase().includes(q) ||
-                (a.team_leader_fullname || '').toLowerCase().includes(q) ||
-                (a.team_leader_username || '').toLowerCase().includes(q) ||
-                (a.attachments || []).some(f =>
-                  (f.original_name || '').toLowerCase().includes(q) ||
-                  (f.file_name || '').toLowerCase().includes(q) ||
-                  (f.folder_name || '').toLowerCase().includes(q)
-                ) ||
-                (a.recent_submissions || []).some(f =>
-                  (f.original_name || '').toLowerCase().includes(q) ||
-                  (f.file_name || '').toLowerCase().includes(q) ||
-                  (f.folder_name || '').toLowerCase().includes(q)
-                )
-              )
-            })
-            : activeFilteredBase
-          const teamFiltered = teamFilter === 'all' ? filtered : filtered.filter(a => (a.team || 'IT Dept') === teamFilter)
           return teamFiltered.length === 0 ? (
             <div className="empty-team-tasks">
               <div className="empty-icon">📋</div>
@@ -1007,7 +1001,7 @@ const TeamTasksTab = ({ user }) => {
             </div>
           ) : (
             <>
-              {teamFiltered.map(assignment => (
+              {paginatedTeamFiltered.map(assignment => (
                 <div key={assignment.id} className="team-task-card">
                   {/* Card Header */}
                   <div className="team-task-header">
@@ -1367,10 +1361,37 @@ const TeamTasksTab = ({ user }) => {
               {hasMore && !loadingMore && (
                 <div ref={loadMoreRef} style={{ height: '20px', margin: '20px 0' }} />
               )}
+              
+              {/* Pagination Controls */}
+              {!loading && totalPages > 1 && (
+                <div className="pagination-section" style={{ marginTop: '20px', padding: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="pagination-info" style={{ color: 'var(--text-tertiary)', fontSize: '14px' }}>
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, teamFiltered.length)} of {teamFiltered.length} items
+                  </div>
+                  <div className="pagination-controls" style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                      disabled={currentPage === 1}
+                      style={{ padding: '6px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', background: 'var(--background-secondary)', color: 'var(--text-primary)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.5 : 1 }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ padding: '6px 12px', fontSize: '14px', color: 'var(--text-primary)' }}>
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                      disabled={currentPage === totalPages}
+                      style={{ padding: '6px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', background: 'var(--background-secondary)', color: 'var(--text-primary)', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', opacity: currentPage === totalPages ? 0.5 : 1 }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )
-        })()
-        }
+        })()}
       </div>
 
       {/* Comments Modal */}
@@ -1429,6 +1450,7 @@ const TeamTasksTab = ({ user }) => {
       />
     </div>
   )
-}
+})
 
+TeamTasksTab.displayName = 'TeamTasksTab'
 export default TeamTasksTab

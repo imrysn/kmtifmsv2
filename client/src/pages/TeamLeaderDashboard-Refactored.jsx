@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy, useRef } from 'react'
+import React, { useState, useEffect, Suspense, lazy, useRef, startTransition, useCallback } from 'react'
 import { apiFetch, API_BASE_URL, uploadWithProgress, uploadBatchWithProgress } from '@/config/api'
 import useStore from '../store/useStore'
 import '../css/TeamLeaderDashboard.css'
@@ -16,29 +16,62 @@ const syncElectronBadge = (count) => {
 }
 
 // Eagerly import critical components
-import {
-  Sidebar,
-} from '../components/teamleader'
+import Sidebar from '../components/teamleader/Sidebar'
 
 // Lazy load tab components
-const OverviewTab = lazy(() => import('../components/teamleader').then(module => ({ default: module.OverviewTab })))
-const FileCollectionTab = lazy(() => import('../components/teamleader').then(module => ({ default: module.FileCollectionTab })))
-const TeamManagementTab = lazy(() => import('../components/teamleader').then(module => ({ default: module.TeamManagementTab })))
-const AssignmentsTab = lazy(() => import('../components/teamleader').then(module => ({ default: module.AssignmentsTab })))
-const NotificationTab = lazy(() => import('../components/teamleader').then(module => ({ default: module.NotificationTab })))
+const OverviewTab = lazy(() => import('../components/teamleader/OverviewTab'))
+const FileCollectionTab = lazy(() => import('../components/teamleader/FileCollectionTab'))
+const TeamManagementTab = lazy(() => import('../components/teamleader/TeamManagementTab'))
+const AssignmentsTab = lazy(() => import('../components/teamleader/AssignmentsTab'))
+const NotificationTab = lazy(() => import('../components/teamleader/NotificationTab'))
 
 // Lazy load modal components
-const BulkActionModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.BulkActionModal })))
-const FilterModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.FilterModal })))
-const PriorityModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.PriorityModal })))
-const MemberFilesModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.MemberFilesModal })))
-const CreateAssignmentModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.CreateAssignmentModal })))
-const ReviewModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.ReviewModal })))
-const FileViewModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.FileViewModal })))
-const BroadcastModal = lazy(() => import('../components/admin/modals').then(module => ({ default: module.BroadcastModal })))
+const BulkActionModal = lazy(() => import('../components/teamleader/modals/BulkActionModal'))
+const FilterModal = lazy(() => import('../components/teamleader/modals/FilterModal'))
+const PriorityModal = lazy(() => import('../components/teamleader/modals/PriorityModal'))
+const MemberFilesModal = lazy(() => import('../components/teamleader/modals/MemberFilesModal'))
+const CreateAssignmentModal = lazy(() => import('../components/teamleader/modals/CreateAssignmentModal'))
+const ReviewModal = lazy(() => import('../components/teamleader/modals/ReviewModal'))
+const FileViewModal = lazy(() => import('../components/teamleader/modals/FileViewModal'))
+const BroadcastModal = lazy(() => import('../components/admin/modals/BroadcastModal'))
 
 const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [visitedTabs, setVisitedTabs] = useState(new Set(['dashboard', 'overview']))
+
+  // Initial data fetch - fetch all necessary arrays because OverviewTab calculates its stats from them.
+  const lastFetchedTeam = React.useRef(null)
+  useEffect(() => {
+    if (!user || !user.team) return
+    if (lastFetchedTeam.current === user.team) return
+    lastFetchedTeam.current = user.team
+
+    fetchTeamMembers()
+    fetchNotifications()
+    fetchAnalytics()
+    fetchAllSubmissions()
+    fetchAssignments()
+    // We don't fetch PendingFiles('total') because it's heavy and isn't used by OverviewTab directly anymore
+  }, [user?.team]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tab-specific lazy fetch: load tab data the FIRST time a tab is visited.
+  const fetchedTabs = React.useRef(new Set(['dashboard', 'overview']))
+  useEffect(() => {
+    if (fetchedTabs.current.has(activeTab)) return
+    
+    // Fetch specific data based on the tab visited
+    switch (activeTab) {
+      case 'file-collection':
+        fetchPendingFiles('total') // They need pending files here
+        break;
+      default:
+        break;
+    }
+    
+    fetchedTabs.current.add(activeTab)
+    setVisitedTabs(new Set([...visitedTabs, activeTab]))
+  }, [activeTab, visitedTabs]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
   const [filteredFiles, setFilteredFiles] = useState([])
@@ -178,33 +211,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }, [activeBroadcast, broadcastQueue])
 
-
-  // Fetch data whenever the user's active team changes
-  // This ensures that if refreshUserProfile updates the user.team (e.g. from token mismatch),
-  // the dashboard pulls the correct team's data instead of showing stale data.
-  const lastFetchedTeam = React.useRef(null)
-  useEffect(() => {
-    if (!user || !user.team) return
-    if (lastFetchedTeam.current === user.team) return
-    lastFetchedTeam.current = user.team
-
-    fetchTeamMembers()
-    fetchNotifications()
-    fetchAnalytics()
-    fetchAllSubmissions()
-    fetchAssignments()
-    fetchPendingFiles('total')
-  }, [user?.team]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Tab-specific lazy fetch: only load tab data the FIRST time a tab is visited.
-  // Subsequent tab switches use the already-cached state — no re-fetch.
-  const fetchedTabs = React.useRef(new Set(['dashboard', 'overview'])) // pre-mark as fetched since mount fetch covers them
-  useEffect(() => {
-    if (fetchedTabs.current.has(activeTab)) return
-    fetchedTabs.current.add(activeTab)
-    // Currently no extra per-tab fetches are needed here since mount covers all data.
-    // Add tab-specific fetches here only if data becomes stale and needs a refresh.
-  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // derive list of unique teams from fetched members
   const uniqueTeams = React.useMemo(() => {
@@ -1259,15 +1265,66 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   // Without this, highlight IDs linger and re-trigger effects every time
   // the assignments tab is visited after a notification click.
   const switchTab = (tab) => {
-    if (tab !== activeTab) {
-      setHighlightedAssignmentId(null)
-      setHighlightedSubmissionFileId(null)
-      setHighlightedFileStatus(null)
-      setHighlightedFileId(null)
-      setNotificationCommentContext(null)
-    }
-    setActiveTab(tab)
+    startTransition(() => {
+      if (tab !== activeTab) {
+        setHighlightedAssignmentId(null)
+        setHighlightedSubmissionFileId(null)
+        setHighlightedFileStatus(null)
+        setHighlightedFileId(null)
+        setNotificationCommentContext(null)
+      }
+      setActiveTab(tab)
+      setVisitedTabs(prev => {
+        const newSet = new Set(prev)
+        newSet.add(tab)
+        return newSet
+      })
+    })
   }
+
+  const handleNotificationsRead = useCallback(() => {
+    setUnreadCount(0)
+  }, [])
+
+  const handleNotificationNavigation = useCallback(async (tab, data) => {
+    if (tab === 'assignments') {
+      setActiveTab('assignments')
+
+      const assignmentId = typeof data === 'object' ? data.assignmentId : data
+      const shouldOpenComments = typeof data === 'object' ? data.shouldOpenComments : false
+      const expandAllReplies = typeof data === 'object' ? data.expandAllReplies : false
+      const highlightUser = typeof data === 'object' ? data.highlightUser : null
+      const fileId = typeof data === 'object' ? data.fileId : null
+      const fileStatus = typeof data === 'object' ? data.fileStatus : null
+
+      if (assignmentId) {
+        setHighlightedAssignmentId(assignmentId)
+
+        if (fileId) {
+          setHighlightedSubmissionFileId(fileId)
+          setHighlightedFileStatus(fileStatus)
+        } else if (fileStatus === 'revision') {
+          try {
+            const res = await apiFetch(`/api/assignments/${assignmentId}/revision-file`)
+            if (res.success && res.file_id) {
+              setHighlightedSubmissionFileId(res.file_id)
+              setHighlightedFileStatus(res.file_status || 'revision')
+            }
+          } catch (_) { }
+        }
+
+        if (shouldOpenComments) {
+          setNotificationCommentContext({ assignmentId, expandAllReplies, highlightUser })
+        }
+      }
+    } else if (tab === 'file-collection') {
+      setActiveTab('file-collection')
+      if (data) {
+        const fileId = typeof data === 'object' ? data.fileId : data
+        setHighlightedFileId(fileId)
+      }
+    }
+  }, [])
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen)
@@ -1304,174 +1361,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     return analyticsData.approvalRate ?? 0
   }
 
-  const renderActiveTab = () => {
-    switch (activeTab) {
-      case 'overview':
-      case 'dashboard':
-        return (
-          <Suspense fallback={<SkeletonLoader type="cards" />}>
-            <OverviewTab
-              pendingFiles={pendingFiles}
-              teamMembers={teamMembers}
-              calculateApprovalRate={calculateApprovalRate}
-              submittedFiles={submittedFiles}
-              assignments={assignments}
-              notifications={notifications}
-              notificationCounts={notificationCounts}
-              analyticsData={analyticsData}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              onNavigateToTask={(assignmentId, fileId) => {
-                setActiveTab('assignments')
-                setHighlightedAssignmentId(assignmentId)
-                if (fileId) {
-                  setHighlightedSubmissionFileId(fileId)
-                }
-              }}
-            />
-          </Suspense>
-        )
-      case 'file-collection':
-        return (
-          <Suspense fallback={<SkeletonLoader type="table" />}>
-            <FileCollectionTab
-              submittedFiles={submittedFiles}
-              isLoading={isLoading}
-              openFileViewModal={openFileViewModal}
-              formatFileSize={formatFileSize}
-              user={user}
-              openMenuId={openMenuId}
-              toggleMenu={toggleMenu}
-              handleOpenInExplorer={handleOpenInExplorer}
-              fileCollectionFilter={fileCollectionFilter}
-              setFileCollectionFilter={setFileCollectionFilter}
-              fileCollectionSort={fileCollectionSort}
-              setFileCollectionSort={setFileCollectionSort}
-              onNavigateToTask={(assignmentId, fileId) => {
-                setActiveTab('assignments')
-                setHighlightedAssignmentId(assignmentId)
-                if (fileId) {
-                  setHighlightedSubmissionFileId(fileId)
-                }
-              }}
-              highlightedFileId={highlightedFileId}
-              onClearFileHighlight={() => setHighlightedFileId(null)}
-            />
-          </Suspense>
-        )
-      case 'team-management':
-        return (
-          <Suspense fallback={<SkeletonLoader type="table" />}>
-            <TeamManagementTab
-              isLoadingTeam={isLoadingTeam}
-              teamMembers={teamMembers}
-              fetchMemberFiles={fetchMemberFiles}
-            />
-          </Suspense>
-        )
-      case 'assignments':
-        return (
-          <Suspense fallback={<SkeletonLoader type="table" />}>
-            <AssignmentsTab
-              isLoadingAssignments={isLoadingAssignments}
-              assignments={assignments}
-              formatDate={formatDate}
-              deleteAssignment={deleteAssignment}
-              setShowCreateAssignmentModal={setShowCreateAssignmentModal}
-              openReviewModal={openReviewModal}
-              user={user}
-              notificationCommentContext={notificationCommentContext}
-              onClearNotificationContext={() => setNotificationCommentContext(null)}
-              highlightedAssignmentId={highlightedAssignmentId}
-              onClearHighlight={() => setHighlightedAssignmentId(null)}
-              highlightedFileId={highlightedSubmissionFileId}
-              highlightedFileStatus={highlightedFileStatus}
-              onClearFileHighlight={() => {
-                setHighlightedSubmissionFileId(null)
-                setHighlightedFileStatus(null)
-              }}
-              markAssignmentAsDone={markAssignmentAsDone}
-              undoMarkAsDone={undoMarkAsDone}
-              handleEditAssignment={handleEditAssignment}
-              onRefreshAssignments={fetchAssignments}
-              teamMembers={teamMembers}
-            />
-          </Suspense>
-        )
-      case 'notifications':
-        return (
-          <Suspense fallback={<SkeletonLoader type="list" />}>
-            <NotificationTab
-              user={user}
-              onRead={() => setUnreadCount(0)}
-              onNavigate={async (tab, data) => {
-                if (tab === 'assignments') {
-                  setActiveTab('assignments')
-
-                  const assignmentId = typeof data === 'object' ? data.assignmentId : data
-                  const shouldOpenComments = typeof data === 'object' ? data.shouldOpenComments : false
-                  const expandAllReplies = typeof data === 'object' ? data.expandAllReplies : false
-                  const highlightUser = typeof data === 'object' ? data.highlightUser : null
-                  const fileId = typeof data === 'object' ? data.fileId : null
-                  const fileStatus = typeof data === 'object' ? data.fileStatus : null
-
-                  if (assignmentId) {
-                    setHighlightedAssignmentId(assignmentId)
-
-                    if (fileId) {
-                      setHighlightedSubmissionFileId(fileId)
-                      setHighlightedFileStatus(fileStatus)
-                    } else if (fileStatus === 'revision') {
-                      // No file_id yet — look up the latest revision file for this assignment
-                      try {
-                        const res = await apiFetch(`/api/assignments/${assignmentId}/revision-file`)
-                        if (res.success && res.file_id) {
-                          setHighlightedSubmissionFileId(res.file_id)
-                          setHighlightedFileStatus(res.file_status || 'revision')
-                        }
-                      } catch (_) { }
-                    }
-
-                    if (shouldOpenComments) {
-                      setNotificationCommentContext({ assignmentId, expandAllReplies, highlightUser })
-                    }
-                  }
-                } else if (tab === 'file-collection') {
-                  setActiveTab('file-collection')
-                  if (data) {
-                    const fileId = typeof data === 'object' ? data.fileId : data
-                    setHighlightedFileId(fileId)
-                  }
-                }
-              }}
-            />
-          </Suspense>
-        )
-      default:
-        return (
-          <Suspense fallback={<SkeletonLoader type="cards" />}>
-            <OverviewTab
-              pendingFiles={pendingFiles}
-              teamMembers={teamMembers}
-              calculateApprovalRate={calculateApprovalRate}
-              submittedFiles={submittedFiles}
-              assignments={assignments}
-              notifications={notifications}
-              notificationCounts={notificationCounts}
-              analyticsData={analyticsData}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              onNavigateToTask={(assignmentId, fileId) => {
-                setActiveTab('assignments')
-                setHighlightedAssignmentId(assignmentId)
-                if (fileId) setHighlightedSubmissionFileId(fileId)
-              }}
-            />
-          </Suspense>
-        )
-    }
-  }
-
   return (
     <AuthProvider initialUser={user}>
       <NetworkProvider>
@@ -1506,7 +1395,116 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                 onClose={clearMessages}
               />
 
-              {renderActiveTab()}
+              <div style={{ display: (activeTab === 'overview' || activeTab === 'dashboard') ? 'block' : 'none', height: '100%' }}>
+                {(visitedTabs.has('overview') || visitedTabs.has('dashboard')) && (
+                  <Suspense fallback={<SkeletonLoader type="cards" />}>
+                    <OverviewTab
+                      pendingFiles={pendingFiles}
+                      teamMembers={teamMembers}
+                      calculateApprovalRate={calculateApprovalRate}
+                      submittedFiles={submittedFiles}
+                      assignments={assignments}
+                      notifications={notifications}
+                      notificationCounts={notificationCounts}
+                      analyticsData={analyticsData}
+                      activeTab={activeTab}
+                      setActiveTab={setActiveTab}
+                      onNavigateToTask={(assignmentId, fileId) => {
+                        setActiveTab('assignments')
+                        setHighlightedAssignmentId(assignmentId)
+                        if (fileId) {
+                          setHighlightedSubmissionFileId(fileId)
+                        }
+                      }}
+                    />
+                  </Suspense>
+                )}
+              </div>
+
+              <div style={{ display: activeTab === 'file-collection' ? 'block' : 'none', height: '100%' }}>
+                {visitedTabs.has('file-collection') && (
+                  <Suspense fallback={<SkeletonLoader type="table" />}>
+                    <FileCollectionTab
+                      submittedFiles={submittedFiles}
+                      isLoading={isLoading}
+                      openFileViewModal={openFileViewModal}
+                      formatFileSize={formatFileSize}
+                      user={user}
+                      openMenuId={openMenuId}
+                      toggleMenu={toggleMenu}
+                      handleOpenInExplorer={handleOpenInExplorer}
+                      fileCollectionFilter={fileCollectionFilter}
+                      setFileCollectionFilter={setFileCollectionFilter}
+                      fileCollectionSort={fileCollectionSort}
+                      setFileCollectionSort={setFileCollectionSort}
+                      onNavigateToTask={(assignmentId, fileId) => {
+                        setActiveTab('assignments')
+                        setHighlightedAssignmentId(assignmentId)
+                        if (fileId) {
+                          setHighlightedSubmissionFileId(fileId)
+                        }
+                      }}
+                      highlightedFileId={highlightedFileId}
+                      onClearFileHighlight={() => setHighlightedFileId(null)}
+                    />
+                  </Suspense>
+                )}
+              </div>
+
+              <div style={{ display: activeTab === 'team-management' ? 'block' : 'none', height: '100%' }}>
+                {visitedTabs.has('team-management') && (
+                  <Suspense fallback={<SkeletonLoader type="table" />}>
+                    <TeamManagementTab
+                      isLoadingTeam={isLoadingTeam}
+                      teamMembers={teamMembers}
+                      fetchMemberFiles={fetchMemberFiles}
+                    />
+                  </Suspense>
+                )}
+              </div>
+
+              <div style={{ display: activeTab === 'assignments' ? 'block' : 'none', height: '100%' }}>
+                {visitedTabs.has('assignments') && (
+                  <Suspense fallback={<SkeletonLoader type="table" />}>
+                    <AssignmentsTab
+                      isLoadingAssignments={isLoadingAssignments}
+                      assignments={assignments}
+                      formatDate={formatDate}
+                      deleteAssignment={deleteAssignment}
+                      setShowCreateAssignmentModal={setShowCreateAssignmentModal}
+                      openReviewModal={openReviewModal}
+                      user={user}
+                      notificationCommentContext={notificationCommentContext}
+                      onClearNotificationContext={() => setNotificationCommentContext(null)}
+                      highlightedAssignmentId={highlightedAssignmentId}
+                      onClearHighlight={() => setHighlightedAssignmentId(null)}
+                      highlightedFileId={highlightedSubmissionFileId}
+                      highlightedFileStatus={highlightedFileStatus}
+                      onClearFileHighlight={() => {
+                        setHighlightedSubmissionFileId(null)
+                        setHighlightedFileStatus(null)
+                      }}
+                      markAssignmentAsDone={markAssignmentAsDone}
+                      undoMarkAsDone={undoMarkAsDone}
+                      handleEditAssignment={handleEditAssignment}
+                      onRefreshAssignments={fetchAssignments}
+                      teamMembers={teamMembers}
+                    />
+                  </Suspense>
+                )}
+              </div>
+
+              <div style={{ display: activeTab === 'notifications' ? 'block' : 'none', height: '100%' }}>
+                {visitedTabs.has('notifications') && (
+                  <Suspense fallback={<SkeletonLoader type="list" />}>
+                    <NotificationTab
+                      user={user}
+                      onRead={handleNotificationsRead}
+                      onNavigate={handleNotificationNavigation}
+                    />
+                  </Suspense>
+                )}
+              </div>
             </main>
 
             {/* All Modals */}

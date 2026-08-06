@@ -2045,7 +2045,7 @@ async function getTeamLeaderQueue(team, page = 1, limit = 50) {
   const files = await query(
     `SELECT f.*, fc.comment as latest_comment
          FROM files f
-         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (SELECT MAX(id) FROM file_comments WHERE file_id = f.id)
+         LEFT JOIN (SELECT file_id, comment FROM file_comments WHERE id IN (SELECT MAX(id) FROM file_comments GROUP BY file_id)) fc ON f.id = fc.file_id
          WHERE f.user_team = ? AND f.current_stage = 'pending_team_leader'
          ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
     [team, limit, offset]
@@ -2087,7 +2087,7 @@ async function filterTeamLeaderQueue(team, filters = {}, sort = {}, page = 1, li
   const files = await query(
     `SELECT f.*, fc.comment as latest_comment
          FROM files f
-         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (SELECT MAX(id) FROM file_comments WHERE file_id = f.id)
+         LEFT JOIN (SELECT file_id, comment FROM file_comments WHERE id IN (SELECT MAX(id) FROM file_comments GROUP BY file_id)) fc ON f.id = fc.file_id
          WHERE ${where} ORDER BY ${sortField} ${sortDir} LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );
@@ -2101,7 +2101,7 @@ async function getAdminQueue(page = 1, limit = 50) {
   const files = await query(
     `SELECT f.*, fc.comment as latest_comment
          FROM files f
-         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (SELECT MAX(id) FROM file_comments WHERE file_id = f.id)
+         LEFT JOIN (SELECT file_id, comment FROM file_comments WHERE id IN (SELECT MAX(id) FROM file_comments GROUP BY file_id)) fc ON f.id = fc.file_id
          WHERE f.current_stage = 'pending_admin'
          ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
     [limit, offset]

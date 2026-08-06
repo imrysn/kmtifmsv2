@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Suspense, memo, useCallback } from 'react'
+import { useState, useEffect, useRef, Suspense, memo, useCallback, startTransition } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import anime from 'animejs'
 import '../css/AdminDashboard.css'
@@ -143,6 +143,7 @@ AdminSidebar.displayName = 'AdminSidebar'
 
 const AdminDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [visitedTabs, setVisitedTabs] = useState(new Set(['dashboard']))
   const [users, setUsers] = useState([])
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -249,8 +250,8 @@ const AdminDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     fetchUsers()
     fetchNotifications()
-    // Fallback poll every 60s (SSE handles real-time; this is just a safety net)
-    const interval = setInterval(fetchNotifications, 60000)
+    // Fallback poll every 5 minutes (SSE handles real-time; this is just a safety net)
+    const interval = setInterval(fetchNotifications, 300000)
     return () => clearInterval(interval)
   }, [fetchNotifications])
 
@@ -321,11 +322,18 @@ const AdminDashboard = ({ user, onLogout }) => {
     setSuccess('')
   }, [])
 
-  const handleTabChange = useCallback((tabName, data = null) => {
-    setActiveTab(tabName)
-    setContextData(data)
-    setError('')
-    setSuccess('')
+  const handleTabChange = useCallback((tab, data = null) => {
+    startTransition(() => {
+      setActiveTab(tab)
+      setContextData(data)
+      setVisitedTabs(prev => {
+        const newSet = new Set(prev)
+        newSet.add(tab)
+        return newSet
+      })
+      setError('')
+      setSuccess('')
+    })
   }, [])
 
   const closeSidebar = useCallback(() => {
@@ -335,6 +343,10 @@ const AdminDashboard = ({ user, onLogout }) => {
   const toggleSidebar = useCallback(() => {
     setSidebarOpen(prev => !prev)
   }, [])
+
+  const handleNotificationsRead = useCallback(() => {
+    setUnreadCount(0);
+  }, []);
 
   const handleNotificationNavigation = useCallback((tabName, context) => {
     console.log('🔔 Admin Navigation triggered:', { tabName, context });
@@ -423,29 +435,42 @@ const AdminDashboard = ({ user, onLogout }) => {
 
                 {/* Content Area */}
                 <div className="content-area">
-                  {activeTab === 'dashboard' && <DashboardOverview />}
-                  {activeTab === 'users' && <UserManagement {...commonProps} user={user} contextData={contextData} />}
-                  {activeTab === 'activity-logs' && <ActivityLogs {...commonProps} />}
-                  {activeTab === 'file-approval' && <FileApproval
-                    {...commonProps}
-                    contextFileId={contextData}
-                    highlightedFileId={highlightedFileId}
-                    onClearFileHighlight={() => setHighlightedFileId(null)}
-                  />}
-                  {activeTab === 'tasks' && <TaskManagement
-                    {...commonProps}
-                    user={user}
-                    contextAssignmentId={contextData}
-                    highlightedAssignmentId={highlightedAssignmentId}
-                    highlightedFileId={highlightedFileId}
-                    notificationCommentContext={notificationCommentContext}
-                    onClearHighlight={() => setHighlightedAssignmentId(null)}
-                    onClearFileHighlight={() => setHighlightedFileId(null)}
-                    onClearNotificationContext={() => setNotificationCommentContext(null)}
-                  />}
-                  {activeTab === 'notifications' && <Notifications user={user} onNavigate={handleNotificationNavigation} onRead={() => setUnreadCount(0)} />}
-                  {activeTab === 'settings' && <Settings {...commonProps} users={users} user={user} />}
-                  {activeTab !== 'dashboard' && activeTab !== 'users' && activeTab !== 'activity-logs' && activeTab !== 'file-approval' && activeTab !== 'tasks' && activeTab !== 'notifications' && activeTab !== 'settings' && <DashboardOverview />}
+                  <div style={{ display: activeTab === 'dashboard' ? 'block' : 'none', height: '100%' }}>
+                    {visitedTabs.has('dashboard') && <DashboardOverview />}
+                  </div>
+                  <div style={{ display: activeTab === 'users' ? 'block' : 'none', height: '100%' }}>
+                    {visitedTabs.has('users') && <UserManagement {...commonProps} user={user} contextData={contextData} />}
+                  </div>
+                  <div style={{ display: activeTab === 'activity-logs' ? 'block' : 'none', height: '100%' }}>
+                    {visitedTabs.has('activity-logs') && <ActivityLogs {...commonProps} isActive={activeTab === 'activity-logs'} />}
+                  </div>
+                  <div style={{ display: activeTab === 'file-approval' ? 'block' : 'none', height: '100%' }}>
+                    {visitedTabs.has('file-approval') && <FileApproval
+                      {...commonProps}
+                      contextFileId={contextData}
+                      highlightedFileId={highlightedFileId}
+                      onClearFileHighlight={() => setHighlightedFileId(null)}
+                    />}
+                  </div>
+                  <div style={{ display: activeTab === 'tasks' ? 'block' : 'none', height: '100%' }}>
+                    {visitedTabs.has('tasks') && <TaskManagement
+                      {...commonProps}
+                      user={user}
+                      contextAssignmentId={contextData}
+                      highlightedAssignmentId={highlightedAssignmentId}
+                      highlightedFileId={highlightedFileId}
+                      notificationCommentContext={notificationCommentContext}
+                      onClearHighlight={() => setHighlightedAssignmentId(null)}
+                      onClearFileHighlight={() => setHighlightedFileId(null)}
+                      onClearNotificationContext={() => setNotificationCommentContext(null)}
+                    />}
+                  </div>
+                  <div style={{ display: activeTab === 'notifications' ? 'block' : 'none', height: '100%' }}>
+                    {visitedTabs.has('notifications') && <Notifications user={user} onNavigate={handleNotificationNavigation} onRead={handleNotificationsRead} />}
+                  </div>
+                  <div style={{ display: activeTab === 'settings' ? 'block' : 'none', height: '100%' }}>
+                    {visitedTabs.has('settings') && <Settings {...commonProps} users={users} user={user} />}
+                  </div>
                 </div>
               </div>
 

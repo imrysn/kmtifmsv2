@@ -35,27 +35,44 @@ const router = express.Router();
  * Serve a user's profile picture so <img> tags work without auth headers.
  * Uses createReadStream for UNC/NAS path compatibility on Windows.
  */
+const profilePicPathCache = { data: {}, timestamp: 0 };
+const PROFILE_PIC_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 router.get('/profile/picture/:userId', async (req, res) => {
   const { userId } = req.params;
   if (!userId || !/^\d+$/.test(userId)) {
     return res.status(400).json({ success: false, message: 'Invalid user id' });
   }
 
-  const profilePicsDir = path.join(networkDataPath, 'profile_pictures');
-  const extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-  const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
+  // Clear cache if expired
+  if (Date.now() - profilePicPathCache.timestamp > PROFILE_PIC_CACHE_TTL) {
+    profilePicPathCache.data = {};
+    profilePicPathCache.timestamp = Date.now();
+  }
 
   let found = null;
   let foundExt = null;
-  for (const ext of extensions) {
-    const candidate = path.join(profilePicsDir, `${userId}.${ext}`);
-    try {
-      await fs.promises.access(candidate);
-      found = candidate;
-      foundExt = ext;
-      break;
-    } catch (_) { /* try next */ }
+
+  if (profilePicPathCache.data[userId]) {
+    found = profilePicPathCache.data[userId].path;
+    foundExt = profilePicPathCache.data[userId].ext;
+  } else {
+    const profilePicsDir = path.join(networkDataPath, 'profile_pictures');
+    const extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    
+    for (const ext of extensions) {
+      const candidate = path.join(profilePicsDir, `${userId}.${ext}`);
+      try {
+        await fs.promises.access(candidate);
+        found = candidate;
+        foundExt = ext;
+        profilePicPathCache.data[userId] = { path: found, ext: foundExt };
+        break;
+      } catch (_) { /* try next */ }
+    }
   }
+
+  const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
 
   if (!found) {
     return res.status(404).json({ success: false, message: 'Profile picture not found' });

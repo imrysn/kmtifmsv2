@@ -28,6 +28,7 @@ const TasksTab = lazy(() => import('../components/user/TasksTab-Enhanced'))
 
 const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [visitedTabs, setVisitedTabs] = useState(new Set(['dashboard']))
   const [files, setFiles] = useState([])
   const [activeBroadcast, setActiveBroadcast] = useState(null)
   const [broadcastQueue, setBroadcastQueue] = useState([])
@@ -161,7 +162,14 @@ const UserDashboard = ({ user, onLogout }) => {
   }, [user.id])
 
   const handleTabChange = useCallback((tab) => {
-    setActiveTab(tab)
+    startTransition(() => {
+      setActiveTab(tab)
+      setVisitedTabs(prev => {
+        const newSet = new Set(prev)
+        newSet.add(tab)
+        return newSet
+      })
+    })
   }, [])
 
   const clearMessages = useCallback(() => {
@@ -229,6 +237,7 @@ const UserDashboard = ({ user, onLogout }) => {
   }, [])
 
   const [taskInitialTab, setTaskInitialTab] = useState(null) // 'for-checking' | null
+  const clearInitialTab = useCallback(() => setTaskInitialTab(null), [])
 
   const handleSmartNavigation = useCallback((tab, context) => {
     const storedAssignmentId = sessionStorage.getItem('highlightAssignmentId')
@@ -288,85 +297,12 @@ const UserDashboard = ({ user, onLogout }) => {
     ).length
     , [files])
 
-  const renderActiveTab = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return (
-          <DashboardTab
-            user={user}
-            files={files}
-            setActiveTab={setActiveTab}
-          />
-        )
-      case 'team-files':
-        return (
-          <Suspense fallback={<SkeletonLoader type="table" />}>
-            <TeamTasksTab user={user} />
-          </Suspense>
-        )
-      case 'my-files':
-        return (
-          <Suspense fallback={<SkeletonLoader type="myfiles" />}>
-            <MyFilesTab
-              filteredFiles={files}
-              isLoading={isLoading}
-              fetchUserFiles={fetchUserFiles}
-              formatFileSize={formatFileSize}
-              files={files}
-              user={user}
-              highlightFileId={highlightedFileId}
-              onClearFileHighlight={clearFileHighlight}
-            />
-          </Suspense>
-        )
-      case 'notification':
-        return (
-          <Suspense fallback={<SkeletonLoader type="list" />}>
-            <NotificationTab
-              user={user}
-              onOpenFile={openFileByIdFromNotification}
-              onNavigateToTasks={navigateToTasks}
-              onNavigate={handleSmartNavigation}
-              onUpdateUnreadCount={handleUpdateUnreadCount}
-            />
-          </Suspense>
-        )
-      case 'tasks':
-        return (
-          <Suspense fallback={<SkeletonLoader type="table" />}>
-            <TasksTab
-              user={user}
-              highlightedAssignmentId={highlightedAssignmentId}
-              highlightedFileId={highlightedFileId}
-              highlightedFileStatus={highlightedFileStatus}
-              notificationCommentContext={notificationCommentContext}
-              onClearHighlight={clearHighlight}
-              onClearFileHighlight={clearFileHighlight}
-              onClearNotificationContext={clearNotificationContext}
-              initialTab={taskInitialTab}
-              onClearInitialTab={() => setTaskInitialTab(null)}
-            />
-          </Suspense>
-        )
-      default:
-        return (
-          <DashboardTab
-            user={user}
-            files={files}
-            setActiveTab={handleTabChange}
-            onOpenFile={openFileByIdFromNotification}
-            onNavigateToTasks={navigateToTasks}
-          />
-        )
-    }
-  }
-
   return (
     <Suspense fallback={<SkeletonLoader type="dashboard" />}>
       <div className="minimal-dashboard user-dashboard">
         <Sidebar 
           activeTab={activeTab} 
-          setActiveTab={setActiveTab}
+          setActiveTab={handleTabChange}
           filesCount={filesCount}
           notificationCount={notificationCount}
           onLogout={handleLogout}
@@ -388,7 +324,73 @@ const UserDashboard = ({ user, onLogout }) => {
               onClose={clearMessages}
             />
 
-            {renderActiveTab()}
+            <div style={{ display: activeTab === 'dashboard' ? 'block' : 'none', height: '100%' }}>
+              {visitedTabs.has('dashboard') && (
+                <DashboardTab
+                  user={user}
+                  files={files}
+                  setActiveTab={setActiveTab}
+                />
+              )}
+            </div>
+            
+            <div style={{ display: activeTab === 'team-files' ? 'block' : 'none', height: '100%' }}>
+              {visitedTabs.has('team-files') && (
+                <Suspense fallback={<SkeletonLoader type="table" />}>
+                  <TeamTasksTab user={user} />
+                </Suspense>
+              )}
+            </div>
+
+            <div style={{ display: activeTab === 'my-files' ? 'block' : 'none', height: '100%' }}>
+              {visitedTabs.has('my-files') && (
+                <Suspense fallback={<SkeletonLoader type="myfiles" />}>
+                  <MyFilesTab
+                    filteredFiles={files}
+                    isLoading={isLoading}
+                    fetchUserFiles={fetchUserFiles}
+                    formatFileSize={formatFileSize}
+                    files={files}
+                    user={user}
+                    highlightFileId={highlightedFileId}
+                    onClearFileHighlight={clearFileHighlight}
+                  />
+                </Suspense>
+              )}
+            </div>
+
+            <div style={{ display: activeTab === 'notification' ? 'block' : 'none', height: '100%' }}>
+              {visitedTabs.has('notification') && (
+                <Suspense fallback={<SkeletonLoader type="list" />}>
+                  <NotificationTab
+                    user={user}
+                    onOpenFile={openFileByIdFromNotification}
+                    onNavigateToTasks={navigateToTasks}
+                    onNavigate={handleSmartNavigation}
+                    onUpdateUnreadCount={handleUpdateUnreadCount}
+                  />
+                </Suspense>
+              )}
+            </div>
+
+            <div style={{ display: activeTab === 'tasks' ? 'block' : 'none', height: '100%' }}>
+              {visitedTabs.has('tasks') && (
+                <Suspense fallback={<SkeletonLoader type="table" />}>
+                  <TasksTab
+                    user={user}
+                    highlightedAssignmentId={highlightedAssignmentId}
+                    highlightedFileId={highlightedFileId}
+                    highlightedFileStatus={highlightedFileStatus}
+                    notificationCommentContext={notificationCommentContext}
+                    onClearHighlight={clearHighlight}
+                    onClearFileHighlight={clearFileHighlight}
+                    onClearNotificationContext={clearNotificationContext}
+                    initialTab={taskInitialTab}
+                    onClearInitialTab={clearInitialTab}
+                  />
+                </Suspense>
+              )}
+            </div>
           </div>
         </div>
 

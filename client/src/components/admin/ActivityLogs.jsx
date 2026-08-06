@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, memo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { apiFetch } from '@/config/api'
 import './ActivityLogs.css'
 import { ConfirmationModal, AlertMessage } from './modals'
@@ -27,8 +27,9 @@ const LogRow = memo(({ log }) => (
     <td>{log.activity}</td>
   </tr>
 ))
+LogRow.displayName = 'LogRow'
 
-const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) => {
+const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess, isActive = true }) => {
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
 
@@ -39,97 +40,40 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const [currentPage, setCurrentPage] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [showDeleteLogsModal, setShowDeleteLogsModal] = useState(false)
-  const [paginationInfo, setPaginationInfo] = useState(null)
-  const [hasActiveFilters, setHasActiveFilters] = useState(false)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalLogs, setTotalLogs] = useState(0)
   const itemsPerPage = 12 // Set to 12 logs per page as requested
-
-  // Network check removed - using NetworkContext
-
-  // Fetch activity logs on component mount and when date filter changes to 'all'
-  useEffect(() => {
-    if (dateFilter === 'all' && isConnected) {
-      fetchActivityLogs()
-    }
-  }, [dateFilter, isConnected])
 
   // Debounced search
   useEffect(() => {
-    const timer = setTimeout(() => setSearchedQuery(logsSearchQuery), 300)
+    const timer = setTimeout(() => {
+      setSearchedQuery(logsSearchQuery)
+      setCurrentPage(1) // reset to first page on new search
+    }, 500)
     return () => clearTimeout(timer)
   }, [logsSearchQuery])
 
-  // Memoized filtered logs
-  const filteredLogs = useMemo(() => {
-    let filtered = [...activityLogs]
-
-    // Apply search filter
-    if (searchedQuery.trim() !== '') {
-      const query = searchedQuery.toLowerCase()
-      filtered = filtered.filter(log =>
-        log.username.toLowerCase().includes(query) ||
-        log.role.toLowerCase().includes(query) ||
-        log.team.toLowerCase().includes(query) ||
-        log.activity.toLowerCase().includes(query)
-      )
-    }
-
-    // Apply date filter
-    if (dateFilter !== 'all') {
-      const now = new Date()
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-
-      filtered = filtered.filter(log => {
-        const logDate = new Date(log.timestamp)
-
-        switch (dateFilter) {
-          case 'today':
-            return logDate >= today
-          case 'week':
-            const weekAgo = new Date(today)
-            weekAgo.setDate(today.getDate() - 7)
-            return logDate >= weekAgo
-          case 'month':
-            const monthAgo = new Date(today)
-            monthAgo.setMonth(today.getMonth() - 1)
-            return logDate >= monthAgo
-          default:
-            return true
-        }
-      })
-    }
-
-    return filtered
-  }, [activityLogs, searchedQuery, dateFilter])
-
-  // Memoized pagination data
-  const paginationData = useMemo(() => {
-    const totalPages = Math.ceil(filteredLogs.length / itemsPerPage)
-    const startIndex = (currentPage - 1) * itemsPerPage
-    const endIndex = startIndex + itemsPerPage
-    const currentLogs = filteredLogs.slice(startIndex, endIndex)
-
-    return {
-      totalPages,
-      startIndex,
-      endIndex,
-      currentLogs
-    }
-  }, [filteredLogs, currentPage, itemsPerPage])
-
-  // Extract from memoized data
-  const { totalPages, startIndex, endIndex, currentLogs } = paginationData
-
-  // Reset page when filters change
+  // Reset page when date filter changes
   useEffect(() => {
     setCurrentPage(1)
-  }, [filteredLogs])
+  }, [dateFilter])
 
-  const fetchActivityLogs = async (limit = 10000) => {
+  const fetchActivityLogs = useCallback(async () => {
+    if (!isActive || !isConnected) return;
+    
     setIsLoading(true)
     try {
-      const data = await apiFetch(`/api/activity-logs?limit=${limit}`)
+      const queryParams = new URLSearchParams({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchedQuery,
+        dateFilter: dateFilter
+      })
+      const data = await apiFetch(`/api/activity-logs?${queryParams}`)
       if (data.success) {
         setActivityLogs(data.logs)
+        setTotalPages(data.pagination?.pages || 1)
+        setTotalLogs(data.pagination?.total || 0)
       } else {
         setError('Failed to fetch activity logs')
       }
@@ -139,30 +83,52 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [isActive, isConnected, currentPage, itemsPerPage, searchedQuery, dateFilter, setError])
 
-  const exportLogs = () => {
-    const csvContent = [
-      ['Username', 'Role', 'Team', 'Date & Time', 'Activity'],
-      ...filteredLogs.map(log => [
-        log.username,
-        log.role,
-        log.team,
-        new Date(log.timestamp).toLocaleString(),
-        log.activity
-      ])
-    ].map(row => row.join(',')).join('\n')
+  // Fetch activity logs when dependencies change
+  useEffect(() => {
+    fetchActivityLogs()
+  }, [fetchActivityLogs])
 
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `activity-logs-${new Date().toISOString().split('T')[0]}.csv`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-    setSuccess('Activity logs exported successfully')
+  const exportLogs = async () => {
+    // Request all matching logs for export (up to a reasonable large limit)
+    try {
+      const queryParams = new URLSearchParams({
+        page: 1,
+        limit: 10000,
+        search: searchedQuery,
+        dateFilter: dateFilter
+      })
+      const data = await apiFetch(`/api/activity-logs?${queryParams}`)
+      
+      if (!data.success) throw new Error('Failed to fetch logs for export')
+      
+      const logsToExport = data.logs || []
+      const csvContent = [
+        ['Username', 'Role', 'Team', 'Date & Time', 'Activity'],
+        ...logsToExport.map(log => [
+          log.username,
+          log.role,
+          log.team,
+          new Date(log.timestamp).toLocaleString(),
+          log.activity
+        ])
+      ].map(row => row.join(',')).join('\n')
+  
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `activity-logs-${new Date().toISOString().split('T')[0]}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      setSuccess('Activity logs exported successfully')
+    } catch (error) {
+      console.error('Export error:', error)
+      setError('Failed to export logs')
+    }
   }
 
   const clearLogFilters = () => {
@@ -175,18 +141,6 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const clearLogsSearch = useCallback(() => {
     setLogsSearchQuery('')
   }, [])
-
-  const goToPage = useCallback((page) => {
-    setCurrentPage(page)
-  }, [])
-
-  const goToPreviousPage = useCallback(() => {
-    setCurrentPage(prev => Math.max(prev - 1, 1))
-  }, [])
-
-  const goToNextPage = useCallback(() => {
-    setCurrentPage(prev => Math.min(prev + 1, totalPages))
-  }, [totalPages])
 
   const renderPaginationNumbers = useMemo(() => {
     const pageNumbers = []
@@ -258,7 +212,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
 
   // Helper function to get current filter description
   const getFilterDescription = () => {
-    const hasSearchFilter = logsSearchQuery.trim() !== ''
+    const hasSearchFilter = searchedQuery.trim() !== ''
     const hasDateFilter = dateFilter !== 'all'
 
     if (hasSearchFilter && hasDateFilter) {
@@ -267,9 +221,9 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
         'week': 'this week',
         'month': 'this month'
       }[dateFilter]
-      return `search "${logsSearchQuery}" and ${dateFilterText}`
+      return `search "${searchedQuery}" and ${dateFilterText}`
     } else if (hasSearchFilter) {
-      return `search "${logsSearchQuery}"`
+      return `search "${searchedQuery}"`
     } else if (hasDateFilter) {
       const dateFilterText = {
         'today': 'today',
@@ -283,7 +237,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const deleteFilteredLogs = async () => {
     // Check if any filter is applied
-    const hasSearchFilter = logsSearchQuery.trim() !== ''
+    const hasSearchFilter = searchedQuery.trim() !== ''
     const hasDateFilter = dateFilter !== 'all'
 
     if (!hasSearchFilter && !hasDateFilter) {
@@ -291,7 +245,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
       return
     }
 
-    if (filteredLogs.length === 0) {
+    if (totalLogs === 0) {
       setError('No logs found matching your current filter criteria')
       return
     }
@@ -300,59 +254,47 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   }
 
   const confirmDeleteLogs = async () => {
-    const logsToDelete = filteredLogs.length
-    const logIdsToDelete = filteredLogs.map(log => log.id)
-
-    console.log('Attempting to delete logs:', { logsToDelete, logIdsToDelete })
-
-    // Quick API test first
-    try {
-      const testData = await apiFetch(`/api/health`)
-      console.log('API health check:', testData)
-    } catch (healthError) {
-      console.error('API health check failed:', healthError)
-      setError('Cannot connect to server. Please ensure the server is running.')
-      setIsLoading(false)
-      return
-    }
+    const logsToDelete = totalLogs
 
     setIsLoading(true)
     try {
+      // Fetch all matching IDs to delete since we don't hold them all in memory anymore
+      const queryParams = new URLSearchParams({
+        page: 1,
+        limit: 10000,
+        search: searchedQuery,
+        dateFilter: dateFilter
+      })
+      const data = await apiFetch(`/api/activity-logs?${queryParams}`)
+      
+      if (!data.success) throw new Error('Failed to fetch logs for deletion')
+      
+      const logIdsToDelete = data.logs.map(log => log.id)
+
+      if (logIdsToDelete.length === 0) {
+        throw new Error('No logs found to delete')
+      }
+
       // Make API call to delete the logs
-      const data = await apiFetch(`/api/activity-logs/bulk-delete`, {
+      const deleteData = await apiFetch(`/api/activity-logs/bulk-delete`, {
         method: 'DELETE',
         body: JSON.stringify({ logIds: logIdsToDelete })
       })
 
-      console.log('Delete response:', data)
-
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to delete logs')
+      if (!deleteData.success) {
+        throw new Error(deleteData.message || 'Failed to delete logs')
       }
-
-      // Update the state by removing deleted logs
-      const updatedActivityLogs = activityLogs.filter(log =>
-        !logIdsToDelete.includes(log.id)
-      )
-
-      console.log('Updating state:', {
-        originalCount: activityLogs.length,
-        newCount: updatedActivityLogs.length,
-        deletedCount: data.deletedCount
-      })
-
-      // Set the new activity logs
-      setActivityLogs(updatedActivityLogs)
 
       setCurrentPage(1) // Reset to first page
       setShowDeleteLogsModal(false)
+      fetchActivityLogs() // Refresh table
 
       // Clear any existing errors
       if (error) {
         setError('')
       }
 
-      setError(`Successfully deleted ${data.deletedCount || logsToDelete} log(s) matching your filter criteria`)
+      setSuccess(`Successfully deleted ${deleteData.deletedCount || logsToDelete} log(s) matching your filter criteria`)
 
     } catch (error) {
       console.error('Error deleting logs:', error)
@@ -419,19 +361,19 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
           <button
             className="btn btn-danger"
             onClick={deleteFilteredLogs}
-            disabled={(logsSearchQuery.trim() === '' && dateFilter === 'all') || filteredLogs.length === 0 || isLoading}
+            disabled={(searchedQuery.trim() === '' && dateFilter === 'all') || totalLogs === 0 || isLoading}
             title={
-              (logsSearchQuery.trim() === '' && dateFilter === 'all')
+              (searchedQuery.trim() === '' && dateFilter === 'all')
                 ? "Apply a search term or date filter to specify logs for deletion"
-                : `Delete ${filteredLogs.length} filtered log(s)`
+                : `Delete ${totalLogs} filtered log(s)`
             }
           >
-            {isLoading ? 'Deleting...' : `Delete Logs (${filteredLogs.length})`}
+            {isLoading ? 'Deleting...' : `Delete Logs (${totalLogs})`}
           </button>
           <button
             className="btn btn-primary"
             onClick={exportLogs}
-            disabled={filteredLogs.length === 0}
+            disabled={totalLogs === 0}
           >
             Export Logs
           </button>
@@ -475,7 +417,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
                 </tr>
               </thead>
               <tbody>
-                {currentLogs.map((log) => (
+                {activityLogs.map((log) => (
                   <LogRow key={log.id} log={log} />
                 ))}
               </tbody>
@@ -483,7 +425,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
           </div>
         )}
 
-        {!isLoading && filteredLogs.length === 0 && (
+        {!isLoading && activityLogs.length === 0 && (
           <div className="empty-state">
             <h3>No activity logs found</h3>
             <p>No activity logs match your current search criteria.</p>
@@ -491,10 +433,10 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
         )}
 
         {/* Pagination */}
-        {!isLoading && filteredLogs.length > 0 && totalPages > 1 && (
+        {!isLoading && activityLogs.length > 0 && totalPages > 1 && (
           <div className="pagination-section">
             <div className="pagination-info">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredLogs.length)} of {filteredLogs.length} logs
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalLogs)} of {totalLogs} logs
             </div>
             {totalPages > 1 && (
               <div className="pagination-controls">
@@ -526,12 +468,12 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
         onConfirm={confirmDeleteLogs}
         title="Delete Activity Logs"
         message="Are you sure you want to delete these activity logs?"
-        confirmText={`Delete ${filteredLogs.length} Log(s)`}
+        confirmText={`Delete ${totalLogs} Log(s)`}
         variant="danger"
         isLoading={isLoading}
       >
         <p className="confirmation-description">
-          You are about to delete <strong>{filteredLogs.length} log(s)</strong> that match your {getFilterDescription()}.
+          You are about to delete <strong>{totalLogs} log(s)</strong> that match your {getFilterDescription()}.
         </p>
         <p className="confirmation-description" style={{ marginTop: '0.5rem' }}>
           This action cannot be undone. The selected activity logs will be permanently removed from the system and cannot be recovered.

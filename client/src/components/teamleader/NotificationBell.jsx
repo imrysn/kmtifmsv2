@@ -74,8 +74,8 @@ const NotificationBell = ({ userId, onNotificationClick }) => {
 
     connectSSE();
 
-    // ── Fallback polling every 30s (covers SSE gaps) ─────────────────────
-    const interval = setInterval(fetchUnreadCount, 30000);
+    // ── Fallback polling every 5 minutes (SSE handles real-time, this is recovery only) ──
+    const interval = setInterval(fetchUnreadCount, 300000);
 
     return () => {
       clearInterval(interval);

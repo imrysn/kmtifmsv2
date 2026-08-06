@@ -190,7 +190,7 @@ const OverviewTab = ({
               <span className="tl-stat-label">Approval Rate</span>
             </div>
             <div className="tl-stat-item">
-              <span className="tl-stat-value">{pendingFiles.length}</span>
+              <span className="tl-stat-value">{analyticsData?.pendingTeamLeaderReview || 0}</span>
               <span className="tl-stat-label">Files Pending</span>
             </div>
           </div>

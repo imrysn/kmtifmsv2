@@ -8,10 +8,133 @@ const { getCache, setCache, invalidateCache, getRecomputePromise, setRecomputePr
 
 const router = express.Router();
 
+async function computeDashboardSummary() {
+  const now = new Date();
+  const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const firstDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const trendDateStr = thirtyDaysAgo.toISOString().slice(0, 19).replace('T', ' ');
+  const prevStart = firstDayOfPrevMonth.toISOString();
+  const prevEnd = firstDayOfCurrentMonth.toISOString();
+
+  // Optimized: Grouped 11 queries into 5 combined queries to reduce round-trip latency to the NAS DB
+  const results = await queryBatch([
+    // 1. Current Stats (Total, Approved, Pending, Rejected)
+    [`SELECT 
+        COUNT(DISTINCT f.id) as total,
+        COUNT(DISTINCT CASE WHEN f.status = 'final_approved' THEN f.id END) as approved,
+        COUNT(DISTINCT CASE WHEN f.status NOT IN ('final_approved','rejected_by_admin','rejected_by_team_leader') THEN f.id END) as pending,
+        COUNT(DISTINCT CASE WHEN f.status LIKE 'rejected%' THEN f.id END) as rejected
+      FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id`, []],
+    
+    // 2. File Types
+    ['SELECT f.file_type, COUNT(DISTINCT f.id) as count FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id GROUP BY f.file_type ORDER BY count DESC', []],
+    
+    // 3. Recent Activity
+    ['SELECT id, username, role, team, activity, timestamp FROM activity_logs ORDER BY timestamp DESC LIMIT 6', []],
+    
+    // 4. Previous Month Stats
+    [`SELECT 
+        COUNT(DISTINCT f.id) as total,
+        COUNT(DISTINCT CASE WHEN f.status = 'final_approved' THEN f.id END) as approved,
+        COUNT(DISTINCT CASE WHEN f.status NOT IN ('final_approved','rejected_by_admin','rejected_by_team_leader') THEN f.id END) as pending,
+        COUNT(DISTINCT CASE WHEN f.status LIKE 'rejected%' THEN f.id END) as rejected
+      FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id
+      WHERE f.uploaded_at >= ? AND f.uploaded_at < ?`, [prevStart, prevEnd]],
+      
+    // 5. Daily Trends
+    [`SELECT DATE(f.uploaded_at) as date,
+        SUM(CASE WHEN f.status = 'final_approved' OR f.current_stage = 'published_to_public' THEN 1 ELSE 0 END) as approved,
+        SUM(CASE WHEN f.status LIKE 'rejected%' OR f.current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
+      FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.uploaded_at >= ?
+      GROUP BY DATE(f.uploaded_at) ORDER BY date ASC`, [trendDateStr]]
+  ]);
+
+  const [
+    currentStatsRows, fileTypes, recentActivity, prevStatsRows, trends
+  ] = results;
+
+  const currentStats = currentStatsRows[0] || {};
+  const prevStats = prevStatsRows[0] || {};
+
+  const totalResult = { total: currentStats.total || 0 };
+  const approvedResult = { approved: currentStats.approved || 0 };
+  const pendingResult = { pending: currentStats.pending || 0 };
+  const rejectedResult = { rejected: currentStats.rejected || 0 };
+
+  const prevTotalResult = { total: prevStats.total || 0 };
+  const prevApprovedResult = { approved: prevStats.approved || 0 };
+  const prevPendingResult = { pending: prevStats.pending || 0 };
+  const prevRejectedResult = { rejected: prevStats.rejected || 0 };
+
+  const totalFiles = totalResult.total || 0;
+  const approved   = approvedResult.approved || 0;
+  const approvalRate = totalFiles > 0 ? Math.round((approved / totalFiles) * 100 * 10) / 10 : 0;
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  return {
+    totalFiles,
+    approved,
+    pending: pendingResult.pending || 0,
+    rejected: rejectedResult.rejected || 0,
+    fileTypes: categorizeFileTypes(fileTypes || []),
+    recentActivity: recentActivity || [],
+    approvalRate,
+    previousMonth: {
+      totalFiles: prevTotalResult.total || 0,
+      approved:   prevApprovedResult.approved || 0,
+      pending:    prevPendingResult.pending || 0,
+      rejected:   prevRejectedResult.rejected || 0
+    },
+    approvalTrends: (trends || []).map(t => {
+      const d = new Date(t.date);
+      if (isNaN(d.getTime())) {
+        return { month: 'Invalid', date: t.date, approved: 0, rejected: 0 };
+      }
+      return {
+        month: `${monthNames[d.getMonth()]} ${d.getDate()}`,
+        date: t.date,
+        approved: Number(t.approved) || 0,
+        rejected: Number(t.rejected) || 0
+      };
+    })
+  };
+}
+
+async function warmupDashboardCache() {
+  try {
+    const summary = await computeDashboardSummary();
+    setDashboardCache(summary);
+  } catch (err) {
+    console.error('Error warming up dashboard cache:', err);
+  }
+}
 // Export for use in other routes (keeping the same handle name)
 router.invalidatePerformanceCache = invalidateCache;
+router.warmupDashboardCache = warmupDashboardCache;
 
 router.use(authenticateToken);
+
+// ── Simple in-memory cache for the heavy dashboard/summary endpoint ──────────
+// 11 COUNT(DISTINCT)+JOIN queries against NAS MySQL can take 1-3 seconds each time.
+// Cache for 2 minutes — dashboard stats don't need to be real-time.
+const dashboardSummaryCache = { data: null, timestamp: 0 };
+let dashboardSummaryPromise = null;
+const DASHBOARD_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+
+function getDashboardCache() {
+  if (dashboardSummaryCache.data && (Date.now() - dashboardSummaryCache.timestamp) < DASHBOARD_CACHE_TTL) {
+    return dashboardSummaryCache.data;
+  }
+  return null;
+}
+
+function setDashboardCache(data) {
+  dashboardSummaryCache.data = data;
+  dashboardSummaryCache.timestamp = Date.now();
+}
 
 // GET /api/dashboard/test
 router.get('/test', (req, res) => res.json({ success: true, message: 'Dashboard route works' }));
@@ -22,86 +145,27 @@ router.get('/test', (req, res) => res.json({ success: true, message: 'Dashboard 
  * exhausting the pool on slow NAS-hosted MySQL.
  */
 router.get('/summary', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
-  const now = new Date();
-  const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const firstDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const trendDateStr = thirtyDaysAgo.toISOString().slice(0, 19).replace('T', ' ');
-  const prevStart = firstDayOfPrevMonth.toISOString();
-  const prevEnd = firstDayOfCurrentMonth.toISOString();
+  // ── Serve from cache if available (avoids 11 heavy NAS queries per page load) ──
+  let cached = getDashboardCache();
+  if (cached) {
+    return res.json({ success: true, summary: cached, _cached: true });
+  }
 
-  // All 11 queries on ONE connection — no pool exhaustion
-  const results = await queryBatch([
-    ['SELECT COUNT(DISTINCT f.id) as total FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id', []],
-    ["SELECT COUNT(DISTINCT f.id) as approved FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status = 'final_approved'", []],
-    ["SELECT COUNT(DISTINCT f.id) as pending FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status NOT IN ('final_approved','rejected_by_admin','rejected_by_team_leader')", []],
-    ["SELECT COUNT(DISTINCT f.id) as rejected FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status LIKE 'rejected%'", []],
-    ['SELECT f.file_type, COUNT(DISTINCT f.id) as count FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id GROUP BY f.file_type ORDER BY count DESC', []],
-    ['SELECT id, username, role, team, activity, timestamp FROM activity_logs ORDER BY timestamp DESC LIMIT 6', []],
-    ['SELECT COUNT(DISTINCT f.id) as total FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.uploaded_at >= ? AND f.uploaded_at < ?', [prevStart, prevEnd]],
-    ["SELECT COUNT(DISTINCT f.id) as approved FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status = 'final_approved' AND f.uploaded_at >= ? AND f.uploaded_at < ?", [prevStart, prevEnd]],
-    ["SELECT COUNT(DISTINCT f.id) as pending FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status NOT IN ('final_approved','rejected_by_admin','rejected_by_team_leader') AND f.uploaded_at >= ? AND f.uploaded_at < ?", [prevStart, prevEnd]],
-    ["SELECT COUNT(DISTINCT f.id) as rejected FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.status LIKE 'rejected%' AND f.uploaded_at >= ? AND f.uploaded_at < ?", [prevStart, prevEnd]],
-    [`SELECT DATE(f.uploaded_at) as date,
-        SUM(CASE WHEN f.status = 'final_approved' OR f.current_stage = 'published_to_public' THEN 1 ELSE 0 END) as approved,
-        SUM(CASE WHEN f.status LIKE 'rejected%' OR f.current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
-      FROM files f JOIN assignment_submissions asub ON f.id = asub.file_id WHERE f.uploaded_at >= ?
-      GROUP BY DATE(f.uploaded_at) ORDER BY date ASC`, [trendDateStr]]
-  ]);
+  // If a request is already computing the summary, wait for it instead of spawning redundant queries
+  if (dashboardSummaryPromise) {
+    const summary = await dashboardSummaryPromise;
+    return res.json({ success: true, summary, _deduplicated: true });
+  }
 
-  const [
-    totalRows, approvedRows, pendingRows, rejectedRows,
-    fileTypes, recentActivity,
-    prevTotalRows, prevApprovedRows, prevPendingRows, prevRejectedRows,
-    trends
-  ] = results;
-
-  const totalResult     = totalRows[0]     || {};
-  const approvedResult  = approvedRows[0]  || {};
-  const pendingResult   = pendingRows[0]   || {};
-  const rejectedResult  = rejectedRows[0]  || {};
-  const prevTotalResult    = prevTotalRows[0]    || {};
-  const prevApprovedResult = prevApprovedRows[0] || {};
-  const prevPendingResult  = prevPendingRows[0]  || {};
-  const prevRejectedResult = prevRejectedRows[0] || {};
-
-  const totalFiles = totalResult.total || 0;
-  const approved   = approvedResult.approved || 0;
-  const approvalRate = totalFiles > 0 ? Math.round((approved / totalFiles) * 100 * 10) / 10 : 0;
-
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-  res.json({
-    success: true,
-    summary: {
-      totalFiles,
-      approved,
-      pending: pendingResult.pending || 0,
-      rejected: rejectedResult.rejected || 0,
-      fileTypes: categorizeFileTypes(fileTypes || []),
-      recentActivity: recentActivity || [],
-      approvalRate,
-      previousMonth: {
-        totalFiles: prevTotalResult.total || 0,
-        approved:   prevApprovedResult.approved || 0,
-        pending:    prevPendingResult.pending || 0,
-        rejected:   prevRejectedResult.rejected || 0
-      },
-      approvalTrends: (trends || []).map(t => {
-        const d = new Date(t.date);
-        if (isNaN(d.getTime())) {
-          return { month: 'Invalid', date: t.date, approved: 0, rejected: 0 };
-        }
-        return {
-          month: `${monthNames[d.getMonth()]} ${d.getDate()}`,
-          date: t.date,
-          approved: Number(t.approved) || 0,
-          rejected: Number(t.rejected) || 0
-        };
-      })
-    }
-  });
+  // Not in cache, compute it now
+  try {
+    dashboardSummaryPromise = computeDashboardSummary();
+    const summary = await dashboardSummaryPromise;
+    setDashboardCache(summary);
+    res.json({ success: true, summary });
+  } finally {
+    dashboardSummaryPromise = null;
+  }
 }));
 
 /**

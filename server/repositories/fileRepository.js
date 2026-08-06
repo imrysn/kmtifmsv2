@@ -562,9 +562,13 @@ async function findAllWithDetails(options = {}) {
                fc.comment as latest_comment
         FROM files f
         JOIN users u ON f.user_id = u.id
-        LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
-            SELECT MAX(id) FROM file_comments WHERE file_id = f.id
-        )
+        LEFT JOIN (
+            SELECT file_id, comment 
+            FROM file_comments 
+            WHERE id IN (
+                SELECT MAX(id) FROM file_comments GROUP BY file_id
+            )
+        ) fc ON f.id = fc.file_id
         WHERE 1=1
     `;
   const params = [];

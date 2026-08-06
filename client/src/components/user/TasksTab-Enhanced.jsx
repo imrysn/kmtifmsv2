@@ -1991,6 +1991,21 @@ const TasksTab = memo(({
     return counts;
   }, [assignments]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, sortFilter, teamFilter, searchQuery]);
+
+  const paginatedAssignments = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredAssignments.slice(start, start + itemsPerPage);
+  }, [filteredAssignments, currentPage, itemsPerPage]);
+
+  const totalPages = useMemo(() => Math.ceil(filteredAssignments.length / itemsPerPage), [filteredAssignments.length, itemsPerPage]);
+
   const readAllFilesFromEntry = (entry, basePath = '') => new Promise((resolve) => {
     if (entry.isFile) {
       entry.file(file => resolve([{ file, relativePath: basePath + file.name, folderName: basePath ? basePath.split('/')[0] : null }]), () => resolve([]));
@@ -2515,7 +2530,7 @@ const TasksTab = memo(({
         </div>
       ) : filteredAssignments.length > 0 ? (
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '16px 20px' }}>
-          {filteredAssignments.map((assignment) => {
+          {paginatedAssignments.map((assignment) => {
             const assignmentComments = comments[assignment.id] || [];
             const isCompleted = assignment.status === 'completed';
             const mySubmittedFiles = activeTab === 'for-checking'
@@ -3401,6 +3416,34 @@ const TasksTab = memo(({
           </div>
         </div>
       )}
+
+        {/* Pagination Controls */}
+        {!isLoading && totalPages > 1 && (
+          <div className="pagination-section" style={{ marginTop: '20px', padding: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="pagination-info" style={{ color: 'var(--text-tertiary)', fontSize: '14px' }}>
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAssignments.length)} of {filteredAssignments.length} items
+            </div>
+            <div className="pagination-controls" style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                disabled={currentPage === 1}
+                style={{ padding: '6px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', background: 'var(--background-secondary)', color: 'var(--text-primary)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.5 : 1 }}
+              >
+                Previous
+              </button>
+              <span style={{ padding: '6px 12px', fontSize: '14px', color: 'var(--text-primary)' }}>
+                Page {currentPage} of {totalPages}
+              </span>
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                disabled={currentPage === totalPages}
+                style={{ padding: '6px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', background: 'var(--background-secondary)', color: 'var(--text-primary)', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', opacity: currentPage === totalPages ? 0.5 : 1 }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
 
       <FileModal
         showFileModal={showFileDetailsModal}

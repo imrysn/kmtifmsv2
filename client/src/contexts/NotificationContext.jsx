@@ -95,7 +95,9 @@ export const NotificationProvider = ({ children, userId, panelType }) => {
     }
   }, [notifications])
 
-  const startPolling = useCallback((interval = 30000) => {
+  // Poll interval: 5 minutes is sufficient — SSE handles real-time updates.
+  // This is a safety fallback only for cases where SSE events are missed.
+  const startPolling = useCallback((interval = 300000) => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current)
     }
@@ -112,11 +114,11 @@ export const NotificationProvider = ({ children, userId, panelType }) => {
     }
   }, [])
 
-  // Initial fetch and start polling
+  // Initial fetch and start polling (5-min safety fallback — SSE handles real-time)
   useEffect(() => {
     if (userId) {
       fetchNotifications()
-      startPolling()
+      startPolling(300000) // 5 minutes
     }
 
     return () => stopPolling()

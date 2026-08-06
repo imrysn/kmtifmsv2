@@ -1892,4 +1892,4 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
   )
 }
 
-export default withErrorBoundary(FileApproval, { componentName: 'File Approval' })
+export default memo(withErrorBoundary(FileApproval, { componentName: 'File Approval' }))

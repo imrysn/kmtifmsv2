@@ -66,11 +66,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
     };
 
     poll(); // immediate first fetch
-    const interval = setInterval(poll, POLL_INTERVAL);
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
     };
   }, [fetchNotifications]);
 

@@ -10,7 +10,7 @@ import { Trash2 } from 'lucide-react';
 // Groups files within a top-level folder into their immediate subfolders
 import { recursiveGroupByPath } from '@utils/folderUtils'
 
-const MyFilesTab = ({
+const MyFilesTab = React.memo(({
   filteredFiles,
   isLoading,
   fetchUserFiles,
@@ -996,6 +996,6 @@ const MyFilesTab = ({
       {DeleteModal}
     </div>
   );
-};
+});
 
 export default MyFilesTab;

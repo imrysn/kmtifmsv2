@@ -406,17 +406,22 @@ async function startServer() {
         console.warn('⚠️ Due-date notifier could not start:', notifierErr.message);
       }
 
-      // 6. Warm up performance cache in background so first user request is instant
+      // 6. Warm up caches in background so first user request is instant
       setTimeout(async () => {
         try {
           const { calculateAllUserPerformance } = require('./services/performanceService');
           const { setCache } = require('./utils/cacheUtils');
-          console.log('🔥 Warming up performance cache in background...');
-          const map = await calculateAllUserPerformance();
+          const dashboardRoutes = require('./routes/dashboard');
+          
+          console.log('🔥 Warming up caches in background...');
+          const [map] = await Promise.all([
+            calculateAllUserPerformance(),
+            dashboardRoutes.warmupDashboardCache ? dashboardRoutes.warmupDashboardCache() : Promise.resolve()
+          ]);
           setCache(map);
-          console.log('✅ Performance cache warmed up — dashboard will load instantly.');
+          console.log('✅ Caches warmed up — dashboard will load instantly.');
         } catch (warmupErr) {
-          console.warn('⚠️ Performance cache warm-up failed (will calculate on first request):', warmupErr.message);
+          console.warn('⚠️ Cache warm-up failed (will calculate on first request):', warmupErr.message);
         }
       }, 3000); // wait 3s for pool to fully settle before firing the heavy query
     });

@@ -320,8 +320,8 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess, onReplyRead }) => {
     // Initial fetch
     fetchMessages();
 
-    // Silent background poll every 3 seconds
-    const intervalId = setInterval(fetchMessages, 3000);
+    // Silent background poll every 15 seconds (was 3s — reduced to cut unnecessary DB load)
+    const intervalId = setInterval(fetchMessages, 15000);
 
     return () => {
       clearInterval(intervalId);

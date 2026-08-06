@@ -12,22 +12,29 @@ export const NetworkProvider = ({ children }) => {
   const [checkInterval, setCheckInterval] = useState(30000) // 30 seconds default
 
   const checkNetworkStatus = useCallback(async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+
     try {
       const response = await fetch(`${API_BASE}/api/health`, {
         method: 'GET',
         cache: 'no-cache',
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        signal: controller.signal
       })
+      
+      clearTimeout(timeoutId)
 
       const isAvailable = response.ok
       setIsServerAvailable(isAvailable)
-      setIsOnline(true)
+      setIsOnline(true) // If we can reach the server, we are online
       setLastChecked(new Date())
       return isAvailable
     } catch (error) {
+      clearTimeout(timeoutId)
       console.warn('Network check failed:', error.message)
       setIsServerAvailable(false)
-      setIsOnline(navigator.onLine)
+      // Do not trust navigator.onLine in restricted LAN environments
+      // If we can't reach the server, we just consider it unavailable.
       setLastChecked(new Date())
       return false
     }
@@ -47,13 +54,13 @@ export const NetworkProvider = ({ children }) => {
   // Browser online/offline events
   useEffect(() => {
     const handleOnline = () => {
-      setIsOnline(true)
+      // Just trigger a check when browser thinks it's online
       checkNetworkStatus()
     }
 
     const handleOffline = () => {
-      setIsOnline(false)
-      setIsServerAvailable(false)
+      // Don't force offline immediately, let the health check decide
+      checkNetworkStatus()
     }
 
     window.addEventListener('online', handleOnline)

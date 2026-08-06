@@ -132,11 +132,9 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
     }
   }, [user.id, onRead]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Initial load + 30s fallback poll ──────────────────────────────────────
+  // ⚡️ Initial load
   useEffect(() => {
     fetchNotifications(1, true);
-    const interval = setInterval(() => fetchNotifications(1, true, true), 30000);
-    return () => clearInterval(interval);
   }, [fetchNotifications]);
 
   // ── SSE — instant push the moment a notification is created ────────  ───────

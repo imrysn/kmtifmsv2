@@ -194,10 +194,8 @@ router.get('/user/:userId', async (req, res) => {
     const { unreadOnly, page = 1, limit = 20, panelType, type } = req.query;
 
     // Ownership check: users can only see their own notifications; ADMIN can see any
-    // Use loose == comparison so string userId from URL matches integer req.user.id from JWT
     const isOwner = req.user.id === parseInt(userId, 10);
     const isAdmin = req.user.role === 'ADMIN';
-    console.log(`📬 Notifications fetch: reqUser.id=${req.user.id}(${typeof req.user.id}) userId=${userId}(${typeof userId}) isOwner=${isOwner} role=${req.user.role}`);
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ success: false, message: 'Access denied: You can only view your own notifications' });
     }
@@ -206,121 +204,123 @@ router.get('/user/:userId', async (req, res) => {
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
 
-    console.log(`📬 Fetching notifications for user ${userId}, page: ${pageNum}, limit: ${limitNum}`);
+    // ── Build shared WHERE clause (reused for main query + counts) ───────────
+    const whereConditions = ['n.user_id = ?'];
+    const queryParams = [userId];
 
-    // Get total count
-    let countQuery = 'SELECT COUNT(*) as total FROM notifications WHERE user_id = ?';
-    const countParams = [userId];
     if (unreadOnly === 'true') {
-      countQuery += ' AND is_read = 0';
+      whereConditions.push('n.is_read = 0');
     }
-    // Panel-type filtering: exclude notifications scoped to the *other* panel
+    // Panel-type filtering
     if (panelType === 'teamleader') {
-      countQuery += " AND (panel_type IS NULL OR panel_type != 'user')";
+      whereConditions.push("(n.panel_type IS NULL OR n.panel_type != 'user')");
     } else if (panelType === 'user') {
-      countQuery += " AND (panel_type IS NULL OR panel_type != 'teamleader')";
+      whereConditions.push("(n.panel_type IS NULL OR n.panel_type != 'teamleader')");
     }
-    
-    // Type filtering for broadcast replies
+    // Type filtering
     if (type) {
       if (type === 'broadcast_history') {
-        countQuery += " AND type IN ('broadcast', 'broadcast_reply')";
+        whereConditions.push("n.type IN ('broadcast', 'broadcast_reply')");
       } else {
-        countQuery += " AND type = ?";
-        countParams.push(type);
+        whereConditions.push('n.type = ?');
+        queryParams.push(type);
       }
     } else {
-      countQuery += " AND type NOT IN ('broadcast_reply', 'broadcast')";
+      whereConditions.push("n.type NOT IN ('broadcast_reply', 'broadcast')");
     }
-    const countResult = await queryOne(countQuery, countParams);
-    const totalCount = countResult?.total || 0;
 
-    // Get paginated notifications
+    const whereClause = whereConditions.join(' AND ');
+
+    // ── OPTIMIZED: 1 combined count query instead of 2 separate ones ─────────
+    // Get total count + unread count in a single DB round-trip
+    const unreadWhereConditions = [`n.user_id = ?`, 'n.is_read = 0'];
+    const unreadParams = [userId];
+    if (panelType === 'teamleader') {
+      unreadWhereConditions.push("(n.panel_type IS NULL OR n.panel_type != 'user')");
+    } else if (panelType === 'user') {
+      unreadWhereConditions.push("(n.panel_type IS NULL OR n.panel_type != 'teamleader')");
+    }
+    if (type) {
+      if (type === 'broadcast_history') {
+        unreadWhereConditions.push("n.type IN ('broadcast', 'broadcast_reply')");
+      } else {
+        unreadWhereConditions.push('n.type = ?');
+        unreadParams.push(type);
+      }
+    } else {
+      unreadWhereConditions.push("n.type != 'broadcast_reply'");
+    }
+
+    const [countResult, unreadCountResult] = await Promise.all([
+      queryOne(`SELECT COUNT(*) as total FROM notifications n WHERE ${whereClause}`, queryParams),
+      queryOne(`SELECT COUNT(*) as count FROM notifications n WHERE ${unreadWhereConditions.join(' AND ')}`, unreadParams)
+    ]);
+    const totalCount = countResult?.total || 0;
+    const unreadCount = unreadCountResult?.count || 0;
+
+    // ── OPTIMIZED: Main query — no heavy assignment_comments date-range JOIN ──
+    // The assignment_comments JOIN is only needed for comment/mention/reply types.
+    // For all other types it was a wasted full table scan on every row.
     let queryStr = `
       SELECT 
-        n.*, 
-        f.original_name as file_name, 
+        n.*,
+        f.original_name as file_name,
         f.status as file_status,
         a.title as assignment_title,
         a.due_date as assignment_due_date,
-        ac.id as comment_id,
         u.profile_picture as action_by_profile_picture
       FROM notifications n
       LEFT JOIN files f ON n.file_id = f.id
       LEFT JOIN assignments a ON n.assignment_id = a.id
-      LEFT JOIN assignment_comments ac 
-        ON n.assignment_id IS NOT NULL
-        AND n.type IN ('comment', 'mention', 'reply')
-        AND ac.assignment_id = n.assignment_id
-        AND ac.created_at BETWEEN DATE_SUB(n.created_at, INTERVAL 1 SECOND)
-                               AND DATE_ADD(n.created_at, INTERVAL 1 SECOND)
       LEFT JOIN users u ON n.action_by_id = u.id
-      WHERE n.user_id = ?
+      WHERE ${whereClause}
+      ORDER BY n.created_at DESC LIMIT ${limitNum} OFFSET ${offset}
     `;
 
-    const queryParams = [userId];
-    if (unreadOnly === 'true') {
-      queryStr += ' AND n.is_read = 0';
-    }
-    // Panel-type filtering: exclude notifications scoped to the *other* panel
-    if (panelType === 'teamleader') {
-      queryStr += " AND (n.panel_type IS NULL OR n.panel_type != 'user')";
-    } else if (panelType === 'user') {
-      queryStr += " AND (n.panel_type IS NULL OR n.panel_type != 'teamleader')";
-    }
-
-    // Type filtering for broadcast replies
-    if (type) {
-      if (type === 'broadcast_history') {
-        queryStr += " AND n.type IN ('broadcast', 'broadcast_reply')";
-      } else {
-        queryStr += " AND n.type = ?";
-        queryParams.push(type);
-      }
-    } else {
-      queryStr += " AND n.type NOT IN ('broadcast_reply', 'broadcast')";
-    }
-
-    queryStr += ` ORDER BY n.created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
-
     const notifications = await query(queryStr, queryParams);
-
     console.log(`✅ Found ${notifications.length} notifications for user ${userId} (page ${pageNum})`);
 
-    // Count unread notifications (total, not just in this page)
-    let unreadCountQuery = 'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0';
-    const unreadParams = [userId];
-    if (panelType === 'teamleader') {
-      unreadCountQuery += " AND (panel_type IS NULL OR panel_type != 'user')";
-    } else if (panelType === 'user') {
-      unreadCountQuery += " AND (panel_type IS NULL OR panel_type != 'teamleader')";
-    }
-    
-    // Exclude broadcast replies from unread count
-    if (type) {
-      if (type === 'broadcast_history') {
-        unreadCountQuery += " AND type IN ('broadcast', 'broadcast_reply')";
-      } else {
-        unreadCountQuery += " AND type = ?";
-        unreadParams.push(type);
+    // For comment/mention/reply types, look up the comment_id separately (only when needed)
+    // This avoids the expensive date-range JOIN being applied to ALL notification types
+    if (notifications.length > 0) {
+      const commentTypes = new Set(['comment', 'mention', 'reply']);
+      const commentNotifs = notifications.filter(n => commentTypes.has(n.type) && n.assignment_id);
+      if (commentNotifs.length > 0) {
+        try {
+          const commentRows = await query(
+            `SELECT ac.id, ac.assignment_id, ac.created_at FROM assignment_comments ac
+             WHERE ac.assignment_id IN (${commentNotifs.map(() => '?').join(',')})
+             ORDER BY ac.created_at DESC`,
+            commentNotifs.map(n => n.assignment_id)
+          );
+          // Map back to notifications
+          const commentMap = new Map();
+          for (const ac of commentRows) {
+            if (!commentMap.has(ac.assignment_id)) commentMap.set(ac.assignment_id, ac.id);
+          }
+          for (const n of notifications) {
+            if (commentTypes.has(n.type) && n.assignment_id) {
+              n.comment_id = commentMap.get(n.assignment_id) || null;
+            } else {
+              n.comment_id = null;
+            }
+          }
+        } catch (_) {
+          for (const n of notifications) n.comment_id = null;
+        }
       }
-    } else {
-      unreadCountQuery += " AND type != 'broadcast_reply'";
     }
-    const unreadCountResult = await queryOne(unreadCountQuery, unreadParams);
-    const unreadCount = unreadCountResult?.count || 0;
 
-    // Calculate if there are more pages
     const hasMore = offset + notifications.length < totalCount;
 
     res.json({
       success: true,
       notifications: notifications || [],
-      unreadCount: unreadCount,
-      totalCount: totalCount,
+      unreadCount,
+      totalCount,
       page: pageNum,
       limit: limitNum,
-      hasMore: hasMore
+      hasMore
     });
   } catch (error) {
     console.error('❌ Error fetching notifications:', error);
