@@ -110,6 +110,8 @@ const TeamTasksTab = ({ user }) => {
   // Track which files have been viewed (persists across sessions)
   const [openedFileIds, setOpenedFileIds] = useState(new Set())
   const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
+  const [fileToOpen, setFileToOpen] = useState(null)
+  const [isOpeningFile, setIsOpeningFile] = useState(false)
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -366,6 +368,53 @@ const TeamTasksTab = ({ user }) => {
     } catch (e) { console.error('Open folder path error:', e) }
   }
 
+  const handleOpenFile = async (filePath, fileId) => {
+    if (!filePath) {
+      setError('File path not available')
+      return false
+    }
+
+    try {
+      setIsOpeningFile(true)
+      setError('')
+
+      // Check if running in Electron
+      const isElectron = window.electron && window.electron.openFileInApp
+
+      if (isElectron) {
+        // For uploaded files, get the full system path from server
+        const pathData = await apiFetch(`/api/files/${fileId}/path`)
+
+        if (!pathData.success) {
+          throw new Error(pathData.message || 'Failed to get file path')
+        }
+
+        const result = await window.electron.openFileInApp(pathData.filePath)
+
+        if (result.success) {
+          return true
+        } else {
+          throw new Error(result.error || 'Failed to open file')
+        }
+      } else {
+        // For browser, open the file directly
+        const fileUrl = `${API_BASE_URL}${filePath}`
+        const newWindow = window.open(fileUrl, '_blank')
+        if (!newWindow) {
+          throw new Error('Pop-up blocked. Please allow pop-ups for this site.')
+        }
+        newWindow.focus()
+        return true
+      }
+    } catch (error) {
+      console.error('Error opening file:', error)
+      setError(`Error opening file: ${error.message || 'Failed to open file'}`)
+      return false
+    } finally {
+      setIsOpeningFile(false)
+    }
+  }
+
   // Fetch comments for an assignment
   const fetchComments = useCallback(async (assignmentId) => {
     setLoadingComments(true)
@@ -563,10 +612,9 @@ const TeamTasksTab = ({ user }) => {
                   role={user.role?.toLowerCase() === 'team_leader' ? 'teamleader' : (user.role?.toLowerCase() || 'user')}
                   hideSubmit={true}
                   onCommentClick={openCommentsModal}
-                  onFileClick={(file) => {
+                   onFileClick={(file) => {
                     setOpenedFileIds(prev => new Set([...prev, file.id]));
-                    setFileOpenToast(true);
-                    setTimeout(() => setFileOpenToast(false), 3500);
+                    setFileToOpen(file);
                   }}
                   onDownloadFile={handleDownloadFile}
                   onOpenPath={(file) => handleOpenFolderPath(file.id)}
@@ -626,6 +674,23 @@ const TeamTasksTab = ({ user }) => {
         getInitials={getInitials}
         formatTimeAgo={formatTimeAgo}
         user={user}
+      />
+
+       {/* File Open Modal */}
+      <FileOpenModal
+        isOpen={!!fileToOpen}
+        file={fileToOpen}
+        isLoading={isOpeningFile}
+        onClose={() => setFileToOpen(null)}
+        onConfirm={async () => {
+          if (!fileToOpen) return
+          const success = await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
+          if (success) {
+            setFileToOpen(null)
+            setFileOpenToast(true)
+            setTimeout(() => setFileOpenToast(false), 3500)
+          }
+        }}
       />
 
       {/* File Open Toast */}

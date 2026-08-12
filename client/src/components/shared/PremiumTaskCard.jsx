@@ -17,6 +17,7 @@ const PremiumTaskCard = ({
   onPrimaryClick,        // Submit (user), Review (TL/admin)
   onFileDelete,
   onFileClick,
+  onReviewFolder,
   onDownloadFile,        // Triggers download confirmation toast/modal
   onOpenPath,
   openedFileIds = new Set(),
@@ -67,7 +68,11 @@ const PremiumTaskCard = ({
   };
 
   const handleFileClickInternal = (file) => {
-    setFileToOpen(file);
+    if (onFileClick) {
+      onFileClick(file);
+    } else {
+      setFileToOpen(file);
+    }
   };
 
   const handleConfirmOpenFile = async () => {
@@ -252,12 +257,13 @@ const PremiumTaskCard = ({
               openedFileIds={openedFileIds}
               isAdmin={isAdmin}
               isTL={isTL}
+              isSubmission={false}
             />
           </div>
         )}
 
         {/* Submit Task Action (User POV) - Below Attachments */}
-        {isUser && !hideSubmit && task.status !== 'completed' && (
+        {isUser && !hideSubmit && task.status !== 'completed' && (!task.submitted_files || task.submitted_files.length === 0) && (
           <div className="file-group submission-box">
             <div className="group-label submissions-label">📤 Submission</div>
             <div className="submission-upload-area">
@@ -280,9 +286,11 @@ const PremiumTaskCard = ({
               files={task.submitted_files}
               isAdmin={isAdmin || isTL}
               isTL={isTL}
+              isSubmission={true}
               assignmentTitle={task.title}
               onDeleteFile={onFileDelete}
               onFileClick={handleFileClickInternal}
+              onReviewFolder={onReviewFolder}
               onDownloadFile={onDownloadFile}
               onOpenPath={onOpenPath}
               openedFileIds={openedFileIds}

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import './TaskManagement.css'
 import './SmartNavigation.css'
-import { AlertMessage, ConfirmationModal, CommentsModal, FileOpenModal, PremiumTaskCard, PremiumModal } from '../shared'
+import { AlertMessage, ConfirmationModal, CommentsModal, FileOpenModal, PremiumTaskCard, PremiumModal, StatusBadge, TeamBadge } from '../shared'
+import { FileDetailsModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 import { useSmartNavigation } from '../shared/SmartNavigation'
@@ -52,6 +53,14 @@ const TaskManagement = ({
   const [openedFileIds, setOpenedFileIds] = useState(new Set())
   const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
   const [commentCounts, setCommentCounts] = useState({}) // Real-time comment count tracking
+  
+  // File Review States
+  const [showFileModal, setShowFileModal] = useState(false)
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [fileToOpen, setFileToOpen] = useState(null) // Added for FileOpenModal
+  const [isProcessingFileAction, setIsProcessingFileAction] = useState(false)
+  const [isOpeningFile, setIsOpeningFile] = useState(false)
+  const [folderReviewModal, setFolderReviewModal] = useState(null) // { folderName, folderFiles }
 
   // Load from persistent storage on mount
   useEffect(() => {
@@ -685,6 +694,139 @@ const TaskManagement = ({
     }
   }
 
+  // --- File Review Handlers ---
+
+  const openFileModal = useCallback((file) => {
+    setSelectedFile(file)
+    setShowFileModal(true)
+  }, [])
+
+  const closeFileModal = useCallback(() => {
+    setShowFileModal(false)
+    setSelectedFile(null)
+  }, [])
+
+  const approveFile = async () => {
+    if (!selectedFile) return
+    setIsProcessingFileAction(true)
+    try {
+      const data = await apiFetch(`/api/files/${selectedFile.id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          team: user.team
+        })
+      })
+
+      if (data.success) {
+        setSuccess(`File "${selectedFile.original_name}" approved successfully`)
+        fetchInitialAssignments() // Refresh list
+        closeFileModal()
+      } else {
+        setError(data.message || 'Failed to approve file')
+      }
+    } catch (err) {
+      console.error('Error approving file:', err)
+      setError('Failed to approve file')
+    } finally {
+      setIsProcessingFileAction(false)
+    }
+  }
+
+  const rejectFile = async (file) => {
+    const fileToReject = file || selectedFile
+    if (!fileToReject) return
+    setIsProcessingFileAction(true)
+    try {
+      const data = await apiFetch(`/api/files/${fileToReject.id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          team: user.team
+        })
+      })
+
+      if (data.success) {
+        setError(`File "${fileToReject.original_name}" rejected and deleted`)
+        fetchInitialAssignments() // Refresh list
+        closeFileModal()
+      } else {
+        setError(data.message || 'Failed to reject file')
+      }
+    } catch (err) {
+      console.error('Error rejecting file:', err)
+      setError('Failed to reject file')
+    } finally {
+      setIsProcessingFileAction(false)
+    }
+  }
+
+  const handleApproveFolder = async () => {
+    if (!folderReviewModal) return
+    setIsProcessingFileAction(true)
+    try {
+      const data = await apiFetch(`/api/files/folder/approve`, {
+        method: 'POST',
+        body: JSON.stringify({
+          folderName: folderReviewModal.folderName,
+          fileIds: folderReviewModal.folderFiles.map(f => f.id),
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          team: user.team
+        })
+      })
+
+      if (data.success) {
+        setSuccess(`Folder "${folderReviewModal.folderName}" approved successfully`)
+        fetchInitialAssignments()
+        setFolderReviewModal(null)
+      } else {
+        setError(data.message || 'Failed to approve folder')
+      }
+    } catch (err) {
+      console.error('Error approving folder:', err)
+      setError('Failed to approve folder')
+    } finally {
+      setIsProcessingFileAction(false)
+    }
+  }
+
+  const handleRejectFolder = async () => {
+    if (!folderReviewModal) return
+    setIsProcessingFileAction(true)
+    try {
+      const data = await apiFetch(`/api/files/folder/reject`, {
+        method: 'POST',
+        body: JSON.stringify({
+          folderName: folderReviewModal.folderName,
+          fileIds: folderReviewModal.folderFiles.map(f => f.id),
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          team: user.team
+        })
+      })
+
+      if (data.success) {
+        setError(`Folder "${folderReviewModal.folderName}" rejected and deleted`)
+        fetchInitialAssignments()
+        setFolderReviewModal(null)
+      } else {
+        setError(data.message || 'Failed to reject folder')
+      }
+    } catch (err) {
+      console.error('Error rejecting folder:', err)
+      setError('Failed to reject folder')
+    } finally {
+      setIsProcessingFileAction(false)
+    }
+  }
+
   const handleDeleteAssignment = async () => {
     if (!assignmentToDelete) return
 
@@ -842,6 +984,24 @@ const TaskManagement = ({
                     }}
                     onFileClick={(file) => {
                       setOpenedFileIds(prev => new Set([...prev, file.id]));
+                      
+                      // Normalize status check for Task Reference
+                      const status = file.status?.toLowerCase().replace(/_/g, ' ');
+                      if (status === 'task reference') {
+                        // For attachments, use the simple open modal
+                        setFileToOpen(file);
+                      } else {
+                        // For submissions, clicking opens the details modal for review
+                        openFileModal(file);
+                      }
+                    }}
+                    onReviewFolder={(name, files) => setFolderReviewModal({ folderName: name, folderFiles: files })}
+                    onOpenPath={async (file) => {
+                      if (!window.electron?.openFolderInExplorer) return;
+                      try {
+                        const data = await apiFetch(`/api/files/${file.id}/path`);
+                        if (data.success && data.filePath) await window.electron.openFolderInExplorer(data.filePath);
+                      } catch (e) { console.error('Open folder path error:', e); }
                     }}
                     openedFileIds={openedFileIds}
                     className="admin-task-card-margin"
@@ -921,6 +1081,90 @@ const TaskManagement = ({
             This action cannot be undone. The task and all associated comments will be permanently removed from the system.
           </p>
         </ConfirmationModal>
+
+        {/* File Open Modal - For attachments/reference files */}
+        <FileOpenModal
+          isOpen={!!fileToOpen}
+          file={fileToOpen}
+          isLoading={isOpeningFile}
+          onClose={() => setFileToOpen(null)}
+          onConfirm={async () => {
+            if (!fileToOpen) return;
+            const success = await handleOpenFile(fileToOpen.file_path, fileToOpen.id);
+            if (success) {
+              setFileToOpen(null);
+            }
+          }}
+        />
+
+        {/* File Details Modal */}
+        <FileDetailsModal
+          isOpen={showFileModal}
+          onClose={closeFileModal}
+          file={selectedFile}
+          onApprove={approveFile}
+          onReject={rejectFile}
+          onOpenFile={() => handleOpenFile(selectedFile.file_path, selectedFile.id)}
+          isLoading={isProcessingFileAction}
+          isOpeningFile={isOpeningFile}
+          formatFileSize={formatFileSize}
+        />
+
+        {/* Folder Review Modal */}
+        {folderReviewModal && (
+          <div className="file-details-modal-component">
+            <div className="modal-overlay" onClick={() => { if (!isProcessingFileAction) setFolderReviewModal(null) }}>
+              <div className="modal file-modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3>Folder Details</h3>
+                  <button className="modal-close" onClick={() => setFolderReviewModal(null)} disabled={isProcessingFileAction}>×</button>
+                </div>
+                <div className="modal-body">
+                  <div className="file-details-section">
+                    <h4 className="section-title">FOLDER DETAILS</h4>
+                    <div className="file-details-grid">
+                      <div className="detail-item">
+                        <span className="detail-label">FOLDER NAME:</span>
+                        <span className="detail-value">📁 {folderReviewModal.folderName}</span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="detail-label">SUBMITTED BY:</span>
+                        <span className="detail-value">{folderReviewModal.folderFiles[0]?.username || 'Unknown'}</span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="detail-label">TEAM:</span>
+                        <span className="detail-value">
+                          <TeamBadge team={folderReviewModal.folderFiles[0]?.user_team} size="sm" />
+                        </span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="detail-label">TOTAL FILES:</span>
+                        <span className="detail-value">{folderReviewModal.folderFiles.length} files</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="actions-section">
+                    <div className="action-buttons-large">
+                      <button className="btn btn-success-large" disabled={isProcessingFileAction} onClick={handleApproveFolder}>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                          <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        {isProcessingFileAction ? 'Processing...' : 'Approve All'}
+                      </button>
+                      <button className="btn btn-danger-large" disabled={isProcessingFileAction} onClick={handleRejectFolder}>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                          <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        {isProcessingFileAction ? 'Processing...' : 'Reject All'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
 
 

@@ -577,7 +577,10 @@ const AssignmentsTab = ({
                 }}
                 onFileClick={(file) => { 
                   setOpenedFileIds(prev => new Set([...prev, file.id])); 
+                  // For Team Leaders, clicking a submission opens the review modal
+                  if (openReviewModal) openReviewModal(file, 'approve');
                 }}
+                onReviewFolder={(name, files) => setFolderReviewModal({ folderName: name, folderFiles: files, assignmentId: assignment.id })}
                 onFileDelete={(file) => setRemoveAttachmentModal({ isOpen: true, attachmentId: file.id, attachmentName: file.original_name, assignmentId: assignment.id })}
                 onOpenPath={openFolderInExplorer}
                 openedFileIds={openedFileIds}

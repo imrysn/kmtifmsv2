@@ -96,8 +96,8 @@ async function findByUserId(userId, options = {}) {
         // Fetch attachments
         const attachmentsQuery = `
             SELECT id, assignment_id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
-                   COALESCE(status, 'team_leader_approved') AS status,
-                   COALESCE(current_stage, 'pending_admin') AS current_stage
+                   COALESCE(status, 'Task Reference') AS status,
+                   COALESCE(current_stage, 'published') AS current_stage
             FROM assignment_attachments
             WHERE assignment_id IN (${placeholders})
         `;
@@ -296,8 +296,8 @@ async function findAllWithDetails(options = {}) {
 
         const attachmentsQuery = `
             SELECT id, assignment_id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
-                   COALESCE(status, 'team_leader_approved') AS status,
-                   COALESCE(current_stage, 'pending_admin') AS current_stage
+                   COALESCE(status, 'Task Reference') AS status,
+                   COALESCE(current_stage, 'published') AS current_stage
             FROM assignment_attachments
             WHERE assignment_id IN (${placeholders})
         `;
@@ -361,8 +361,8 @@ async function findByIdWithDetails(id) {
             `, [id]),
             db.all(`
                 SELECT id, assignment_id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
-                       COALESCE(status, 'team_leader_approved') AS status,
-                       COALESCE(current_stage, 'pending_admin') AS current_stage
+                       COALESCE(status, 'Task Reference') AS status,
+                       COALESCE(current_stage, 'published') AS current_stage
                 FROM assignment_attachments
                 WHERE assignment_id = ?
             `, [id]),

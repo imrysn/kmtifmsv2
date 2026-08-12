@@ -13,7 +13,8 @@ const CreateAssignmentModal = ({
   currentUserId,
   isEditMode = false,
   onClose,
-  initialAttachments = [] // array of existing attachment objects when editing
+  initialAttachments = [], // array of existing attachment objects when editing
+  uploadProgress = null // { current, total, percentage, currentFileName }
 }) => {
   const [showMemberDropdown, setShowMemberDropdown] = React.useState(false)
   const [showFileTypeDropdown, setShowFileTypeDropdown] = React.useState(false)
@@ -94,15 +95,8 @@ const CreateAssignmentModal = ({
   const handleFolderSelect = (e) => {
     const files = Array.from(e.target.files)
     if (files.length > 0) {
-      // Tag each file with its relative path for folder structure
-      const tagged = files.map(file => {
-        Object.defineProperty(file, 'relativeFolderPath', {
-          value: file.webkitRelativePath || file.name,
-          writable: true
-        })
-        return file
-      })
-      setAttachedFiles(prevFiles => [...prevFiles, ...tagged])
+      // Preserve webkitRelativePath for folder structure
+      setAttachedFiles(prevFiles => [...prevFiles, ...files])
     }
   }
 
@@ -197,7 +191,7 @@ const CreateAssignmentModal = ({
   }
 
   return (
-    <div className="tl-modal-overlay">
+    <div className="tl-modal-overlay" onClick={() => !isProcessing && handleClose()}>
       <div className="tl-modal-large" onClick={e => e.stopPropagation()}>
         <div className="tl-modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -208,7 +202,7 @@ const CreateAssignmentModal = ({
               </span>
             )}
           </div>
-          <button onClick={handleClose}>×</button>
+          <button onClick={handleClose} disabled={isProcessing} style={{ opacity: isProcessing ? 0.5 : 1, cursor: isProcessing ? 'not-allowed' : 'pointer' }}>×</button>
         </div>
         <div className="tl-modal-body-large">
           <form>
@@ -555,25 +549,43 @@ const CreateAssignmentModal = ({
               </div>
             </div>
 
-            <div className="tl-modal-footer">
-              <button
-                type="button"
-                className="tl-btn secondary"
-                onClick={handleClose}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="tl-btn success"
-                onClick={() => createAssignment(attachedFiles, attachmentsToRemove)}
-                disabled={isProcessing || !assignmentForm.title.trim() || assignmentForm.assignedMembers.length === 0}
-              >
-                {isProcessing
-                  ? (isEditMode ? 'Updating...' : 'Creating...')
-                  : (isEditMode ? 'Update Task' : 'Create Task')
-                }
-              </button>
+            <div className="tl-modal-footer" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '16px' }}>
+              {isProcessing && uploadProgress && uploadProgress.total > 0 && (
+                <div style={{ width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#4b5563', marginBottom: '8px' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
+                      Uploading <strong>{uploadProgress.currentFileName || 'files'}</strong>...
+                    </span>
+                    <span>{uploadProgress.current} of {uploadProgress.total}</span>
+                  </div>
+                  <div style={{ height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${uploadProgress.percentage}%`, height: '100%', backgroundColor: '#10B981', transition: 'width 0.3s ease' }} />
+                  </div>
+                </div>
+              )}
+              
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="tl-btn secondary"
+                  onClick={handleClose}
+                  disabled={isProcessing}
+                  style={{ opacity: isProcessing ? 0.5 : 1, cursor: isProcessing ? 'not-allowed' : 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="tl-btn success"
+                  onClick={() => createAssignment(attachedFiles, attachmentsToRemove)}
+                  disabled={isProcessing || !assignmentForm.title.trim() || assignmentForm.assignedMembers.length === 0}
+                >
+                  {isProcessing
+                    ? (uploadProgress && uploadProgress.total > 0 ? `Uploading...` : (isEditMode ? 'Updating...' : 'Creating...'))
+                    : (isEditMode ? 'Update Task' : 'Create Task')
+                  }
+                </button>
+              </div>
             </div>
           </form>
         </div>

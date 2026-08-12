@@ -25,6 +25,7 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
   const [streakData, setStreakData] = useState({ current: 0, longest: 0 });
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const lastReportedScore = useRef(null);
+  const hasAttemptedHistory = useRef(false);
 
   const onPerformanceLoadRef = useRef(onPerformanceLoad);
 
@@ -91,8 +92,17 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
   const displayFileRejected = performance?.fileRejected ?? (fallbackStats?.fileRejected || 0);
 
   useEffect(() => {
-    if (!isCollapsed && !historyData && !isHistoryLoading && user?.id) {
+    // Reset attempt flag if user changes
+    if (user?.id) {
+      hasAttemptedHistory.current = false;
+      setHistoryData(null);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!isCollapsed && !historyData && !isHistoryLoading && user?.id && !hasAttemptedHistory.current) {
       const fetchHistory = async () => {
+        hasAttemptedHistory.current = true;
         setIsHistoryLoading(true);
         try {
           const data = await apiFetch(`/api/dashboard/user-performance/${user.id}/history`);
@@ -109,7 +119,7 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
       };
       fetchHistory();
     }
-  }, [isCollapsed, historyData, isHistoryLoading, user.id]);
+  }, [isCollapsed, user?.id]);
 
   if (loading && !fallbackStats) {
     return (

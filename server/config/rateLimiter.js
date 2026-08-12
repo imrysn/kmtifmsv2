@@ -9,10 +9,10 @@ const isLocalhost = (req) => {
   return ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1';
 };
 
-// General API rate limiter - 500 requests per 15 minutes
+// General API rate limiter - 10000 requests per 15 minutes
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 500,
+    max: 10000,
     message: {
         success: false,
         message: 'Too many requests from this IP, please try again later.'

@@ -21,7 +21,8 @@ async function runMigrations() {
       { name: 'Add File Views Table', run: require('./007-add-file-views') },
       { name: 'Add updated_at to files', run: require('./008-add-updated-at-to-files') },
       { name: 'Add User Performance Snapshots', run: require('./009-add-performance-snapshots') },
-      { name: 'Add composite indexes for dashboard and queue performance (FIX #12)', run: require('./010-add-composite-indexes') }
+      { name: 'Add composite indexes for dashboard and queue performance (FIX #12)', run: require('./010-add-composite-indexes') },
+      { name: 'Standardize file_id types across tables', run: require('./014-standardize-file-ids') }
     ];
 
     for (const migration of migrations) {

@@ -58,6 +58,30 @@ async function uploadFile(fileData, user) {
     );
 
     if (existing) {
+        // If the file was rejected, allow re-upload as "edited"
+        if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'rejected' || existing.status === 'final_rejection') {
+            logInfo('Rejected file re-uploaded, marking as edited', { fileId: existing.id });
+            
+            const updates = {
+                filename: fileData.filename,
+                file_path: fileData.file_path,
+                file_size: fileData.file_size,
+                file_type: fileData.file_type,
+                mime_type: fileData.mime_type || fileData.file_type,
+                status: 'edited',
+                current_stage: 'pending_team_leader',
+                updated_at: new Date()
+            };
+
+            await fileRepository.updateStatus(existing.id, updates);
+            
+            logActivity(db, user.id, user.username, user.role, user.team,
+                `Re-uploaded/Edited rejected file: ${originalName}`);
+
+            const updatedFile = await fileRepository.findById(existing.id);
+            return enrichFilePaths(updatedFile);
+        }
+
         logInfo('Duplicate file found, cleaning up...', { fileId: existing.id });
         const tempPath = path.join(uploadsDir, fileData.file_path.replace(/^\/uploads\//, ''));
         try { await fs.unlink(tempPath); } catch (e) {}
@@ -395,7 +419,7 @@ async function getAllFiles(options = {}) {
         const ph = arr.map(() => '?').join(',');
         whereClauses.push(`f.status IN (${ph})`);
         params.push(...arr);
-        attachWhere.push(`COALESCE(aa.status,'team_leader_approved') IN (${ph})`);
+        attachWhere.push(`COALESCE(aa.status,'Task Reference') IN (${ph})`);
         attachParams.push(...arr);
     }
     if (stage) {
@@ -403,7 +427,7 @@ async function getAllFiles(options = {}) {
         const ph = arr.map(() => '?').join(',');
         whereClauses.push(`f.current_stage IN (${ph})`);
         params.push(...arr);
-        attachWhere.push(`COALESCE(aa.current_stage,'pending_admin') IN (${ph})`);
+        attachWhere.push(`COALESCE(aa.current_stage,'published') IN (${ph})`);
         attachParams.push(...arr);
     }
 
@@ -429,8 +453,8 @@ async function getAllFiles(options = {}) {
 
         SELECT aa.id, aa.original_name, aa.filename, aa.file_path, aa.file_size, aa.file_type,
                aa.created_at AS uploaded_at,
-               COALESCE(aa.status,'team_leader_approved') AS status,
-               COALESCE(aa.current_stage,'pending_admin') AS current_stage,
+               COALESCE(aa.status,'Task Reference') AS status,
+               COALESCE(aa.current_stage,'published') AS current_stage,
                aa.uploaded_by_username AS username, aa.uploaded_by_id AS user_id,
                u.team AS user_team, u.fullName AS user_fullname,
                NULL AS latest_comment,
@@ -884,7 +908,8 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
                             row2.source_type = 'assignment_attachment';
                             row2.user_id = row2.uploaded_by_id;
                             row2.username = row2.uploaded_by_username;
-                            row2.status = 'team_leader_approved';
+                            row2.status = 'Task Reference';
+                            row2.current_stage = 'published';
                         }
                         resolve(row2 || null);
                     }

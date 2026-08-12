@@ -12,10 +12,12 @@ const { moveToUserFolder: moveToUserFolderAsync } = require('../utils/fileUtils'
 // Network Uploads Configuration
 // IMPORTANT: Keep as simple path.join for NCC bundler compatibility
 const uploadsDir = path.join(networkDataPath, String('uploads'));
+const teamLeaderDir = path.join(networkDataPath, String('teamleader'));
 
 // NOTE: NAS directory check is deferred to upload time to avoid
 // blocking server startup when the NAS is temporarily unreachable.
 console.log(`📁 Uploads directory configured: ${uploadsDir}`);
+console.log(`📁 Team Leader directory configured: ${teamLeaderDir}`);
 
 // Configure multer storage with optimizations for large files
 const storage = multer.diskStorage({
@@ -161,5 +163,7 @@ module.exports = {
   setupMiddleware,
   upload,
   uploadsDir,
-  moveToUserFolder: moveToUserFolderAsync  // FIXED: Now exports async version
+  teamLeaderDir,
+  moveToUserFolder: moveToUserFolderAsync,
+  moveToTeamLeaderFolder: require('../utils/fileUtils').moveToTeamLeaderFolder
 };

@@ -99,28 +99,6 @@
   gap: 4px;
 }
 
-.legacy-file-status-badge {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.legacy-file-status-badge.uploaded {
-  background: #e0e7ff;
-  color: #4338ca;
-}
-
-.legacy-file-status-badge.final_approved {
-  background: #d1fae5;
-  color: #059669;
-}
-
-.legacy-file-status-badge.rejected_by_team_leader,
-.legacy-file-status-badge.rejected_by_admin {
-  background: #fee2e2;
-  color: #dc2626;
-}
 
 /* Folder Styling */
 .legacy-folder-group {
@@ -167,6 +145,25 @@
 .folder-meta {
   font-size: 11px;
   color: #64748b;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.folder-status-summary-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-summary-text {
+  font-weight: 700;
+  color: #4b5563;
+}
+
+.meta-sep {
+  margin: 0 6px;
+  opacity: 0.4;
+  color: #94a3b8;
 }
 
 .legacy-folder-content {

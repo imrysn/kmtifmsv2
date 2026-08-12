@@ -103,6 +103,72 @@ async function moveToUserFolder(tempPath, username, originalFilename, folderName
 }
 
 /**
+ * Move uploaded file from temp location to Team Leader's folder.
+ * Uses a different root directory (teamLeaderDir) than user submissions.
+ */
+async function moveToTeamLeaderFolder(tempPath, username, originalFilename, folderName = null, relativePath = null) {
+  const { teamLeaderDir } = require('../config/middleware');
+  const userDir = path.join(teamLeaderDir, username);
+
+  // Ensure user directory exists
+  try {
+    await fs.mkdir(userDir, { recursive: true });
+  } catch (mkdirError) {
+    throw new Error(`Failed to create team leader folder: ${mkdirError.message}`);
+  }
+
+  const decodedFilename = decodeUTF8Filename(originalFilename);
+  const sanitizedFilename = sanitizeFilename(decodedFilename);
+
+  let finalPath;
+  if (folderName && relativePath) {
+    const normalizedRelPath = relativePath.replace(/\\/g, '/');
+    const segments = normalizedRelPath.split('/');
+    const sanitizedSegments = segments.map((seg, i) =>
+      i === segments.length - 1 ? sanitizeFilename(seg) : sanitizeFilename(seg) || seg
+    );
+    const sanitizedRelPath = sanitizedSegments.join(path.sep);
+
+    const subfolderPath = path.dirname(path.join(userDir, sanitizedRelPath));
+    await fs.mkdir(subfolderPath, { recursive: true });
+    finalPath = path.join(userDir, sanitizedRelPath);
+  } else if (relativePath) {
+    finalPath = path.join(userDir, sanitizeFilename(relativePath));
+  } else {
+    finalPath = path.join(userDir, sanitizedFilename);
+  }
+
+  try {
+    await fs.access(tempPath);
+  } catch {
+    throw new Error(`Temp file not found: ${tempPath}`);
+  }
+
+  try {
+    await fs.rename(tempPath, finalPath);
+  } catch (renameError) {
+    if (renameError.code === 'EXDEV') {
+      try {
+        await fs.copyFile(tempPath, finalPath);
+        await fs.unlink(tempPath).catch(() => {});
+      } catch (copyError) {
+        throw new Error(`Failed to copy file to NAS (TL): ${copyError.message}`);
+      }
+    } else {
+      throw new Error(`Failed to move TL file: ${renameError.message}`);
+    }
+  }
+
+  try {
+    await fs.access(finalPath);
+  } catch {
+    throw new Error(`TL file verification failed after move: ${finalPath}`);
+  }
+
+  return finalPath;
+}
+
+/**
  * Sanitize filename for Windows filesystem
  * Removes forbidden characters and prevents path traversal
  */
@@ -131,10 +197,25 @@ async function safeDeleteFile(filePath) {
   }
 }
 
+/**
+ * Safely delete a directory and its contents.
+ */
+async function safeDeleteDir(dirPath) {
+  try {
+    await fs.rm(dirPath, { recursive: true, force: true });
+    return { success: true };
+  } catch (error) {
+    if (error.code === 'ENOENT') return { success: true, notFound: true };
+    console.error(`Failed to delete directory ${dirPath}:`, error.message);
+    return { success: false, error, message: error.message };
+  }
+}
+
 /** Returns true if dirPath is an existing directory. */
 async function directoryExists(dirPath) {
   try {
-    return (await fs.stat(dirPath)).isDirectory();
+    const stats = await fs.stat(dirPath);
+    return stats.isDirectory();
   } catch {
     return false;
   }
@@ -153,9 +234,11 @@ async function ensureDirectory(dirPath) {
 
 module.exports = {
   moveToUserFolder,
+  moveToTeamLeaderFolder,
   decodeUTF8Filename,
   sanitizeFilename,
   safeDeleteFile,
+  safeDeleteDir,
   directoryExists,
   ensureDirectory
 };

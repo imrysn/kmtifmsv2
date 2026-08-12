@@ -45,6 +45,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [reviewComments, setReviewComments] = useState('')
   const [reviewAction, setReviewAction] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, percentage: 0, currentFileName: '' })
   const [searchQuery, setSearchQuery] = useState('')
   const [fileComments, setFileComments] = useState([])
   const [openMenuId, setOpenMenuId] = useState(null)
@@ -197,6 +198,19 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     syncElectronBadge(unreadCount)
   }, [unreadCount])
+  
+  // Prevent accidental window closure during active uploads
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isProcessing) {
+        e.preventDefault();
+        e.returnValue = ''; // Standard browser way to show confirmation
+        return '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isProcessing]);
 
   useEffect(() => {
     const handleClickOutside = () => {
@@ -374,10 +388,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   const createAssignment = async (attachedFiles = [], removedAttachmentIds = []) => {
-    const removeAttachmentIds = removedAttachmentIds || [];
-    if (removeAttachmentIds.length > 0) {
-      console.log('📤 Sending removedAttachmentIds to server:', removeAttachmentIds);
-    }
     if (!assignmentForm.title.trim()) {
       setError('Please enter assignment title')
       return
@@ -388,186 +398,120 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       return
     }
 
-    // require team selection if multiple teams exist
     if (uniqueTeams && uniqueTeams.length > 1 && !assignmentForm.selectedTeam) {
       setError('Please select a team')
       return
     }
 
     setIsProcessing(true)
-
-    const handlePostDataResult = (data, removeAttachmentIds) => {
-      if (data.success) {
-        setSuccess(editingAssignmentId
-          ? 'Task updated successfully!'
-          : `Assignment created! ${data.membersAssigned} members assigned.`
-        )
-        // immediately remove attachments locally so UI reflects change even before server refetch
-        if (editingAssignmentId && removeAttachmentIds.length > 0) {
-          setAssignments(prev => prev.map(a => {
-            if (a.id === editingAssignmentId) {
-              return {
-                ...a,
-                attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
-              }
-            }
-            return a
-          }))
-        }
-        setShowCreateAssignmentModal(false)
-        setEditingAssignmentId(null)
-        setAssignmentForm({
-          title: '',
-          description: '',
-          dueDate: '',
-          fileTypeRequired: '',
-          assignedMembers: [],
-          selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
-        })
-        fetchAssignments()
-      } else {
-        setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
-      }
-    };
+    setUploadProgress({ current: 0, total: 0, percentage: 0, currentFileName: '' })
 
     try {
-      const hasAttachments = attachedFiles && attachedFiles.length > 0
-
-      let response
-
-      // choose url/method for both create and update using main endpoint so we can handle removals
-      const url = editingAssignmentId
-        ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}`
-        : `${API_BASE_URL}/api/assignments/create`
-      const method = editingAssignmentId ? 'PUT' : 'POST'
-
-      if (hasAttachments || (removedAttachmentIds && removedAttachmentIds.length > 0)) {
-        // Request a one-time nonce from the server before uploading.
-        // This prevents Electron's multipart cache from replaying old uploads.
-        const nonceData = await apiFetch(`/api/assignments/upload-nonce`, { method: 'POST' })
-        if (!nonceData.success) throw new Error('Failed to get upload nonce')
-
-        const formData = new FormData()
-        formData.append('title', assignmentForm.title)
-        formData.append('description', assignmentForm.description || '')
-        formData.append('dueDate', assignmentForm.dueDate || '')
-        formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
-        formData.append('assignedTo', 'specific')
-        formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
-        formData.append('teamLeaderId', user.id)
-        formData.append('teamLeaderUsername', user.username)
-        formData.append('team', assignmentForm.selectedTeam || user.team)
-        // Only flag hasAttachments=true when there are actual new files to upload
-        formData.append('hasAttachments', hasAttachments ? 'true' : 'false')
-        formData.append('uploadNonce', nonceData.nonce)
-        attachedFiles.forEach((file) => formData.append('attachments', file))
-        // Send relative paths so server can group files into folders
-        formData.append('relativePaths', JSON.stringify(attachedFiles.map(f => f.webkitRelativePath || f.name)))
-        // tell server which existing attachment ids to delete
-        if (removedAttachmentIds && removedAttachmentIds.length > 0) {
-          formData.append('removeAttachmentIds', JSON.stringify(removedAttachmentIds));
-        }
-
-        let responseData;
-        try {
-          responseData = await apiFetch(url, {
-            method,
-            body: formData,
-            headers: {} // Don't set Content-Type for FormData
-          })
-        } catch (error) {
-          // If server rejected due to a stale/replayed nonce
-          if (error.message && error.message.toLowerCase().includes('nonce')) {
-            console.warn('⚠️ Nonce rejected — falling back to JSON request (no attachments)')
-            // For new assignments, fall back to /create-json; for edits, fall back to PUT /:id with JSON
-            const fallbackUrl = editingAssignmentId
-              ? url
-              : `/api/assignments/create-json`
-            const fallbackMethod = editingAssignmentId ? 'PUT' : 'POST'
-            const fallbackData = await apiFetch(fallbackUrl, {
-              method: fallbackMethod,
-              body: JSON.stringify({
-                title: assignmentForm.title,
-                description: assignmentForm.description || '',
-                dueDate: assignmentForm.dueDate || '',
-                fileTypeRequired: assignmentForm.fileTypeRequired || '',
-                assignedTo: 'specific',
-                assignedMembers: assignmentForm.assignedMembers,
-                teamLeaderId: user.id,
-                teamLeaderUsername: user.username,
-                team: assignmentForm.selectedTeam || user.team,
-                removeAttachmentIds
-              })
-            })
-            return handlePostDataResult(fallbackData, removeAttachmentIds);
-          }
-          // Re-throw if it's not a nonce error
-          throw error;
-        }
-        return handlePostDataResult(responseData, removeAttachmentIds);
-      } else {
-        // No file changes — use JSON-only endpoints (no nonce needed)
-        // New assignments → /create-json; edits → PUT /:id with JSON
-        const jsonUrl = editingAssignmentId
-          ? url
-          : `/api/assignments/create-json`
-        const jsonMethod = editingAssignmentId ? 'PUT' : 'POST'
-        const data = await apiFetch(jsonUrl, {
-          method: jsonMethod,
-          body: JSON.stringify({
-            title: assignmentForm.title,
-            description: assignmentForm.description || '',
-            dueDate: assignmentForm.dueDate || '',
-            fileTypeRequired: assignmentForm.fileTypeRequired || '',
-            assignedTo: 'specific',
-            assignedMembers: assignmentForm.assignedMembers,
-            teamLeaderId: user.id,
-            teamLeaderUsername: user.username,
-            team: assignmentForm.selectedTeam || user.team,
-            removeAttachmentIds // may be []
-          })
+      // Step 1: Create or update assignment metadata via JSON
+      const jsonUrl = editingAssignmentId
+        ? `/api/assignments/${editingAssignmentId}`
+        : `/api/assignments/create-json`
+      const jsonMethod = editingAssignmentId ? 'PUT' : 'POST'
+      
+      const response = await apiFetch(jsonUrl, {
+        method: jsonMethod,
+        body: JSON.stringify({
+          title: assignmentForm.title,
+          description: assignmentForm.description || '',
+          dueDate: assignmentForm.dueDate || '',
+          fileTypeRequired: assignmentForm.fileTypeRequired || '',
+          assignedTo: 'specific',
+          assignedMembers: assignmentForm.assignedMembers,
+          teamLeaderId: user.id,
+          teamLeaderUsername: user.username,
+          team: assignmentForm.selectedTeam || user.team,
+          removeAttachmentIds: removedAttachmentIds || []
         })
-        return handlePostDataResult(data, removeAttachmentIds);
+      })
+
+      if (!response.success) {
+        throw new Error(response.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
       }
 
-      function handlePostDataResult(data, removeAttachmentIds) {
-        if (data.success) {
-          setSuccess(editingAssignmentId
-            ? 'Task updated successfully!'
-            : `Assignment created! ${data.membersAssigned} members assigned.`
-          )
-          // immediately remove attachments locally so UI reflects change even before server refetch
-          if (editingAssignmentId && removeAttachmentIds.length > 0) {
-            setAssignments(prev => prev.map(a => {
-              if (a.id === editingAssignmentId) {
-                return {
-                  ...a,
-                  attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
-                }
+      const assignmentId = editingAssignmentId || response.assignmentId
+      const newFiles = attachedFiles && attachedFiles.length > 0 ? attachedFiles : []
+
+      // Step 2: Upload new attachments in parallel batches
+      if (newFiles.length > 0) {
+        const totalFiles = newFiles.length
+        setUploadProgress({ current: 0, total: totalFiles, percentage: 0, currentFileName: '' })
+
+        const CONCURRENCY = 5
+        let nextIndex = 0
+        const uploadErrors = []
+
+        const uploadWorker = async () => {
+          while (nextIndex < totalFiles) {
+            const index = nextIndex++
+            const file = newFiles[index]
+            
+            setUploadProgress(prev => ({ ...prev, currentFileName: file.name }))
+
+            try {
+              const formData = new FormData()
+              formData.append('attachments', file)
+              formData.append('teamLeaderId', user.id)
+              formData.append('teamLeaderUsername', user.username)
+              formData.append('relativePaths', JSON.stringify([file.webkitRelativePath || file.name]))
+
+              const uploadData = await apiFetch(`/api/assignments/${assignmentId}/attachments`, {
+                method: 'POST',
+                body: formData,
+                headers: {}
+              })
+
+              if (!uploadData.success) {
+                uploadErrors.push(`${file.name}: ${uploadData.message}`)
               }
-              return a
-            }))
+            } catch (err) {
+              uploadErrors.push(`${file.name}: ${err.message}`)
+            } finally {
+              setUploadProgress(prev => {
+                const newCurrent = prev.current + 1
+                return {
+                  ...prev,
+                  current: newCurrent,
+                  percentage: Math.round((newCurrent / totalFiles) * 100)
+                }
+              })
+            }
           }
-          setShowCreateAssignmentModal(false)
-          setEditingAssignmentId(null)
-          setAssignmentForm({
-            title: '',
-            description: '',
-            dueDate: '',
-            fileTypeRequired: '',
-            assignedMembers: [],
-            selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
-          })
-          fetchAssignments()
-        } else {
-          setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
+        }
+
+        await Promise.all(Array(Math.min(CONCURRENCY, totalFiles)).fill().map(uploadWorker))
+
+        if (uploadErrors.length > 0 && uploadErrors.length === totalFiles) {
+          throw new Error('Failed to upload attachments: ' + uploadErrors.join(', '))
         }
       }
-    } catch (error) {
-      console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
-      setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
+
+      // Final Success Handling
+      setSuccess(editingAssignmentId ? 'Task updated successfully!' : 'Task created successfully!')
+      
+      // Cleanup
+      setShowCreateAssignmentModal(false)
+      setEditingAssignmentId(null)
+      setAssignmentForm({
+        title: '',
+        description: '',
+        dueDate: '',
+        fileTypeRequired: '',
+        assignedMembers: [],
+        selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
+      })
+      fetchAssignments()
+      
+    } catch (err) {
+      console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, err)
+      setError(err.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
     } finally {
       setIsProcessing(false)
+      setUploadProgress({ current: 0, total: 0, percentage: 0, currentFileName: '' })
     }
   }
 
@@ -1299,10 +1243,12 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               teams={uniqueTeams} // Pass unique teams to modal
               isEditMode={!!editingAssignmentId}
               initialAttachments={modalInitialAttachments}
+              uploadProgress={uploadProgress}
               onClose={() => {
                 setShowCreateAssignmentModal(false)
                 setIsProcessing(false)
                 setEditingAssignmentId(null)
+                setUploadProgress({ current: 0, total: 0, percentage: 0, currentFileName: '' })
                 setModalInitialAttachments([])
                 setAssignmentForm({
                   title: '',

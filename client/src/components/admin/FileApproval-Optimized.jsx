@@ -433,10 +433,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const statusCounts = useMemo(() => {
     return {
-      pendingTeamLeader: files.filter(f => f.status === 'uploaded').length,
+      pendingTeamLeader: files.filter(f => f.status === 'uploaded' || f.status === 'submitted').length,
       pendingAdmin: files.filter(f => f.status === 'team_leader_approved').length,
-      approved: files.filter(f => f.status === 'final_approved').length,
-      rejected: files.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
+      approved: files.filter(f => f.status === 'final_approved' || f.status === 'approved').length,
+      rejected: files.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin' || f.status === 'rejected' || f.status === 'final_rejection').length
     }
   }, [files])
 
@@ -446,19 +446,27 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
     if (fileFilter !== 'all') {
       filtered = filtered.filter(file => {
+        const s = file.status?.toLowerCase();
         switch (fileFilter) {
           case 'pending-team-leader':
-            return file.status === 'uploaded'
+            return s === 'uploaded' || s === 'submitted';
           case 'pending-admin':
-            return file.status === 'team_leader_approved'
+            return s === 'team_leader_approved';
           case 'approved':
-            return file.status === 'final_approved'
+            return s === 'final_approved' || s === 'approved';
           case 'rejected':
-            return file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin'
+            return s === 'rejected_by_team_leader' || s === 'rejected_by_admin' || s === 'rejected' || s === 'final_rejection';
           default:
-            return false
+            return false;
         }
       })
+    } else {
+      // For 'all' filter, exclude 'Task Reference' files from the approval queue view
+      // since they are for reference only and don't need approval.
+      filtered = filtered.filter(file => {
+        const s = file.status?.toLowerCase();
+        return s !== 'task reference' && s !== 'task_reference';
+      });
     }
 
     if (fileSearchQuery && fileSearchQuery.trim() !== '') {

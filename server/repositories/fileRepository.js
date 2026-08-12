@@ -597,8 +597,8 @@ async function createAttachment(data) {
     const query = `
         INSERT INTO assignment_attachments (
             assignment_id, file_path, original_name, filename, file_size, 
-            file_type, uploaded_by_username, folder_name, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            file_type, uploaded_by_username, folder_name, status, current_stage, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Task Reference', 'published', CURRENT_TIMESTAMP)
     `;
 
     try {
@@ -621,8 +621,8 @@ async function findAllAttachmentsWithDetails(options = {}) {
         SELECT
             aa.id, aa.original_name, aa.filename, aa.file_path, aa.file_size, aa.file_type,
             aa.created_at AS uploaded_at,
-            COALESCE(aa.status, 'team_leader_approved') AS status,
-            COALESCE(aa.current_stage, 'pending_admin') AS current_stage,
+            COALESCE(aa.status, 'Task Reference') AS status,
+            COALESCE(aa.current_stage, 'published') AS current_stage,
             aa.uploaded_by_username AS username, aa.uploaded_by_id AS user_id,
             u.team AS user_team, u.fullName AS user_fullname,
             COALESCE(aa.folder_name, NULL) AS folder_name,

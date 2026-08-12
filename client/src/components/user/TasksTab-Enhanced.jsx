@@ -5,6 +5,7 @@ import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
 import { FileIcon, PremiumTaskCard, PremiumModal } from '../shared';
 import FileModal from './FileModal';
+import { FileOpenModal } from '../shared';
 import CommentsModal from '../shared/CommentsModal';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
@@ -285,6 +286,7 @@ const TasksTab = memo(({
   const [fileDescription, setFileDescription] = useState('');
   const [fileTag, setFileTag] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, percentage: 0, currentFileName: '' });
   const [uploadMode, setUploadMode] = useState('files');
   const [targetFolder, setTargetFolder] = useState(null);
 
@@ -302,6 +304,28 @@ const TasksTab = memo(({
   const currentAssignmentIdRef = useRef(null);
   const newCommentRef = useRef(newComment);
   newCommentRef.current = newComment;
+
+  const [fileToOpen, setFileToOpen] = useState(null);
+  const [isOpeningFile, setIsOpeningFile] = useState(false);
+
+  // Prevent accidental window closure during active uploads
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isUploading) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isUploading]);
+
+  const handleCloseSubmitModal = useCallback(() => {
+    if (isUploading) return;
+    setShowSubmitModal(false);
+    resetSubmitModal();
+  }, [isUploading]);
 
   // ─── Fetch helpers ─────────────────────────────────────────────────────────
   const showError = useCallback((message) =>
@@ -505,6 +529,36 @@ const TasksTab = memo(({
     }
   }, [showError]);
 
+  const handleOpenFile = async (filePath, fileId) => {
+    if (!filePath) {
+      showError('File path not available');
+      return false;
+    }
+    try {
+      setIsOpeningFile(true);
+      const isElectron = window.electron && window.electron.openFileInApp;
+      if (isElectron) {
+        const pathData = await apiFetch(`/api/files/${fileId}/path`);
+        if (!pathData.success) throw new Error(pathData.message || 'Failed to get file path');
+        const result = await window.electron.openFileInApp(pathData.filePath);
+        if (result.success) return true;
+        else throw new Error(result.error || 'Failed to open file');
+      } else {
+        const fileUrl = `${API_BASE_URL}${filePath}`;
+        const newWindow = window.open(fileUrl, '_blank');
+        if (!newWindow) throw new Error('Pop-up blocked. Please allow pop-ups for this site.');
+        newWindow.focus();
+        return true;
+      }
+    } catch (error) {
+      console.error('Error opening file:', error);
+      showError(`Error opening file: ${error.message || 'Failed to open file'}`);
+      return false;
+    } finally {
+      setIsOpeningFile(false);
+    }
+  };
+
 
 
   const confirmDeleteFile = useCallback((assignmentId, fileId, fileName) => {
@@ -569,6 +623,9 @@ const TasksTab = memo(({
   const handleFileUpload = useCallback(async () => {
     if (!uploadedFiles.length || !currentAssignment) return;
     setIsUploading(true);
+    const totalFiles = uploadedFiles.length;
+    setUploadProgress({ current: 0, total: totalFiles, percentage: 0, currentFileName: '' });
+
     try {
       // Auto-replace duplicate file names
       if (currentAssignment.submitted_files?.length) {
@@ -587,45 +644,80 @@ const TasksTab = memo(({
 
       const uploadedFileIds = [];
       const uploadErrors = [];
+      
+      // Parallel upload worker pool (concurrency = 5)
+      const CONCURRENCY = 5;
+      let nextIndex = 0;
 
-      for (const fileObj of uploadedFiles) {
-        const formData = new FormData();
-        formData.append('file', fileObj.file);
-        formData.append('userId', user.id);
-        formData.append('username', user.username);
-        formData.append('fullName', user.fullName);
-        formData.append('userTeam', user.team);
-        formData.append('userRole', user.role || '');
-        formData.append('description', fileDescription || '');
-        formData.append('tag', fileTag || '');
-        formData.append('replaceExisting', 'true');
+      const uploadWorker = async () => {
+        while (nextIndex < totalFiles) {
+          const index = nextIndex++;
+          const fileObj = uploadedFiles[index];
+          
+          setUploadProgress(prev => ({ 
+            ...prev, 
+            currentFileName: fileObj.file.name 
+          }));
 
-        const effectiveFolderName = targetFolder || fileObj.folderName;
-        if (effectiveFolderName) {
-          formData.append('folderName', effectiveFolderName);
-          formData.append('relativePath', `${effectiveFolderName}/${fileObj.file.name}`);
-          formData.append('isFolder', 'true');
-        } else {
-          formData.append('isFolder', 'false');
+          try {
+            const formData = new FormData();
+            formData.append('file', fileObj.file);
+            formData.append('userId', user.id);
+            formData.append('username', user.username);
+            formData.append('fullName', user.fullName);
+            formData.append('userTeam', user.team);
+            formData.append('userRole', user.role || '');
+            formData.append('description', fileDescription || '');
+            formData.append('tag', fileTag || '');
+            formData.append('replaceExisting', 'true');
+
+            const effectiveFolderName = targetFolder || fileObj.folderName;
+            if (effectiveFolderName) {
+              formData.append('folderName', effectiveFolderName);
+              formData.append('relativePath', `${effectiveFolderName}/${fileObj.file.name}`);
+              formData.append('isFolder', 'true');
+            } else {
+              formData.append('isFolder', 'false');
+            }
+
+            const isRevision = currentAssignment.submitted_files?.some(
+              f => (f.original_name === fileObj.file.name || f.filename === fileObj.file.name) &&
+                ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)
+            ) ?? false;
+            formData.append('isRevision', String(isRevision));
+
+            const uploadData = await apiFetch(`/api/files/upload`, { 
+              method: 'POST', 
+              body: formData,
+              headers: {} 
+            });
+
+            if (uploadData.success) {
+              uploadedFileIds.push(uploadData.file.id);
+            } else {
+              uploadErrors.push(`${fileObj.file.name}: ${uploadData.message}`);
+            }
+          } catch (err) {
+            uploadErrors.push(`${fileObj.file.name}: ${err.message}`);
+          } finally {
+            setUploadProgress(prev => {
+              const newCurrent = prev.current + 1;
+              return {
+                ...prev,
+                current: newCurrent,
+                percentage: Math.round((newCurrent / totalFiles) * 100)
+              };
+            });
+          }
         }
+      };
 
-        const isRevision = currentAssignment.submitted_files?.some(
-          f => (f.original_name === fileObj.file.name || f.filename === fileObj.file.name) &&
-            ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)
-        ) ?? false;
-        formData.append('isRevision', String(isRevision));
-
-        const uploadData = await apiFetch(`/api/files/upload`, { 
-          method: 'POST', 
-          body: formData,
-          headers: {} // Important: Don't set Content-Type for FormData
-        });
-        if (uploadData.success) uploadedFileIds.push(uploadData.file.id);
-        else uploadErrors.push(`${fileObj.file.name}: ${uploadData.message}`);
-      }
+      // Start the workers
+      await Promise.all(Array(Math.min(CONCURRENCY, totalFiles)).fill().map(uploadWorker));
 
       if (!uploadedFileIds.length) throw new Error('No files were uploaded successfully. ' + uploadErrors.join(', '));
 
+      // Batch submit file IDs (these are small JSON requests, no need to parallelize individually but could be grouped)
       const submissionErrors = [];
       for (const fileId of uploadedFileIds) {
         const submitData = await apiFetch(`/api/assignments/submit`, {
@@ -650,6 +742,7 @@ const TasksTab = memo(({
       showError(err.message || 'Failed to upload files');
     } finally {
       setIsUploading(false);
+      setUploadProgress({ current: 0, total: 0, percentage: 0, currentFileName: '' });
     }
   }, [uploadedFiles, currentAssignment, user, fileDescription, fileTag, targetFolder, fetchAssignments, resetSubmitModal, showError]);
 
@@ -711,8 +804,9 @@ const TasksTab = memo(({
     openFileDetails({ id: fid, assignment_title: assignmentTitle });
   }, [assignments, openFileDetails]);
 
-  const openFolderInExplorer = useCallback(async (fileId) => {
-    if (!window.electron?.openFolderInExplorer) return;
+  const openFolderInExplorer = useCallback(async (file) => {
+    if (!window.electron?.openFolderInExplorer || !file) return;
+    const fileId = file.id || file; // Handle both object and ID
     try {
       const data = await apiFetch(`/api/files/${fileId}/path`);
       if (data.success && data.filePath) await window.electron.openFolderInExplorer(data.filePath);
@@ -895,9 +989,8 @@ const TasksTab = memo(({
                 if (action === 'refresh') fetchAssignments();
               }}
               onPrimaryClick={(action, t) => action === 'submit' && handleSubmit(t)}
-              onFileClick={() => {
-                setFileOpenToast(true);
-                setTimeout(() => setFileOpenToast(false), 3500);
+              onFileClick={(file) => {
+                setFileToOpen(file);
               }}
               onDownloadFile={handleDownloadFile}
               onFileDelete={(file) => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename)}
@@ -1012,6 +1105,23 @@ const TasksTab = memo(({
 
 
 
+      {/* File Open Modal */}
+      <FileOpenModal
+        isOpen={!!fileToOpen}
+        file={fileToOpen}
+        isLoading={isOpeningFile}
+        onClose={() => setFileToOpen(null)}
+        onConfirm={async () => {
+          if (!fileToOpen) return;
+          const success = await handleOpenFile(fileToOpen.file_path, fileToOpen.id);
+          if (success) {
+            setFileToOpen(null);
+            setFileOpenToast(true);
+            setTimeout(() => setFileOpenToast(false), 3500);
+          }
+        }}
+      />
+
       {/* File Open Toast */}
       {fileOpenToast && (
         <div style={{ position: 'fixed', top: '28px', right: '28px', zIndex: 9999, background: '#fff', border: '1px solid #bbf7d0', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.13)', padding: '18px 22px 14px 18px', display: 'flex', alignItems: 'flex-start', gap: '14px', minWidth: '280px', maxWidth: '380px', animation: 'slideInRight 0.25s ease' }}>
@@ -1066,7 +1176,7 @@ const TasksTab = memo(({
 
       {/* Submit Modal */}
       {showSubmitModal && currentAssignment && (
-        <div className="tasks-modal-overlay">
+        <div className="tasks-modal-overlay" onClick={handleCloseSubmitModal}>
           <div className="tasks-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <div className="tasks-modal-header" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '16px' }}>
               <div style={{ flex: 1, marginRight: '40px' }}>
@@ -1078,7 +1188,12 @@ const TasksTab = memo(({
                   )}
                 </div>
               </div>
-              <button className="tasks-modal-close" onClick={() => { setShowSubmitModal(false); resetSubmitModal(); }}>×</button>
+              <button 
+                className="tasks-modal-close" 
+                onClick={handleCloseSubmitModal} 
+                disabled={isUploading}
+                style={{ opacity: isUploading ? 0.5 : 1, cursor: isUploading ? 'not-allowed' : 'pointer' }}
+              >×</button>
             </div>
 
             <div className="tasks-modal-body">
@@ -1217,10 +1332,35 @@ const TasksTab = memo(({
               </div>
             </div>
 
+            {isUploading && (
+              <div style={{ padding: '0 24px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#4b5563', marginBottom: '8px' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
+                    Uploading <strong>{uploadProgress.currentFileName || 'files'}</strong>...
+                  </span>
+                  <span>{uploadProgress.current} of {uploadProgress.total}</span>
+                </div>
+                <div style={{ height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: `${uploadProgress.percentage}%`, height: '100%', backgroundColor: '#4f46e5', transition: 'width 0.3s ease' }} />
+                </div>
+              </div>
+            )}
+
             <div className="tasks-modal-footer" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <button
-                onClick={() => { setShowSubmitModal(false); resetSubmitModal(); }}
-                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+                onClick={handleCloseSubmitModal}
+                disabled={isUploading}
+                style={{ 
+                  padding: '10px 20px', 
+                  borderRadius: '8px', 
+                  border: '1px solid #d1d5db', 
+                  backgroundColor: '#fff', 
+                  color: '#374151', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  cursor: isUploading ? 'not-allowed' : 'pointer',
+                  opacity: isUploading ? 0.5 : 1
+                }}
               >
                 Cancel
               </button>
