@@ -203,6 +203,38 @@
   stroke: #ef4444;
 }
 
+/* Info (comment/mention) */
+.user-notification-component .notification-card.notification-info .notification-icon svg {
+  color: #3b82f6;
+  stroke: #3b82f6;
+}
+
+/* Warning (revision_request / for_editing) */
+.user-notification-component .notification-card.notification-warning .notification-icon svg {
+  color: #f59e0b;
+  stroke: #f59e0b;
+}
+
+/* Due Soon (1 day remaining) — amber clock */
+.user-notification-component .notification-card.notification-due-soon .notification-icon svg {
+  color: #d97706;
+  stroke: #d97706;
+}
+.user-notification-component .notification-card.notification-due-soon.unread {
+  background-color: #fffbeb;
+  border-color: #fcd34d;
+}
+
+/* Overdue — red warning triangle */
+.user-notification-component .notification-card.notification-overdue .notification-icon svg {
+  color: #dc2626;
+  stroke: #dc2626;
+}
+.user-notification-component .notification-card.notification-overdue.unread {
+  background-color: #fff1f2;
+  border-color: #fca5a5;
+}
+
 .user-notification-component .notification-card .notification-icon svg {
   width: 28px;
   height: 28px;

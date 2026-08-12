@@ -1,17 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { apiFetch, API_BASE_URL } from '@/config/api'
+import Avatar from './Avatar'
 
 /**
  * FileViewersButton
  * Eye icon button that shows a popover listing everyone who has viewed a file.
  * Usage: <FileViewersButton fileId={file.id} />
  */
-const FileViewersButton = ({ fileId, size = 14 }) => {
+const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSource = 'submission' }) => {
   const [viewers, setViewers] = useState([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const [count, setCount] = useState(null)
+
+  // Use externalCount when provided (instant update from parent)
+  const displayCount = externalCount !== undefined ? externalCount : (count ?? 0)
   const ref = useRef(null)
   const btnRef = useRef(null)
   const popoverRef = useRef(null)
@@ -49,21 +53,44 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
     }
   }, [open])
 
-  // Fetch count on mount
+  // Fetch count on mount — also surfaces the real count to parent via a callback
+  // so that externalCount (used for optimistic +1) is seeded correctly.
   useEffect(() => {
     if (!fileId) return
-    apiFetch(`${API_BASE_URL}/api/files/${fileId}/views`)
-      .then(d => { if (d.success) setCount(d.viewers?.length ?? 0) })
+    apiFetch(`${API_BASE_URL}/api/files/${fileId}/views?type=${fileSource}`)
+      .then(d => { 
+        if (d.success) {
+          let v = d.viewers || [];
+          if (minDate) {
+            const minTime = new Date(minDate).getTime();
+            v = v.filter(viewer => new Date(viewer.viewed_at).getTime() >= minTime);
+          }
+          setCount(v.length);
+        }
+      })
       .catch(() => {})
-  }, [fileId])
+  }, [fileId, minDate, fileSource])
+
+  // When externalCount is provided by the parent (optimistic bump), keep internal
+  // count in sync so that after the popover is opened the badge doesn't reset.
+  useEffect(() => {
+    if (externalCount !== undefined) {
+      setCount(externalCount);
+    }
+  }, [externalCount])
 
   const fetchViewers = async () => {
     setLoading(true)
     try {
-      const data = await apiFetch(`${API_BASE_URL}/api/files/${fileId}/views`)
+      const data = await apiFetch(`${API_BASE_URL}/api/files/${fileId}/views?type=${fileSource}`)
       if (data.success) {
-        setViewers(data.viewers || [])
-        setCount(data.viewers?.length ?? 0)
+        let v = data.viewers || [];
+        if (minDate) {
+          const minTime = new Date(minDate).getTime();
+          v = v.filter(viewer => new Date(viewer.viewed_at).getTime() >= minTime);
+        }
+        setViewers(v)
+        setCount(v.length)
       }
     } catch {}
     setLoading(false)
@@ -125,7 +152,7 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
       <button
         ref={btnRef}
         onClick={handleClick}
-        title={count > 0 ? `${count} view${count !== 1 ? 's' : ''} — click to see who` : 'No views yet'}
+        title={displayCount > 0 ? `${displayCount} view${displayCount !== 1 ? 's' : ''} — click to see who` : 'No views yet'}
         style={{
           background: open ? '#f0fdf4' : 'transparent',
           border: 'none',
@@ -136,7 +163,7 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          color: open ? '#16a34a' : count > 0 ? '#16a34a' : '#9ca3af',
+          color: open ? '#16a34a' : displayCount > 0 ? '#16a34a' : '#9ca3af',
           flexShrink: 0,
           transition: 'all 0.15s',
           position: 'relative',
@@ -148,17 +175,17 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
         onMouseLeave={e => {
           if (!open) {
             e.currentTarget.style.backgroundColor = 'transparent'
-            e.currentTarget.style.color = count > 0 ? '#16a34a' : '#9ca3af'
+            e.currentTarget.style.color = displayCount > 0 ? '#16a34a' : '#9ca3af'
           }
         }}
       >
-        {/* Eye icon for viewers tracking */}
+        {/* Eye icon representing viewers list */}
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
         {/* Viewer count badge */}
-        {count > 0 && (
+        {displayCount > 0 && (
           <span style={{
             position: 'absolute',
             top: '1px',
@@ -177,7 +204,7 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
             lineHeight: 1,
             pointerEvents: 'none',
           }}>
-            {count > 99 ? '99+' : count}
+            {displayCount > 99 ? '99+' : displayCount}
           </span>
         )}
       </button>
@@ -205,8 +232,8 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
             borderBottom: '1px solid #f3f4f6'
           }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
             </svg>
             <span style={{ fontSize: '12px', fontWeight: '700', color: '#374151' }}>
               Viewed by{!loading && viewers.length > 0 ? ` (${viewers.length})` : ''}
@@ -239,15 +266,15 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
                     borderBottom: i < viewers.length - 1 ? '1px solid #f3f4f6' : 'none',
                   }}
                 >
-                  {/* Avatar circle with initials */}
                   <div style={{
-                    width: '34px', height: '34px', borderRadius: '50%',
-                    background: getRoleColor(v.role),
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontSize: '11px', fontWeight: '700', flexShrink: 0,
-                    letterSpacing: '0.5px',
+                    flexShrink: 0,
                   }}>
-                    {getInitials(getDisplayName(v))}
+                    <Avatar user={{
+                      username: v.username,
+                      fullName: getDisplayName(v),
+                      profile_picture: v.profile_picture
+                    }} size="sm" />
                   </div>
 
                   {/* Name + username + role + time */}

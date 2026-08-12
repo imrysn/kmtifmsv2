@@ -1,16 +1,26 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, useTransition, useDeferredValue } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
+import { useAdminTasks } from '@/hooks/useAdminTasks'
 import './TaskManagement.css'
 import './SmartNavigation.css'
-import { AlertMessage, ConfirmationModal, CommentsModal, FileOpenModal, PremiumTaskCard, PremiumModal, StatusBadge, TeamBadge } from '../shared'
-import { FileDetailsModal } from './modals'
+import FileIcon from '../shared/FileIcon.jsx'
+import FileViewersButton from '../shared/FileViewersButton.jsx'
+import Avatar from '../shared/Avatar.jsx'
+import { AlertMessage, ConfirmationModal, CommentsModal, FileOpenModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 import { useSmartNavigation } from '../shared/SmartNavigation'
-import { formatDate, formatDateTime, formatFileSize, groupFilesByFolder, getInitials } from '../../utils/ui-helpers';
-import { openFile, downloadFile, downloadFolder } from '../../utils/file-actions';
+import { recursiveGroupByPath } from '@utils/folderUtils'
+import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtils'
 
-// Helpers moved to shared/utils/ui-helpers.js and file-actions.js
+// Utility function to format file size
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
 
 const TaskManagement = ({
   error,
@@ -31,8 +41,20 @@ const TaskManagement = ({
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
 
-  const [assignments, setAssignments] = useState([])
-  const [loading, setLoading] = useState(true)
+  // ── React Query cache ────────────────────────────────────────────────────
+  const {
+    assignments,
+    nextCursor,
+    hasMore,
+    loading,
+    isFetching,
+    error: fetchError,
+    loadMore: loadMoreAssignments,
+    refetch: refetchAssignments,
+    removeAssignment,
+  } = useAdminTasks()
+
+  const [searchQuery, setSearchQuery] = useState('')
   const [loadingMore, setLoadingMore] = useState(false)
   const [expandedAssignments, setExpandedAssignments] = useState({})
   const [showCommentsModal, setShowCommentsModal] = useState(false)
@@ -40,27 +62,32 @@ const TaskManagement = ({
   const [comments, setComments] = useState([])
   const [loadingComments, setLoadingComments] = useState(false)
   const [newComment, setNewComment] = useState('')
+  const [isPostingComment, setIsPostingComment] = useState(false)
+  const [isPostingReply, setIsPostingReply] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [replyText, setReplyText] = useState('')
   const [visibleReplies, setVisibleReplies] = useState({})
-
+  const [isOpeningFile, setIsOpeningFile] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [assignmentToDelete, setAssignmentToDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showMenuForAssignment, setShowMenuForAssignment] = useState(null)
   const [expandedAttachments, setExpandedAttachments] = useState({})
+  const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
+  const [fileToOpen, setFileToOpen] = useState(null)
+  const [expandedFolders, setExpandedFolders] = useState({})
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' })
   const [openedFileIds, setOpenedFileIds] = useState(new Set())
   const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
-  const [commentCounts, setCommentCounts] = useState({}) // Real-time comment count tracking
-  
-  // File Review States
-  const [showFileModal, setShowFileModal] = useState(false)
-  const [selectedFile, setSelectedFile] = useState(null)
-  const [fileToOpen, setFileToOpen] = useState(null) // Added for FileOpenModal
-  const [isProcessingFileAction, setIsProcessingFileAction] = useState(false)
-  const [isOpeningFile, setIsOpeningFile] = useState(false)
-  const [folderReviewModal, setFolderReviewModal] = useState(null) // { folderName, folderFiles }
+  // Map of fileId -> viewer count for instant badge update
+  const [viewerCounts, setViewerCounts] = useState({})
+  // Tab toggle: 'tasks' | 'done'
+  const [activeTaskTab, setActiveTaskTab] = useState('tasks')
+  const [isTabPending, startTabTransition] = useTransition()
+  const deferredTab = useDeferredValue(activeTaskTab)
+  // Render only first N cards, expand as user scrolls
+  const BATCH_SIZE = 8
+  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE)
 
   // Load from persistent storage on mount
   useEffect(() => {
@@ -87,17 +114,64 @@ const TaskManagement = ({
     try { localStorage.setItem('kmti_opened_files_admin', data) } catch { }
   }, [openedFileIds, openedFilesStorageReady])
 
-  // Pagination state
-  const [nextCursor, setNextCursor] = useState(null)
-  const [hasMore, setHasMore] = useState(true)
-
   // Ref for infinite scroll
   const observerRef = useRef(null)
   const loadMoreRef = useRef(null)
 
-  useEffect(() => {
-    fetchInitialAssignments()
-  }, [])
+  const { activeAssignments, doneAssignments } = useMemo(() => {
+    const active = assignments.filter(a => a.status !== 'completed')
+    const done = assignments.filter(a => a.status === 'completed')
+    return { activeAssignments: active, doneAssignments: done }
+  }, [assignments])
+
+  const filteredAssignments = useMemo(() => {
+    const base = deferredTab === 'done' ? doneAssignments : activeAssignments
+    if (!searchQuery.trim()) return base
+    const q = searchQuery.toLowerCase()
+    
+    // Normalization helper to handle accents like ñ and common typos like Micheal/Michael
+    const matchesQuery = (text) => {
+      if (!text) return false;
+      const normText = String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const normQuery = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      
+      if (normText.includes(normQuery)) return true;
+      
+      // Michael/Micheal typo tolerance
+      const altQuery = normQuery.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+      if (normText.includes(altQuery)) return true;
+      
+      const altText = normText.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+      if (altText.includes(normQuery) || altText.includes(altQuery)) return true;
+      
+      return false;
+    };
+
+    return base.filter(a =>
+      matchesQuery(a.title) ||
+      matchesQuery(a.description) ||
+      matchesQuery(a.team) ||
+      matchesQuery(a.team_leader_fullname) ||
+      matchesQuery(a.team_leader_username) ||
+      (a.assigned_member_details || []).some(m =>
+        matchesQuery(m.fullName) ||
+        matchesQuery(m.username)
+      ) ||
+      (a.attachments || []).some(f => 
+        matchesQuery(f.original_name) ||
+        matchesQuery(f.file_name) ||
+        matchesQuery(f.folder_name)
+      ) ||
+      (a.submissions || a.recent_submissions || []).some(f => 
+        matchesQuery(f.original_name) ||
+        matchesQuery(f.file_name) ||
+        matchesQuery(f.folder_name)
+      )
+    )
+  }, [activeAssignments, doneAssignments, deferredTab, searchQuery])
+
+  // Data is fetched by useAdminTasks hook (React Query)
+  // No manual fetchInitialAssignments needed
 
   // Handle context from notifications (open assignment and highlight comment)
   useEffect(() => {
@@ -172,78 +246,20 @@ const TaskManagement = ({
     }
   }, [showMenuForAssignment])
 
-  const fetchCommentCount = async (assignmentId) => {
-    try {
-      const data = await apiFetch(`/api/assignments/${assignmentId}/comments`)
-      if (data.success) {
-        // Count all comments/replies to match list view count
-        const total = (data.comments || []).length
-        setCommentCounts(prev => ({ ...prev, [assignmentId]: total }))
-      }
-    } catch (err) {
-      console.error('Error fetching comment count:', err)
-    }
-  }
-
-  const fetchInitialAssignments = async () => {
-    try {
-      setLoading(true)
-      clearMessages()
-
-      const data = await apiFetch(`/api/assignments/admin/all?limit=20`)
-
-      console.log('Initial assignments response:', data)
-
-      if (!data.success) {
-        setError(data.message || 'Failed to fetch assignments')
-        setLoading(false)
-        return
-      }
-
-      const allAssignments = data.assignments || []
-      console.log(`Fetched ${allAssignments.length} initial assignments`)
-
-      setAssignments(allAssignments)
-      setNextCursor(data.nextCursor)
-      setHasMore(data.hasMore)
-    } catch (error) {
-      console.error('Error fetching assignments:', error)
-      setError('Failed to load assignments')
-    } finally {
-      setLoading(false)
-    }
-  }
+  // fetchInitialAssignments replaced by useAdminTasks hook (React Query)
 
   const fetchMoreAssignments = useCallback(async () => {
-    if (loadingMore || !hasMore || !nextCursor) {
-      console.log('Skipping fetch:', { loadingMore, hasMore, nextCursor })
-      return
-    }
-
+    if (loadingMore || !hasMore || !nextCursor) return
     try {
       setLoadingMore(true)
-      const data = await apiFetch(`/api/assignments/admin/all?cursor=${nextCursor}&limit=20`)
-
-      console.log('More assignments response:', data)
-
-      if (!data.success) {
-        setError(data.message || 'Failed to fetch more assignments')
-        return
-      }
-
-      const newAssignments = data.assignments || []
-      console.log(`Fetched ${newAssignments.length} more assignments`)
-
-      setAssignments(prev => [...prev, ...newAssignments])
-      setNextCursor(data.nextCursor)
-      setHasMore(data.hasMore)
+      await loadMoreAssignments(nextCursor)
     } catch (error) {
       console.error('Error fetching more assignments:', error)
       setError('Failed to load more assignments')
     } finally {
       setLoadingMore(false)
     }
-  }, [nextCursor, hasMore, loadingMore])
+  }, [nextCursor, hasMore, loadingMore, loadMoreAssignments])
 
   // ⚡ OPTIMIZATION: Memoized fetchComments to prevent recreation
   const fetchComments = useCallback(async (assignmentId) => {
@@ -330,6 +346,7 @@ const TaskManagement = ({
       setComments(prev => [...prev, optimisticComment])
       setNewComment('')
 
+      setIsPostingComment(true)
       const data = await apiFetch(`/api/assignments/${selectedAssignment.id}/comments`, {
         method: 'POST',
         body: JSON.stringify({
@@ -342,7 +359,6 @@ const TaskManagement = ({
       if (data.success) {
         // ⚡ OPTIMIZATION: Only refetch to get the real ID and any server updates
         await fetchComments(selectedAssignment.id)
-        await fetchCommentCount(selectedAssignment.id)
         setSuccess('Comment posted successfully')
         setTimeout(() => setSuccess(''), 3000)
       } else {
@@ -354,8 +370,38 @@ const TaskManagement = ({
     } catch (error) {
       console.error('Error posting comment:', error)
       setError('Failed to post comment')
+    } finally {
+      setIsPostingComment(false)
     }
   }, [newComment, user, selectedAssignment, fetchComments, setError, setSuccess])
+
+  const handleEditComment = useCallback(async (assignmentId, commentId, newText) => {
+    try {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ userId: user.id, comment: newText }),
+      });
+      if (data.success) fetchComments(assignmentId);
+      else setError(data.message || 'Failed to edit comment');
+    } catch (error) {
+      console.error('Error editing comment:', error);
+      setError('Failed to edit comment');
+    }
+  }, [user.id, fetchComments, setError]);
+
+  const handleDeleteComment = useCallback(async (assignmentId, commentId) => {
+    try {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ userId: user.id }),
+      });
+      if (data.success) fetchComments(assignmentId);
+      else setError(data.message || 'Failed to delete comment');
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      setError('Failed to delete comment');
+    }
+  }, [user.id, fetchComments, setError]);
 
   // ⚡ OPTIMIZATION: Optimistic update + memoized handler
   const handlePostReply = useCallback(async (e, commentId, replyTextArg, onSuccess) => {
@@ -392,6 +438,7 @@ const TaskManagement = ({
       setReplyingTo(null)
       if (onSuccess) onSuccess()
 
+      setIsPostingReply(true)
       const data = await apiFetch(
         `/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`,
         {
@@ -407,7 +454,6 @@ const TaskManagement = ({
       if (data.success) {
         // ⚡ OPTIMIZATION: Only refetch to sync with server
         await fetchComments(selectedAssignment.id)
-        await fetchCommentCount(selectedAssignment.id)
         setSuccess('Reply posted successfully')
         setTimeout(() => setSuccess(''), 3000)
       } else {
@@ -424,8 +470,38 @@ const TaskManagement = ({
     } catch (error) {
       console.error('Error posting reply:', error)
       setError('Failed to post reply')
+    } finally {
+      setIsPostingReply(false)
     }
   }, [replyText, user, selectedAssignment, fetchComments, setError, setSuccess])
+
+  const handleEditReply = useCallback(async (assignmentId, commentId, replyId, newText) => {
+    try {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ userId: user.id, reply: newText }),
+      });
+      if (data.success) fetchComments(assignmentId);
+      else setError(data.message || 'Failed to edit reply');
+    } catch (error) {
+      console.error('Error editing reply:', error);
+      setError('Failed to edit reply');
+    }
+  }, [user.id, fetchComments, setError]);
+
+  const handleDeleteReply = useCallback(async (assignmentId, commentId, replyId) => {
+    try {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ userId: user.id }),
+      });
+      if (data.success) fetchComments(assignmentId);
+      else setError(data.message || 'Failed to delete reply');
+    } catch (error) {
+      console.error('Error deleting reply:', error);
+      setError('Failed to delete reply');
+    }
+  }, [user.id, fetchComments, setError]);
 
   const toggleExpand = (assignmentId) => {
     setExpandedAssignments(prev => ({
@@ -472,10 +548,10 @@ const TaskManagement = ({
     setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500)
   }
 
-  const recordView = async (fileId) => {
+  const recordView = async (fileId, isAttachment = false) => {
     if (!user || !fileId) return
     try {
-      await apiFetch(`/api/files/${fileId}/view`, {
+      await apiFetch(`/api/files/${fileId}/view?type=${isAttachment ? 'attachment' : 'submission'}`, {
         method: 'POST',
         body: JSON.stringify({
           userId: user.id,
@@ -484,6 +560,12 @@ const TaskManagement = ({
           role: user.role || 'admin'
         })
       })
+      // Fetch the real updated count from server after recording the view
+      // so the badge always reflects the true number (not an optimistic guess from 0)
+      const data = await apiFetch(`/api/files/${fileId}/views?type=${isAttachment ? 'attachment' : 'submission'}`)
+      if (data.success) {
+        setViewerCounts(prev => ({ ...prev, [fileId]: (data.viewers || []).length }))
+      }
     } catch { }
   }
 
@@ -509,25 +591,31 @@ const TaskManagement = ({
   }
 
   const handleDownloadFolder = async (folderFiles, folderName) => {
-    const fileIds = folderFiles.map(f => f.id).join(',')
-    const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
-    const fileName = `${folderName}.zip`
-    if (window.electron && window.electron.downloadFile) {
-      const result = await window.electron.downloadFile(fileUrl, fileName)
-      if (result && !result.success && !result.canceled) {
-        setError(result.error || 'Folder download failed')
-      } else if (result && result.success) {
-        triggerDownloadToast(fileName)
-      }
-    } else {
+    if (!window.electron || !window.electron.downloadFolder) {
+      const fileIds = folderFiles.map(f => f.id).join(',')
+      const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
       const a = document.createElement('a')
       a.href = fileUrl
-      a.download = fileName
+      a.download = `${folderName}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-      triggerDownloadToast(fileName)
+      return
     }
+    try {
+      const fileIds = folderFiles.map(f => f.id).filter(Boolean)
+      const data = await apiFetch('/api/files/bulk-path', {
+        method: 'POST',
+        body: JSON.stringify({ fileIds, type: 'file' })
+      })
+      const fileInfoList = (data.results || []).map((r, i) => {
+        const file = folderFiles.find(f => f.id === r.id) || folderFiles[i] || {}
+        return { srcPath: r.success ? r.path : null, name: file.original_name || r.originalName, relativePath: file.relative_path || null }
+      })
+      const result = await window.electron.downloadFolder(folderName, fileInfoList)
+      if (result && result.success) { triggerDownloadToast(folderName) }
+      else if (result && !result.success) { setError(result.error || 'Folder download failed') }
+    } catch (err) { setError(err.message || 'Folder download failed') }
   }
 
   // ⚡ OPTIMIZATION: Memoized utility function
@@ -544,24 +632,6 @@ const TaskManagement = ({
       day: 'numeric',
       year: 'numeric'
     })
-  }
-
-  const formatDaysLeft = (dateString) => {
-    if (!dateString) return ''
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = date - now
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      return `${Math.abs(diffDays)} days overdue`
-    } else if (diffDays === 0) {
-      return 'Due today'
-    } else if (diffDays === 1) {
-      return '1 day left'
-    } else {
-      return `${diffDays} days left`
-    }
   }
 
   const formatDateTime = (dateString) => {
@@ -589,17 +659,6 @@ const TaskManagement = ({
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }, [])
-
-  const getStatusColor = (dueDate) => {
-    if (!dueDate) return '#95a5a6'
-    const date = new Date(dueDate)
-    const now = new Date()
-    const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) return '#e74c3c'
-    if (diffDays <= 2) return '#f39c12'
-    return '#27ae60'
-  }
 
   // ⚡ OPTIMIZATION: Memoized toggle handler
   const toggleRepliesVisibility = useCallback((commentId) => {
@@ -694,139 +753,6 @@ const TaskManagement = ({
     }
   }
 
-  // --- File Review Handlers ---
-
-  const openFileModal = useCallback((file) => {
-    setSelectedFile(file)
-    setShowFileModal(true)
-  }, [])
-
-  const closeFileModal = useCallback(() => {
-    setShowFileModal(false)
-    setSelectedFile(null)
-  }, [])
-
-  const approveFile = async () => {
-    if (!selectedFile) return
-    setIsProcessingFileAction(true)
-    try {
-      const data = await apiFetch(`/api/files/${selectedFile.id}/approve`, {
-        method: 'POST',
-        body: JSON.stringify({
-          adminId: user.id,
-          adminUsername: user.username,
-          adminRole: user.role,
-          team: user.team
-        })
-      })
-
-      if (data.success) {
-        setSuccess(`File "${selectedFile.original_name}" approved successfully`)
-        fetchInitialAssignments() // Refresh list
-        closeFileModal()
-      } else {
-        setError(data.message || 'Failed to approve file')
-      }
-    } catch (err) {
-      console.error('Error approving file:', err)
-      setError('Failed to approve file')
-    } finally {
-      setIsProcessingFileAction(false)
-    }
-  }
-
-  const rejectFile = async (file) => {
-    const fileToReject = file || selectedFile
-    if (!fileToReject) return
-    setIsProcessingFileAction(true)
-    try {
-      const data = await apiFetch(`/api/files/${fileToReject.id}/reject`, {
-        method: 'POST',
-        body: JSON.stringify({
-          adminId: user.id,
-          adminUsername: user.username,
-          adminRole: user.role,
-          team: user.team
-        })
-      })
-
-      if (data.success) {
-        setError(`File "${fileToReject.original_name}" rejected and deleted`)
-        fetchInitialAssignments() // Refresh list
-        closeFileModal()
-      } else {
-        setError(data.message || 'Failed to reject file')
-      }
-    } catch (err) {
-      console.error('Error rejecting file:', err)
-      setError('Failed to reject file')
-    } finally {
-      setIsProcessingFileAction(false)
-    }
-  }
-
-  const handleApproveFolder = async () => {
-    if (!folderReviewModal) return
-    setIsProcessingFileAction(true)
-    try {
-      const data = await apiFetch(`/api/files/folder/approve`, {
-        method: 'POST',
-        body: JSON.stringify({
-          folderName: folderReviewModal.folderName,
-          fileIds: folderReviewModal.folderFiles.map(f => f.id),
-          adminId: user.id,
-          adminUsername: user.username,
-          adminRole: user.role,
-          team: user.team
-        })
-      })
-
-      if (data.success) {
-        setSuccess(`Folder "${folderReviewModal.folderName}" approved successfully`)
-        fetchInitialAssignments()
-        setFolderReviewModal(null)
-      } else {
-        setError(data.message || 'Failed to approve folder')
-      }
-    } catch (err) {
-      console.error('Error approving folder:', err)
-      setError('Failed to approve folder')
-    } finally {
-      setIsProcessingFileAction(false)
-    }
-  }
-
-  const handleRejectFolder = async () => {
-    if (!folderReviewModal) return
-    setIsProcessingFileAction(true)
-    try {
-      const data = await apiFetch(`/api/files/folder/reject`, {
-        method: 'POST',
-        body: JSON.stringify({
-          folderName: folderReviewModal.folderName,
-          fileIds: folderReviewModal.folderFiles.map(f => f.id),
-          adminId: user.id,
-          adminUsername: user.username,
-          adminRole: user.role,
-          team: user.team
-        })
-      })
-
-      if (data.success) {
-        setError(`Folder "${folderReviewModal.folderName}" rejected and deleted`)
-        fetchInitialAssignments()
-        setFolderReviewModal(null)
-      } else {
-        setError(data.message || 'Failed to reject folder')
-      }
-    } catch (err) {
-      console.error('Error rejecting folder:', err)
-      setError('Failed to reject folder')
-    } finally {
-      setIsProcessingFileAction(false)
-    }
-  }
-
   const handleDeleteAssignment = async () => {
     if (!assignmentToDelete) return
 
@@ -834,15 +760,15 @@ const TaskManagement = ({
       setIsDeleting(true)
       clearMessages()
 
-      const data = await apiFetch(`/api/assignments/${assignmentIdToDelete.id}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentToDelete.id}`, {
         method: 'DELETE'
       })
 
       if (data.success) {
-        // Remove the assignment from the local state
-        setAssignments(prev => prev.filter(assignment => assignment.id !== assignmentToDelete.id))
-        setError('Assignment deleted successfully')
-        setTimeout(() => setError(''), 3000)
+        // Remove from React Query cache instantly (optimistic)
+        removeAssignment(assignmentToDelete.id)
+        setSuccess('Assignment deleted successfully')
+        setTimeout(() => setSuccess(''), 3000)
         setShowDeleteModal(false)
         setAssignmentToDelete(null)
       } else {
@@ -926,7 +852,7 @@ const TaskManagement = ({
   }
 
   return (
-    <div className="task-management-container">
+    <div className={`task-management-container ${isOpeningFile ? 'file-opening-cursor' : ''}`}>
       {/* Messages */}
       {error && (
         <AlertMessage
@@ -949,65 +875,526 @@ const TaskManagement = ({
           <h2>All Tasks</h2>
         </div>
 
-        <div className="task-count">
-          {assignments.length} task{assignments.length !== 1 ? 's' : ''}
-          {hasMore && ' • Scroll for more'}
+        {/* Tasks / Done Tasks Tab Toggle */}
+        <div style={{ display: 'flex', gap: '0', marginBottom: '18px', background: '#f3f4f6', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
+          <button
+            onClick={() => { setVisibleCount(BATCH_SIZE); startTabTransition(() => setActiveTaskTab('tasks')) }}
+            style={{
+              padding: '7px 22px', borderRadius: '8px', border: 'none',
+              fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
+              transition: 'all 0.18s',
+              background: activeTaskTab === 'tasks' ? '#fff' : 'transparent',
+              color: activeTaskTab === 'tasks' ? '#111827' : '#6b7280',
+              boxShadow: activeTaskTab === 'tasks' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+            Tasks
+            <span style={{
+              marginLeft: '4px', fontSize: '12px', fontWeight: '700',
+              background: activeTaskTab === 'tasks' ? '#e0e7ff' : '#e5e7eb',
+              color: activeTaskTab === 'tasks' ? '#4338ca' : '#9ca3af',
+              padding: '1px 8px', borderRadius: '10px'
+            }}>{activeAssignments.length}</span>
+          </button>
+          <button
+            onClick={() => { setVisibleCount(BATCH_SIZE); startTabTransition(() => setActiveTaskTab('done')) }}
+            style={{
+              padding: '7px 22px', borderRadius: '8px', border: 'none',
+              fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
+              transition: 'all 0.18s',
+              background: activeTaskTab === 'done' ? '#fff' : 'transparent',
+              color: activeTaskTab === 'done' ? '#111827' : '#6b7280',
+              boxShadow: activeTaskTab === 'done' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Done Tasks
+            <span style={{
+              marginLeft: '4px', fontSize: '12px', fontWeight: '700',
+              background: activeTaskTab === 'done' ? '#dcfce7' : '#e5e7eb',
+              color: activeTaskTab === 'done' ? '#15803d' : '#9ca3af',
+              padding: '1px 8px', borderRadius: '10px'
+            }}>{doneAssignments.length}</span>
+          </button>
         </div>
 
-        <div className="feed-container">
-          {assignments.length === 0 ? (
+        {/* Search Bar */}
+        <div style={{ margin: '0 0 10px 0', position: 'relative', maxWidth: '320px' }}>
+          <svg style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#c4c9d4', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); setVisibleCount(BATCH_SIZE) }}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              padding: '8px 28px 8px 28px',
+              border: '1.5px solid #e8eaed', borderRadius: '8px',
+              fontSize: '13.5px', color: '#374151',
+              outline: 'none', background: '#fff',
+              transition: 'border-color 0.15s',
+              boxShadow: 'none'
+            }}
+            onFocus={e => e.target.style.borderColor = '#c4c9d4'}
+            onBlur={e => e.target.style.borderColor = '#e8eaed'}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#c4c9d4', fontSize: '15px', lineHeight: 1, padding: '1px' }}
+            >×</button>
+          )}
+        </div>
+
+        {/* Task Count - search results only */}
+        {searchQuery && (
+          <div className="task-count">
+            {filteredAssignments.length} result{filteredAssignments.length !== 1 ? 's' : ''} for "{searchQuery}"
+          </div>
+        )}
+
+        {/* Feed */}
+        <div className="feed-container" style={{ opacity: isTabPending ? 0.5 : 1, transition: 'opacity 0.15s ease' }}>
+          {filteredAssignments.length === 0 ? (
             <div className="empty-feed">
-              <div className="empty-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 12h-6l-2 3h-4l-2-3H2" />
-                  <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" />
-                </svg>
-              </div>
-              <h3>No Tasks Yet</h3>
-              <p>Team leaders haven't created any assignments yet.</p>
+              <div className="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" /></svg></div>
+              <h3>{searchQuery ? 'No Results Found' : 'No Tasks Yet'}</h3>
+              <p>{searchQuery ? `No tasks match "${searchQuery}".` : "Team leaders haven't created any assignments yet."}</p>
             </div>
           ) : (
             <>
-              <div className="admin-tasks-grid">
-                {assignments.map(assignment => (
-                  <PremiumTaskCard
-                    key={assignment.id}
-                    task={{
-                      ...assignment,
-                      comment_count: commentCounts[assignment.id] !== undefined ? commentCounts[assignment.id] : assignment.comment_count
-                    }}
-                    role="admin"
-                    onCommentClick={openCommentsModal}
-                    onActionClick={(action, t) => {
-                      if (action === 'delete') confirmDeleteAssignment(t);
-                      if (action === 'refresh') fetchAssignments();
-                    }}
-                    onFileClick={(file) => {
-                      setOpenedFileIds(prev => new Set([...prev, file.id]));
-                      
-                      // Normalize status check for Task Reference
-                      const status = file.status?.toLowerCase().replace(/_/g, ' ');
-                      if (status === 'task reference') {
-                        // For attachments, use the simple open modal
-                        setFileToOpen(file);
-                      } else {
-                        // For submissions, clicking opens the details modal for review
-                        openFileModal(file);
-                      }
-                    }}
-                    onReviewFolder={(name, files) => setFolderReviewModal({ folderName: name, folderFiles: files })}
-                    onOpenPath={async (file) => {
-                      if (!window.electron?.openFolderInExplorer) return;
-                      try {
-                        const data = await apiFetch(`/api/files/${file.id}/path`);
-                        if (data.success && data.filePath) await window.electron.openFolderInExplorer(data.filePath);
-                      } catch (e) { console.error('Open folder path error:', e); }
-                    }}
-                    openedFileIds={openedFileIds}
-                    className="admin-task-card-margin"
-                  />
-                ))}
-              </div>
+              {filteredAssignments.slice(0, visibleCount).map(assignment => {
+                const renderRecursiveItems = (files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true) => {
+                  const { subfolders, rootFiles } = recursiveGroupByPath(files);
+                  const subItems = [];
+
+                  const subfolderEntries = Object.entries(subfolders);
+                  const totalSubfolders = subfolderEntries.length;
+                  const totalRootFiles = rootFiles.length;
+
+                  // 1. Render subfolders
+                  subfolderEntries.forEach(([subName, subFiles], index) => {
+                    const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
+                    const subKey = parentKey ? `${parentKey}__${subName}` : `${assignment.id}__${subName}__${isAttachment ? 'att' : 'sub'}`;
+                    const isSubOpen = expandedFolders[subKey];
+                    const subFirstFile = subFiles[0].file || subFiles[0];
+
+                    subItems.push(
+                      <div key={`subfolder-${subKey}`} style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div className="tl-tree-container" style={{ marginBottom: '7px' }}>
+                          {parentIsLastArr.map((isLastParent, i) => (
+                            <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                          ))}
+                          {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                          
+                          <div
+                            className="admin-file-item admin-folder-item"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }));
+                            }}
+                            style={{ 
+                              cursor: 'pointer', 
+                              backgroundColor: isSubOpen ? '#BFDBFE' : '#DBEAFE', 
+                              padding: '14px 20px',
+                              flex: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              border: isAttachment ? '1px solid #000000' : '1px solid #93c5fd'
+                            }}
+                          >
+                            <div style={{ fontSize: '32px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
+                            <div className="admin-file-details" style={{ flex: 1, minWidth: 0 }}>
+                              <div className="admin-file-name" style={{ fontWeight: '600', fontSize: '15px', color: '#111827' }}>{subName}</div>
+                              <div className="admin-file-meta" style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>
+                              {isAttachment ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span>Submitted by {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span>
+                              <span style={{ color: '#9ca3af' }}>•</span>
+                              <span>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</span>
+                                  {(subFirstFile.submitted_at || subFirstFile.uploaded_at || subFirstFile.created_at) && (
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                                  </svg>
+                                  {formatDateTime(subFirstFile.submitted_at || subFirstFile.uploaded_at || subFirstFile.created_at)}
+                              </span>
+                              )}
+                              </span>
+                              ) : (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span>Submitted by <span style={{ fontWeight: '600', color: '#2563eb' }}>{subFirstFile.fullName || subFirstFile.username || 'Member'}</span></span>
+                              <span style={{ color: '#9ca3af' }}>•</span>
+                                <span>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</span>
+                                  {(subFirstFile.submitted_at || subFirstFile.uploaded_at || subFirstFile.created_at) && (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                                      </svg>
+                                      {formatDateTime(subFirstFile.submitted_at || subFirstFile.uploaded_at || subFirstFile.created_at)}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDownloadFolder(subFiles.map(f => f.file || f), subName) }}
+                              title="Download folder as ZIP"
+                              style={{
+                                background: 'transparent', border: 'none', borderRadius: '6px',
+                                width: '32px', height: '32px', display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', cursor: 'pointer', color: '#6b7280',
+                                flexShrink: 0, transition: 'all 0.15s'
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#6b7280' }}
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        {isSubOpen && renderRecursiveItems(subFiles, level + 1, subKey, [...parentIsLastArr, isLast], isAttachment)}
+                      </div>
+                    );
+                  });
+
+                  // 2. Render root files
+                  rootFiles.forEach((fileItem, index) => {
+                    const isLast = index === totalRootFiles - 1;
+                    const file = fileItem.file || fileItem;
+                    const hasViewed = openedFileIds.has(file.id);
+
+                    subItems.push(
+                      <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '7px' }}>
+                        {parentIsLastArr.map((isLastParent, i) => (
+                          <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                        ))}
+                        {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                        
+                        <div
+                          onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true) }}
+                          className={`admin-file-item${hasViewed ? ' admin-file-card-opened' : ''}`}
+                          style={{ 
+                            cursor: 'pointer', 
+                            backgroundColor: '#fafafa',
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '14px 20px',
+                            gap: '12px',
+                            border: isAttachment ? '1px solid #000000' : '1px solid #dbeafe'
+                          }}
+                        >
+                          <FileIcon fileType={file.original_name.split('.').pop()} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
+                          <div className="admin-file-details" style={{ flex: 1, minWidth: 0 }}>
+                            <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', fontSize: '15px' }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>
+                              {hasViewed && (
+                                <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 6px', borderRadius: '10px', flexShrink: 0 }}>
+                                  ✓ Viewed
+                                </span>
+                              )}
+                            </div>
+                            <div className="admin-file-meta" style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span>Submitted by <span className="admin-file-submitter" style={{ fontWeight: '600', color: '#2563eb' }}>
+                                {isAttachment
+                                  ? (assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader')
+                                  : (file.fullName || file.username || 'Member')}
+                              </span></span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280', fontWeight: '500' }}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="12" cy="12" r="10" />
+                                  <polyline points="12 6 12 12 16 14" />
+                                </svg>
+                                {formatDateTime(file.submitted_at || file.uploaded_at || file.created_at)}
+                              </span>
+                              
+                              {file.tag && (
+                                <span style={{
+                                  backgroundColor: '#dbeafe',
+                                  color: '#1e40af',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '11px',
+                                  fontWeight: '600',
+                                  border: '1px solid #93c5fd',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  🏷️ {file.tag}
+                                </span>
+                              )}
+
+                              {isAttachment ? (
+                                <span className={`admin-file-status ${file.status === 'uploaded' ? 'reference' :
+                                    file.status === 'team_leader_approved' ? 'reference' :
+                                      file.status === 'final_approved' ? 'final-approved' :
+                                        file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
+                                          'reference'
+                                  }`}>
+                                  {file.status === 'uploaded' ? 'TASK REFERENCE' :
+                                    file.status === 'team_leader_approved' ? 'TASK REFERENCE' :
+                                      file.status === 'final_approved' ? '✓ APPROVED' :
+                                        file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
+                                          file.status === 'rejected_by_admin' ? '✗ REJECTED' :
+                                            'TASK REFERENCE'}
+                                </span>
+                              ) : (
+                                <span className={`admin-file-status ${file.status === 'uploaded' ? 'uploaded' :
+                                    file.status === 'revision' ? 'revision' :
+                                    file.status === 'team_leader_approved' ? 'team-leader-approved' :
+                                      file.status === 'final_approved' ? 'final-approved' :
+                                        file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
+                                          'uploaded'
+                                  }`}>
+                                  {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
+                                    file.status === 'revision' ? '✎ REVISION' :
+                                    file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                      file.status === 'final_approved' ? '✓ APPROVED' :
+                                        file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
+                                          file.status === 'rejected_by_admin' ? '✗ REJECTED' :
+                                            file.status}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={file.submitted_at || file.uploaded_at || file.created_at} fileSource={isAttachment ? 'attachment' : 'submission'} />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
+                            title="Download file"
+                            style={{
+                              background: 'transparent', border: 'none', borderRadius: '6px',
+                              width: '32px', height: '32px', display: 'flex', alignItems: 'center',
+                              justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
+                              flexShrink: 0, transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                              <polyline points="7 10 12 15 17 10" />
+                              <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  });
+
+                  return subItems;
+                };
+
+                return (
+                  <div key={assignment.id} id={`admin-assignment-${assignment.id}`} className="admin-assignment-card">
+                    {/* Card Header */}
+                    <div className="admin-card-header">
+                      <div className="admin-header-left">
+                        <div className="admin-avatar" style={{ background: 'transparent' }}>
+                          <Avatar user={{
+                            username: assignment.team_leader_username,
+                            fullName: assignment.team_leader_fullname || assignment.team_leader_full_name,
+                            profile_picture: assignment.team_leader_profile_picture
+                          }} size="md" />
+                        </div>
+                        <div className="admin-header-info">
+                          <div className="admin-assignment-assigned">
+                            <span className="admin-team-leader-name">
+                              {assignment.team_leader_fullname || assignment.team_leader_username}
+                            </span>
+                            <span className="role-badge team-leader">TEAM LEADER</span>
+                            {assignment.team && (
+                              <span className="team-badge">
+                                {assignment.team}
+                              </span>
+                            )}
+                            assigned to{' '}
+                            <span className="admin-assigned-user">
+                              {assignment.assigned_member_details && assignment.assigned_member_details.length > 0
+                                ? assignment.assigned_member_details.length === 1
+                                  ? (assignment.assigned_member_details[0].fullName || assignment.assigned_member_details[0].username)
+                                  : `${assignment.assigned_member_details.length} members (${assignment.assigned_member_details.map(m => m.fullName || m.username).join(', ')})`
+                                : assignment.assigned_to === 'all'
+                                  ? 'All team members'
+                                  : 'Unknown User'}
+                            </span>
+                          </div>
+                          <div className="admin-assignment-created">
+                            {assignment.created_at
+                              ? <>📅 Assigned on: {formatDateTime(assignment.created_at)}</>
+                              : 'Unknown creation date'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="admin-header-right">
+                        {assignment.status === 'completed' ? (
+                          <div style={{
+                            backgroundColor: '#d1fae5',
+                            color: '#059669',
+                            padding: '6px 12px',
+                            borderRadius: '20px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            ✓ Completed
+                          </div>
+                        ) : (
+                          assignment.due_date && (
+                            <div className="admin-due-date">
+                              Due: {formatDate(assignment.due_date)}
+                              <span
+                                className="admin-days-left"
+                                style={{ color: getBusinessDaysColor(assignment.due_date, assignment.ot_dates) }}
+                              >
+                                {' '}({formatBusinessDaysLeft(assignment.due_date, assignment.ot_dates)})
+                              </span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Task Title */}
+                    <div className="admin-task-title-section">
+                      <h3 className="admin-assignment-title">{assignment.title}</h3>
+                    </div>
+
+                    {/* Task Description */}
+                    {assignment.description && (
+                      <div className="admin-task-description-section">
+                        <p className="admin-assignment-description">
+                          {expandedAssignments[assignment.id]
+                            ? assignment.description
+                            : assignment.description.length > 200
+                              ? `${assignment.description.substring(0, 200)}...`
+                              : assignment.description}
+                          {assignment.description.length > 200 && (
+                            <button
+                              className="admin-expand-btn"
+                              onClick={() => toggleExpand(assignment.id)}
+                            >
+                              {expandedAssignments[assignment.id] ? 'Show less' : 'Show more'}
+                            </button>
+                          )}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Attachments - Files attached by Team Leader */}
+                    {assignment.attachments && assignment.attachments.length > 0 ? (
+                      <div className="admin-attachment-section" style={{ marginBottom: '16px' }}>
+                        <div className="admin-submitted-file">
+                          <div className="admin-file-label admin-submitted-label">📎 Attachments ({assignment.attachments.length} item{assignment.attachments.length !== 1 ? 's' : ''}):</div>
+                          {renderRecursiveItems(assignment.attachments, 0, '', [], true)}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Submitted Files */}
+                    <div className="admin-attachment-section">
+                      {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
+                        <div className="admin-submitted-file">
+                          <div className="admin-file-label admin-submitted-label">📎 Submitted Files ({assignment.recent_submissions.length}):</div>
+                          {renderRecursiveItems(assignment.recent_submissions, 0, '', [], false)}
+                        </div>
+                      ) : (
+                        <div className="admin-no-attachment">
+                          <span className="admin-no-attachment-icon">📄</span>
+                          <span className="admin-no-attachment-text">
+                            No submissions yet
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Comments + 3-dot menu row */}
+                    <div className="admin-comments-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div className="admin-comments-text" onClick={() => openCommentsModal(assignment)}>
+                        Comments ({assignment.comment_count || 0})
+                      </div>
+                      {/* 3-dot menu */}
+                      <div className="admin-card-menu" style={{ position: 'relative' }}>
+                        <button
+                          className="admin-menu-btn"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowMenuForAssignment(prev => prev === assignment.id ? null : assignment.id)
+                          }}
+                          title="More options"
+                          style={{
+                            background: 'transparent', border: 'none', cursor: 'pointer',
+                            padding: '6px 8px', borderRadius: '8px', color: '#6b7280',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'background 0.15s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="5" cy="12" r="2" />
+                            <circle cx="12" cy="12" r="2" />
+                            <circle cx="19" cy="12" r="2" />
+                          </svg>
+                        </button>
+                        {showMenuForAssignment === assignment.id && (
+                          <div
+                            className="admin-menu-dropdown"
+                            style={{
+                              position: 'absolute', bottom: '110%', right: 0,
+                              background: '#fff', border: '1px solid #e5e7eb',
+                              borderRadius: '10px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+                              minWidth: '140px', zIndex: 9999, overflow: 'hidden'
+                            }}
+                          >
+                            <button
+                              className="admin-menu-item admin-delete-menu-item"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setShowMenuForAssignment(null)
+                                setAssignmentToDelete(assignment)
+                                setShowDeleteModal(true)
+                              }}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                width: '100%', padding: '10px 14px', background: 'transparent',
+                                border: 'none', cursor: 'pointer', color: '#dc2626',
+                                fontSize: '13px', fontWeight: '500', textAlign: 'left',
+                                transition: 'background 0.15s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                                <path d="M10 11v6M14 11v6" />
+                                <path d="M9 6V4h6v2" />
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
 
               {/* Inline Skeleton Loader for Loading More */}
               {loadingMore && (
@@ -1035,6 +1422,23 @@ const TaskManagement = ({
               {hasMore && !loadingMore && (
                 <div ref={loadMoreRef} style={{ height: '20px', margin: '20px 0' }} />
               )}
+
+              {/* Batch render sentinel — loads next 8 cards as user scrolls */}
+              {visibleCount < filteredAssignments.length && (
+                <div
+                  ref={el => {
+                    if (!el) return
+                    const obs = new IntersectionObserver(([entry]) => {
+                      if (entry.isIntersecting) {
+                        setVisibleCount(c => c + BATCH_SIZE)
+                        obs.disconnect()
+                      }
+                    }, { rootMargin: '200px' })
+                    obs.observe(el)
+                  }}
+                  style={{ height: '1px' }}
+                />
+              )}
             </>
           )}
         </div>
@@ -1049,11 +1453,17 @@ const TaskManagement = ({
           newComment={newComment}
           setNewComment={setNewComment}
           onPostComment={handlePostComment}
+          isPostingComment={isPostingComment}
           replyingTo={replyingTo}
           setReplyingTo={setReplyingTo}
           replyText={replyText}
           setReplyText={setReplyText}
           onPostReply={handlePostReply}
+          isPostingReply={isPostingReply}
+          onEditComment={handleEditComment}
+          onDeleteComment={handleDeleteComment}
+          onEditReply={handleEditReply}
+          onDeleteReply={handleDeleteReply}
           visibleReplies={visibleReplies}
           toggleRepliesVisibility={toggleRepliesVisibility}
           getInitials={getInitials}
@@ -1082,91 +1492,29 @@ const TaskManagement = ({
           </p>
         </ConfirmationModal>
 
-        {/* File Open Modal - For attachments/reference files */}
+        {/* File Open Modal */}
         <FileOpenModal
-          isOpen={!!fileToOpen}
-          file={fileToOpen}
-          isLoading={isOpeningFile}
-          onClose={() => setFileToOpen(null)}
+          isOpen={showOpenFileConfirmation}
+          onClose={() => {
+            setShowOpenFileConfirmation(false)
+            setFileToOpen(null)
+          }}
           onConfirm={async () => {
-            if (!fileToOpen) return;
-            const success = await handleOpenFile(fileToOpen.file_path, fileToOpen.id);
-            if (success) {
-              setFileToOpen(null);
+            if (!fileToOpen) return
+            const fileId = fileToOpen.id
+            try {
+              const opened = await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
+              if (opened) {
+                setOpenedFileIds(prev => new Set([...prev, fileId]))
+                recordView(fileId, fileToOpen.isAttachment)
+              }
+            } finally {
+              setShowOpenFileConfirmation(false)
+              setFileToOpen(null)
             }
           }}
+          file={fileToOpen}
         />
-
-        {/* File Details Modal */}
-        <FileDetailsModal
-          isOpen={showFileModal}
-          onClose={closeFileModal}
-          file={selectedFile}
-          onApprove={approveFile}
-          onReject={rejectFile}
-          onOpenFile={() => handleOpenFile(selectedFile.file_path, selectedFile.id)}
-          isLoading={isProcessingFileAction}
-          isOpeningFile={isOpeningFile}
-          formatFileSize={formatFileSize}
-        />
-
-        {/* Folder Review Modal */}
-        {folderReviewModal && (
-          <div className="file-details-modal-component">
-            <div className="modal-overlay" onClick={() => { if (!isProcessingFileAction) setFolderReviewModal(null) }}>
-              <div className="modal file-modal" onClick={e => e.stopPropagation()}>
-                <div className="modal-header">
-                  <h3>Folder Details</h3>
-                  <button className="modal-close" onClick={() => setFolderReviewModal(null)} disabled={isProcessingFileAction}>×</button>
-                </div>
-                <div className="modal-body">
-                  <div className="file-details-section">
-                    <h4 className="section-title">FOLDER DETAILS</h4>
-                    <div className="file-details-grid">
-                      <div className="detail-item">
-                        <span className="detail-label">FOLDER NAME:</span>
-                        <span className="detail-value">📁 {folderReviewModal.folderName}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="detail-label">SUBMITTED BY:</span>
-                        <span className="detail-value">{folderReviewModal.folderFiles[0]?.username || 'Unknown'}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="detail-label">TEAM:</span>
-                        <span className="detail-value">
-                          <TeamBadge team={folderReviewModal.folderFiles[0]?.user_team} size="sm" />
-                        </span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="detail-label">TOTAL FILES:</span>
-                        <span className="detail-value">{folderReviewModal.folderFiles.length} files</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="actions-section">
-                    <div className="action-buttons-large">
-                      <button className="btn btn-success-large" disabled={isProcessingFileAction} onClick={handleApproveFolder}>
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                          <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        {isProcessingFileAction ? 'Processing...' : 'Approve All'}
-                      </button>
-                      <button className="btn btn-danger-large" disabled={isProcessingFileAction} onClick={handleRejectFolder}>
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                          <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        {isProcessingFileAction ? 'Processing...' : 'Reject All'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-
 
         {/* Download Success Toast */}
         {downloadToast.show && (

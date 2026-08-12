@@ -1,8 +1,12 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import ReactDOM from 'react-dom'
 import './css/FileCollectionTab.css'
 import '../shared/SmartNavigation/SmartNavigation.css'
-import { FileIcon, FileOpenModal, StatusBadge, TeamBadge } from '../shared'
+import FileIcon from '../shared/FileIcon'
+import FileOpenModal from '../shared/FileOpenModal'
 import { LoadingTable } from '../common/InlineSkeletonLoader'
+
+import { recursiveGroupByPath } from '@utils/folderUtils'
 
 const FileCollectionTab = ({
   submittedFiles,
@@ -28,6 +32,45 @@ const FileCollectionTab = ({
   const [fileToOpen, setFileToOpen] = useState(null)
   const [teamFilter, setTeamFilter] = useState('all')
   const [expandedFolders, setExpandedFolders] = useState({})
+  const [folderShowAll, setFolderShowAll] = useState({})
+  const [activeView, setActiveView] = useState('collection') // 'collection' | 'reference'
+  const FOLDER_PREVIEW_COUNT = 5
+
+  // Fully local dropdown state — position + which menu is open.
+  // Using local state avoids race conditions with the parent's openMenuId/toggleMenu.
+  const [localMenuId, setLocalMenuId] = useState(null)
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
+
+  // Close menu when clicking anywhere outside
+  useEffect(() => {
+    if (!localMenuId) return
+    const close = () => setLocalMenuId(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [localMenuId])
+
+  const openLocalMenu = useCallback((id, btnEl) => {
+    setLocalMenuId(prev => {
+      if (prev === id) return null // toggle off
+      const rect = btnEl.getBoundingClientRect()
+      const MENU_HEIGHT = 100
+      const MENU_WIDTH = 180
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+
+      // Prefer below; flip above if not enough room below
+      let top = spaceBelow >= MENU_HEIGHT + 8
+        ? rect.bottom + 4
+        : rect.top - MENU_HEIGHT - 4
+
+      // Hard-clamp: never let the menu go off the top or bottom of the viewport
+      top = Math.max(4, Math.min(top, window.innerHeight - MENU_HEIGHT - 4))
+
+      const left = Math.max(4, rect.right - MENU_WIDTH)
+      setMenuPos({ top, left })
+      return id
+    })
+  }, [])
 
   const uniqueTeams = useMemo(() => {
     const teams = new Set()
@@ -41,21 +84,47 @@ const FileCollectionTab = ({
   const groupFilesByFolder = useCallback((files) => {
     const folders = {}
     const individualFiles = []
-    files.forEach(file => {
-      if (file.folder_name) {
-        // Key by folder_name + user so different users' same-named folders stay separate
-        const key = `${file.folder_name}||${file.user_id || file.username || ''}`
+    if (!files || !Array.isArray(files)) return { folders, individualFiles }
+
+    const sortedFiles = [...files].sort((a, b) => {
+      const nameA = (a.original_name || a.filename || '').toLowerCase();
+      const nameB = (b.original_name || b.filename || '').toLowerCase();
+      return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    sortedFiles.forEach(file => {
+      let folderName = file.folder_name
+      
+      // Fallback: if folder_name is missing, try to extract it from the path in original_name
+      if (!folderName && file.original_name && (file.original_name.includes('/') || file.original_name.includes('\\'))) {
+        const separator = file.original_name.includes('/') ? '/' : '\\'
+        const parts = file.original_name.split(separator)
+        if (parts.length > 1) {
+          folderName = parts[0]
+        }
+      }
+
+      if (folderName) {
+        // Key by folderName + assignment_id + user so same folder in different tasks stays separate
+        const key = `${folderName}||${file.assignment_id || ''}||${file.user_id || file.username || ''}`
         if (!folders[key]) folders[key] = []
         folders[key].push(file)
       } else {
         individualFiles.push(file)
       }
     })
-    return { folders, individualFiles }
+
+    const sortedFolders = {}
+    Object.keys(folders).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).forEach(key => {
+      sortedFolders[key] = folders[key];
+    });
+
+    return { folders: sortedFolders, individualFiles }
   }, [])
 
   useEffect(() => {
     setCurrentPage(1)
+    setFolderShowAll({})
   }, [searchQuery, fileCollectionFilter, fileCollectionSort, teamFilter])
 
   useEffect(() => {
@@ -101,8 +170,19 @@ const FileCollectionTab = ({
     }
   }
 
+  // Split files by view: File Collection = member submissions, Reference Files = TL attachments
+  const collectionFiles = useMemo(() =>
+    submittedFiles.filter(f => f.source_type !== 'assignment_attachment'),
+    [submittedFiles]
+  )
+  const referenceFiles = useMemo(() =>
+    submittedFiles.filter(f => f.source_type === 'assignment_attachment'),
+    [submittedFiles]
+  )
+  const activeFiles = activeView === 'reference' ? referenceFiles : collectionFiles
+
   const filteredAndSortedFiles = useMemo(() => {
-    let filtered = submittedFiles
+    let filtered = activeFiles
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(file =>
@@ -138,7 +218,7 @@ const FileCollectionTab = ({
       }
     })
     return sorted
-  }, [submittedFiles, searchQuery, fileCollectionFilter, teamFilter, fileCollectionSort])
+  }, [activeFiles, searchQuery, fileCollectionFilter, teamFilter, fileCollectionSort])
 
   const displayedFiles = filteredAndSortedFiles
 
@@ -153,8 +233,8 @@ const FileCollectionTab = ({
         return latestB - latestA
       })
       .forEach(folderKey => {
-        // folderKey is "folderName||username" — strip the user part for display
-        const folderName = folderKey.includes('||') ? folderKey.split('||')[0] : folderKey
+        // folderKey is "folderName||assignmentId||username" — strip to get display name
+        const folderName = folderKey.split('||')[0]
         items.push({ type: 'folder', folderKey, folderName, files: folders[folderKey] })
       })
     individualFiles.forEach(file => {
@@ -193,9 +273,48 @@ const FileCollectionTab = ({
     return pageNumbers
   }, [totalPages, currentPage])
 
+  const getFolderStatusBadge = (folderFiles) => {
+    const allApproved = folderFiles.every(f => f.status === 'approved' || f.status === 'final_approved')
+    const anyRejected = folderFiles.some(f => f.status === 'rejected' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin')
+    const allAtLeastTLApproved = folderFiles.every(f => f.status === 'team_leader_approved' || f.status === 'approved' || f.status === 'final_approved')
+    const anyPendingTL = folderFiles.some(f => f.status === 'uploaded')
 
-  const renderFileRow = (submission, isNested = false) => {
+    if (anyPendingTL) {
+      return <span className="status-badge status-pending">Pending Team Leader</span>
+    }
+    if (allApproved) {
+      return <span className="status-badge status-approved">Approved</span>
+    }
+    if (anyRejected) {
+      return <span className="status-badge status-rejected">Rejected</span>
+    }
+    if (allAtLeastTLApproved) {
+      return <span className="status-badge status-pending">Pending Admin</span>
+    }
+    return <span className="status-badge status-pending">Pending Team Leader</span>
+  }
+
+  const getStatusBadge = (submission) => {
+    const cls = submission.status === 'approved' || submission.status === 'final_approved' ? 'approved'
+      : submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected'
+      : 'pending'
+    const label = submission.status === 'approved' || submission.status === 'final_approved' ? 'Approved'
+      : submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'Rejected'
+      : submission.status === 'team_leader_approved' ? 'Pending Admin'
+      : 'Pending Team Leader'
+    return <span className={`status-badge status-${cls}`}>{label}</span>
+  }
+
+  const renderFileRow = (submission, isNested = false, level = 0, isLast = false, parentIsLastArr = []) => {
     const ext = getFileExtension(submission.original_name, submission.file_type)
+    let displayName = submission.original_name
+    if (isNested) {
+      const cleanPath = (submission.relative_path || submission.original_name || '').replace(/\\/g, '/')
+      const parts = cleanPath.split('/').filter(Boolean)
+      if (parts.length > 0) {
+        displayName = parts[parts.length - 1]
+      }
+    }
     return (
       <tr
         key={submission.id}
@@ -205,13 +324,19 @@ const FileCollectionTab = ({
         style={isNested ? { backgroundColor: '#fafafa' } : {}}
       >
         <td>
-          <div className="file-cell" style={isNested ? { paddingLeft: '44px' } : {}}>
-            <div className="file-icon">
-              <FileIcon file={submission} size="medium" />
-            </div>
-            <div className="file-details">
-              <span className="file-name">{isNested ? (submission.relative_path || submission.original_name) : submission.original_name}</span>
-              <span className="file-size">{formatFileSize(submission.file_size)}</span>
+          <div className="tl-tree-container">
+            {parentIsLastArr.map((isLastParent, i) => (
+              <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+            ))}
+            {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+            <div className="file-cell" style={{ flex: 1 }}>
+              <div className="file-icon" style={{ width: '34px', height: '34px' }}>
+                <FileIcon fileType={ext} isFolder={false} altText={`Icon for ${submission.original_name}`} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
+              </div>
+              <div className="file-details">
+                <span className="file-name">{displayName}</span>
+                <span className="file-size">{formatFileSize(submission.file_size)}</span>
+              </div>
             </div>
           </div>
         </td>
@@ -223,7 +348,7 @@ const FileCollectionTab = ({
         </td>
         <td>
           <div className="team-cell">
-            <TeamBadge team={submission.user_team || submission.team} size="sm" />
+            <span className="team-badge" data-team={submission.user_team || submission.team}>{submission.user_team || submission.team || 'N/A'}</span>
           </div>
         </td>
         <td><div className="user-cell"><span className="user-name">{submission.fullName || submission.username}</span></div></td>
@@ -233,18 +358,18 @@ const FileCollectionTab = ({
             <div className="time">{new Date(submission.submitted_at || submission.uploaded_at).toLocaleTimeString()}</div>
           </div>
         </td>
-        <td><StatusBadge status={submission.status} size="sm" /></td>
-        <td style={{ textAlign: 'center' }}>
-          <div className="tl-actions-menu-wrapper">
-            <button className="tl-menu-button" onClick={(e) => toggleMenu(submission.id, e)} title="Options">
+        {activeView === 'collection' && <td>{getStatusBadge(submission)}</td>}
+        <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+          <div className="tl-actions-menu-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); openLocalMenu(submission.id, e.currentTarget) }} title="Options">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <circle cx="3" cy="8" r="1.5" fill="currentColor" />
                 <circle cx="8" cy="8" r="1.5" fill="currentColor" />
                 <circle cx="13" cy="8" r="1.5" fill="currentColor" />
               </svg>
             </button>
-            {openMenuId === submission.id && (
-              <div className="tl-dropdown-menu">
+            {localMenuId === submission.id && ReactDOM.createPortal(
+              <div className="tl-dropdown-menu" style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 9999, minWidth: '160px' }}>
                 {submission.assignment_id && onNavigateToTask && (
                   <button className="tl-dropdown-item" onClick={(e) => { e.stopPropagation(); onNavigateToTask(submission.assignment_id, submission.id) }}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -254,7 +379,8 @@ const FileCollectionTab = ({
                     Go to Task
                   </button>
                 )}
-              </div>
+              </div>,
+              document.body
             )}
           </div>
         </td>
@@ -268,6 +394,29 @@ const FileCollectionTab = ({
         <div className="tl-page-header">
           <h1>File Collection</h1>
           <p>View all submitted files from assignments in one place</p>
+          {/* Toggle */}
+          <div style={{ display: 'inline-flex', marginTop: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#f9fafb' }}>
+            <button
+              onClick={() => setActiveView('collection')}
+              style={{
+                padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
+                background: activeView === 'collection' ? 'white' : 'transparent',
+                color: activeView === 'collection' ? '#111827' : '#6b7280',
+                boxShadow: activeView === 'collection' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
+              }}
+            >File Collection</button>
+            <button
+              onClick={() => setActiveView('reference')}
+              style={{
+                padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
+                background: activeView === 'reference' ? 'white' : 'transparent',
+                color: activeView === 'reference' ? '#111827' : '#6b7280',
+                boxShadow: activeView === 'reference' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
+              }}
+            >Reference Files</button>
+          </div>
         </div>
         <div className="file-status-cards">
           <div className="file-status-card">
@@ -332,90 +481,186 @@ const FileCollectionTab = ({
           <table className="tl-files-table">
             <thead>
               <tr>
-                <th>File Name</th>
-                <th>Assignment</th>
+                <th style={{ width: '40%' }}>File Name</th>
+                <th>Task</th>
                 <th>Team</th>
                 <th>Submitted By</th>
                 <th>Submitted Date</th>
-                <th>Status</th>
+                {activeView === 'collection' && <th>Status</th>}
                 <th style={{ width: '80px', textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {currentPageItems.map((item) => {
-                if (item.type === 'folder') {
-                  const { folderKey, folderName, files: folderFiles } = item
-                  const isExpanded = expandedFolders[folderKey]
-                  const firstFile = folderFiles[0]
-                  return (
-                    <React.Fragment key={`folder-${folderKey}`}>
-                      <tr
-                        className="tl-clickable-row tl-folder-row"
-                        style={{ verticalAlign: 'middle' }}
-                        onClick={() => setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))}
-                      >
-                        <td style={{ verticalAlign: 'middle' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
-                            <div>
-                              <div style={{ fontWeight: '600', color: '#111827' }}>{folderName}</div>
-                              <div style={{ fontSize: '12px', color: '#6b7280' }}>{folderFiles.length} files</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ verticalAlign: 'middle' }}>{firstFile.assignment_title || '-'}</td>
-                        <td style={{ verticalAlign: 'middle' }}>
-                          <div className="team-cell">
-                            <TeamBadge team={firstFile.user_team || firstFile.team} size="sm" />
-                          </div>
-                        </td>
-                        <td style={{ verticalAlign: 'middle' }}>{firstFile.fullName || firstFile.username || '-'}</td>
-                        <td style={{ verticalAlign: 'middle' }}>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
-                        <td style={{ verticalAlign: 'middle' }}>
-                          {/* Folder status is complex, but we can approximate it or use StatusBadge if it supports list of statuses */}
-                          {/* For now, let's just use the logic from the component itself since it's folder-specific */}
-                          {(() => {
-                            const allApproved = folderFiles.every(f => f.status === 'approved' || f.status === 'final_approved');
-                            const anyRejected = folderFiles.some(f => f.status === 'rejected' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin');
-                            const anyPendingTL = folderFiles.some(f => f.status === 'uploaded');
-                            
-                            if (anyPendingTL) return <StatusBadge status="uploaded" size="sm" />;
-                            if (allApproved) return <StatusBadge status="final_approved" size="sm" />;
-                            if (anyRejected) return <StatusBadge status="rejected" size="sm" />;
-                            return <StatusBadge status="team_leader_approved" size="sm" />;
-                          })()}
-                        </td>
-                        <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                          <div className="tl-actions-menu-wrapper">
-                            <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${folderKey}`, e) }} title="Options">
-                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <circle cx="3" cy="8" r="1.5" fill="currentColor" />
-                                <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-                                <circle cx="13" cy="8" r="1.5" fill="currentColor" />
-                              </svg>
-                            </button>
-                            {openMenuId === `folder-${folderKey}` && (
-                              <div className="tl-dropdown-menu">
-                                {firstFile.assignment_id && onNavigateToTask && (
-                                  <button className="tl-dropdown-item" onClick={(e) => { e.stopPropagation(); onNavigateToTask(firstFile.assignment_id, firstFile.id) }}>
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                      <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                      <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                    Go to Task
-                                  </button>
-                                )}
+              {(() => {
+                const renderRecursiveItems = (files, level = 1, parentKey = '', parentIsLastArr = []) => {
+                  const { subfolders, rootFiles } = recursiveGroupByPath(files);
+                  const items = [];
+
+                  const subfolderEntries = Object.entries(subfolders);
+                  const totalSubfolders = subfolderEntries.length;
+                  const totalRootFiles = rootFiles.length;
+
+                  // 1. Render subfolders
+                  subfolderEntries.forEach(([folderName, folderFiles], index) => {
+                    const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
+                    const currentKey = parentKey ? `${parentKey}__${folderName}` : folderName;
+                    const isExpanded = expandedFolders[currentKey];
+                    const firstFile = folderFiles[0].file || folderFiles[0];
+
+                    items.push(
+                      <React.Fragment key={`folder-${currentKey}`}>
+                        <tr
+                          className="tl-clickable-row tl-folder-row"
+                          onClick={() => setExpandedFolders(prev => ({ ...prev, [currentKey]: !prev[currentKey] }))}
+                          style={{ backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
+                        >
+                          <td>
+                            <div className="tl-tree-container">
+                              {parentIsLastArr.map((isLastParent, i) => (
+                                <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                              ))}
+                              {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                              <div className="file-cell" style={{ flex: 1 }}>
+                                <div style={{ fontSize: '30px' }}>{isExpanded ? '📂' : '📁'}</div>
+                                <div className="file-details">
+                                  <span className="file-name" style={{ fontWeight: '600' }}>{folderName}</span>
+                                  <span className="file-size">{folderFiles.length} items</span>
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                      {isExpanded && folderFiles.map(f => renderFileRow(f, true))}
-                    </React.Fragment>
-                  )
-                }
-                return renderFileRow(item.file, false)
-              })}
+                            </div>
+                          </td>
+                          <td>{firstFile.assignment_title || '-'}</td>
+                          <td>
+                            <div className="team-cell">
+                              <span className="team-badge" data-team={firstFile.user_team || firstFile.team}>{firstFile.user_team || firstFile.team || 'N/A'}</span>
+                            </div>
+                          </td>
+                          <td><span className="user-name">{firstFile.fullName || firstFile.username || '-'}</span></td>
+                          <td>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
+                          {activeView === 'collection' && <td>{getFolderStatusBadge(folderFiles.map(f => f.file || f))}</td>}
+                          <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                            <div className="tl-actions-menu-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                              <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); openLocalMenu(`folder-${currentKey}`, e.currentTarget) }}>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.5" fill="currentColor" /><circle cx="8" cy="8" r="1.5" fill="currentColor" /><circle cx="13" cy="8" r="1.5" fill="currentColor" /></svg>
+                              </button>
+                              {localMenuId === `folder-${currentKey}` && ReactDOM.createPortal(
+                                <div className="tl-dropdown-menu" style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 9999, minWidth: '160px' }}>
+                                  {onNavigateToTask && (
+                                    <button
+                                      className="tl-dropdown-item"
+                                      style={!firstFile.assignment_id ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                                      title={!firstFile.assignment_id ? 'This folder is not linked to a task' : 'Go to Task'}
+                                      onClick={(e) => { e.stopPropagation(); if (firstFile.assignment_id) onNavigateToTask(firstFile.assignment_id, null) }}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                      Go to Task
+                                    </button>
+                                  )}
+                                </div>,
+                                document.body
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        {isExpanded && renderRecursiveItems(folderFiles, level + 1, currentKey, [...parentIsLastArr, isLast])}
+                      </React.Fragment>
+                    );
+                  });
+
+                  // 2. Render root files
+                  rootFiles.forEach((item, index) => {
+                    const isLast = index === totalRootFiles - 1;
+                    const file = item.file || item;
+                    items.push(renderFileRow(file, true, level, isLast, parentIsLastArr));
+                  });
+
+                  return items;
+                };
+
+                return currentPageItems.map((item) => {
+                  if (item.type === 'folder') {
+                    const { folderKey, folderName, files: folderFiles } = item;
+                    const isExpanded = expandedFolders[folderKey];
+                    const firstFile = folderFiles[0];
+                    return (
+                      <React.Fragment key={`root-folder-${folderKey}`}>
+                        <tr
+                          className="tl-clickable-row tl-folder-row"
+                          onClick={() => setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))}
+                          style={{ backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
+                        >
+                          <td>
+                            <div className="file-cell">
+                              <div style={{ fontSize: '30px' }}>{isExpanded ? '📂' : '📁'}</div>
+                              <div className="file-details">
+                                <span className="file-name" style={{ fontWeight: '600' }}>{folderName}</span>
+                                <span className="file-size">{folderFiles.length} items</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td>{firstFile.assignment_title || '-'}</td>
+                          <td>
+                            <div className="team-cell">
+                              <span className="team-badge" data-team={firstFile.user_team || firstFile.team}>{firstFile.user_team || firstFile.team || 'N/A'}</span>
+                            </div>
+                          </td>
+                          <td><span className="user-name">{firstFile.fullName || firstFile.username || '-'}</span></td>
+                          <td>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
+                          {activeView === 'collection' && <td>{getFolderStatusBadge(folderFiles)}</td>}
+                          <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                            <div className="tl-actions-menu-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                              <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); openLocalMenu(`folder-${folderKey}`, e.currentTarget) }}>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.5" fill="currentColor" /><circle cx="8" cy="8" r="1.5" fill="currentColor" /><circle cx="13" cy="8" r="1.5" fill="currentColor" /></svg>
+                              </button>
+                              {localMenuId === `folder-${folderKey}` && ReactDOM.createPortal(
+                                <div className="tl-dropdown-menu" style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 9999, minWidth: '160px' }}>
+                                  {onNavigateToTask && (
+                                    <button
+                                      className="tl-dropdown-item"
+                                      style={!firstFile.assignment_id ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                                      title={!firstFile.assignment_id ? 'This folder is not linked to a task' : 'Go to Task'}
+                                      onClick={(e) => { e.stopPropagation(); if (firstFile.assignment_id) onNavigateToTask(firstFile.assignment_id, null) }}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                      Go to Task
+                                    </button>
+                                  )}
+                                </div>,
+                                document.body
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        {isExpanded && renderRecursiveItems(
+                          folderFiles.map(f => {
+                            const file = f.file || f;
+                            const path = (file.relative_path || file.webkitRelativePath || '').replace(/\\/g, '/');
+                            const parts = path.split('/').filter(Boolean);
+                            let remainingPath = path;
+                            if (parts.length > 0 && parts[0].trim() === folderName) {
+                              remainingPath = parts.slice(1).join('/');
+                            }
+                            return {
+                              file,
+                              _temp_path: remainingPath
+                            };
+                          }),
+                          1,
+                          folderKey,
+                          []
+                        )}
+                      </React.Fragment>
+                    );
+                  }
+                  return renderFileRow(item.file);
+                });
+              })()}
             </tbody>
           </table>
 

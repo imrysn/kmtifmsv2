@@ -1,19 +1,18 @@
 import { useRef, useCallback, useState, useEffect, startTransition, useMemo, memo } from 'react';
-import useStore from '@/store/useStore';
-import { apiFetch, API_BASE_URL } from '@/config/api';
+import { apiFetch, API_BASE_URL, uploadWithProgress } from '@/config/api';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
-import { FileIcon, PremiumTaskCard, PremiumModal } from '../shared';
+import { FileIcon, FileOpenModal } from '../shared';
 import FileModal from './FileModal';
-import { FileOpenModal } from '../shared';
+import Avatar from '../shared/Avatar';
 import CommentsModal from '../shared/CommentsModal';
+import { recursiveGroupByPath } from '@utils/folderUtils';
+import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtils';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
 import SuccessModal from './SuccessModal';
 import { useSmartNavigation } from '../shared/SmartNavigation';
 import '../shared/SmartNavigation/SmartNavigation.css';
-import { formatDate, formatDateTime, formatFileSize, groupFilesByFolder, getInitials } from '../../utils/ui-helpers';
-import { openFile, downloadFile, downloadFolder } from '../../utils/file-actions';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const INITIAL_FILE_DISPLAY_LIMIT = 5;
@@ -25,14 +24,58 @@ const SORT_OPTIONS = [
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-// Functions moved to shared/utils/ui-helpers.js
+const formatDate = (dateString) =>
+  new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+const formatDateTime = (dateString) => {
+  const date = new Date(dateString);
+  return (
+    date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) +
+    ' at ' +
+    date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  );
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+};
+
+const groupFilesByFolder = (files) => {
+  const folders = {};
+  const individualFiles = [];
+  if (!files || !Array.isArray(files)) return { folders, individualFiles };
+  
+  const sortedFiles = [...files].sort((a, b) => {
+    const nameA = (a.original_name || a.filename || '').toLowerCase();
+    const nameB = (b.original_name || b.filename || '').toLowerCase();
+    return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  for (const file of sortedFiles) {
+    if (file.folder_name) {
+      if (!folders[file.folder_name]) folders[file.folder_name] = [];
+      folders[file.folder_name].push(file);
+    } else {
+      individualFiles.push(file);
+    }
+  }
+
+  const sortedFolders = {};
+  Object.keys(folders).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).forEach(key => {
+    sortedFolders[key] = folders[key];
+  });
+
+  return { folders: sortedFolders, individualFiles };
+};
 
 const getAssignmentStatus = (assignment) => {
-  // If the assignment itself is marked completed (by TL or admin), always treat as completed
-  // regardless of whether the user uploaded files
+  // Only truly completed when the team leader/admin explicitly marks it done
   if (assignment.status === 'completed') return 'completed';
-  const hasFiles = assignment.submitted_files?.length > 0;
-  if (hasFiles) return 'completed';
+  // Having submitted files means it's active (submitted), not completed yet
   if (!assignment.due_date) return 'no_due_date';
   const dueDate = new Date(assignment.due_date);
   const now = new Date();
@@ -42,8 +85,462 @@ const getAssignmentStatus = (assignment) => {
   return 'active';
 };
 
+// ─── Checklist categories & items (from the drawing review sheet) ────────────
+const CHECKLIST_SECTIONS_2D = [
+  {
+    section: 'Drawing Views',
+    items: ['Origin','Alignment of Views','Line Attributes','Dimensions','Hole Properties','Chamfer/Radius','Machining Symbol','Welding Symbol','Geometric/Fitting Tolerances','Additional Views','Text Attributes'],
+  },
+  {
+    section: 'Notes',
+    items: ['Standard Notes','Special Notes'],
+  },
+  {
+    section: 'Bill of Materials',
+    items: ['Material Type','Material Specification','Quantity','Material Weight','Remarks','Balloon','Numbering & Arrangement (Assy)'],
+  },
+  {
+    section: 'Title Block',
+    items: ['Machine name','Part Name','Scale','Designed','Drawn','Quantity','Job Number','Cross Reference Number','Previous Drawing Number','Revision Details (if necessary)'],
+  },
+  {
+    section: 'Isometric View',
+    items: ['Orientation','Scale','Location'],
+  },
+  {
+    section: 'Others',
+    items: ['Tree View Properties / Link','Excel (Additional Info)'],
+  },
+];
+
+const CHECKLIST_SECTIONS_3D = [
+  {
+    section: 'Part Modeling',
+    items: ['Fully Defined Sketches', 'Unused Sketches/Features', 'Fillets & Chamfers Location', 'Draft Angles', 'No Errors/Warnings in FeatureManager'],
+  },
+  {
+    section: 'Assembly / Mates',
+    items: ['No Interference', 'Proper Mates', 'Degrees of Freedom', 'Collision Detection', 'Sub-assemblies structured correctly'],
+  },
+  {
+    section: 'Properties',
+    items: ['Material Applied', 'Mass Properties Computed', 'Custom Properties Filled'],
+  },
+  {
+    section: 'Others',
+    items: ['Tree View Organization', 'Standard Planes Alignment'],
+  }
+];
+
+// ─── Checking Modal ───────────────────────────────────────────────────────────
+const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditing, onDoneChecking }) => {
+  const [checkedItems, setCheckedItems] = useState({});
+  const [additionalComment, setAdditionalComment] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checklistType, setChecklistType] = useState('2D');
+
+  useEffect(() => {
+    if (isOpen) { setCheckedItems({}); setAdditionalComment(''); setChecklistType('2D'); }
+  }, [isOpen, file?.id]);
+
+  if (!isOpen || !file) return null;
+
+  const wrongItems = Object.entries(checkedItems)
+    .filter(([, v]) => v)
+    .map(([k]) => k);
+
+  const handleMarkForEditing = async () => {
+    setIsSubmitting(true);
+    try {
+      await onMarkForEditing(file.id, wrongItems, additionalComment.trim());
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDoneChecking = async () => {
+    setIsSubmitting(true);
+    try {
+      await onDoneChecking(file.id, additionalComment.trim());
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const toggleItem = (item) =>
+    setCheckedItems(prev => ({ ...prev, [item]: !prev[item] }));
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+    >
+      <div
+        style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', width: '560px', maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: '#111827' }}>Checking</h3>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '420px' }}>
+              {file.original_name || file.filename}
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#9ca3af' }}>
+              Check items that are <span style={{ color: '#dc2626', fontWeight: '600' }}>wrong</span> in this file
+            </p>
+            
+            {/* 2D / 3D Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+              <div style={{ display: 'inline-flex', background: '#f3f4f6', borderRadius: '8px', padding: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('2D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '2D' ? '#fff' : 'transparent', color: checklistType === '2D' ? '#111827' : '#6b7280', boxShadow: checklistType === '2D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  2D Checklist
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('3D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '3D' ? '#fff' : 'transparent', color: checklistType === '3D' ? '#111827' : '#6b7280', boxShadow: checklistType === '3D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  3D Checklist
+                </button>
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#9ca3af', lineHeight: 1, padding: '0', flexShrink: 0 }}>×</button>
+        </div>
+
+        {/* Wrong items summary */}
+        {wrongItems.length > 0 && (
+          <div style={{ margin: '0 24px 0', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', marginTop: '14px' }}>
+            <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: '#dc2626' }}>
+              ⚠ {wrongItems.length} item{wrongItems.length !== 1 ? 's' : ''} marked as wrong: {wrongItems.join(', ')}
+            </p>
+          </div>
+        )}
+
+        {/* Checklist */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '16px 24px' }}>
+          {(checklistType === '2D' ? CHECKLIST_SECTIONS_2D : CHECKLIST_SECTIONS_3D).map(({ section, items }) => (
+            <div key={section} style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px', background: '#f3f4f6', borderRadius: '6px', marginBottom: '6px' }}>
+                {section}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {items.map(item => {
+                  const isWrong = !!checkedItems[item];
+                  return (
+                    <label
+                      key={item}
+                      onClick={() => toggleItem(item)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', background: isWrong ? '#fef2f2' : 'transparent', border: isWrong ? '1px solid #fecaca' : '1px solid transparent', transition: 'all 0.12s', userSelect: 'none' }}
+                    >
+                      {/* Custom white checkbox */}
+                      <div
+                        style={{
+                          width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0, cursor: 'pointer',
+                          border: isWrong ? '2px solid #dc2626' : '2px solid #d1d5db',
+                          background: isWrong ? '#dc2626' : '#ffffff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 0.12s',
+                        }}
+                      >
+                        {isWrong && (
+                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '13.5px', color: isWrong ? '#dc2626' : '#374151', fontWeight: isWrong ? '600' : '400' }}>
+                        {item}
+                      </span>
+                      {isWrong && (
+                        <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#dc2626', fontWeight: '600', background: '#fee2e2', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>Wrong</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Additional Comment */}
+        <div style={{ padding: '0 24px 14px', borderTop: '1px solid #f3f4f6', paddingTop: '14px' }}>
+          <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            </svg>
+            Additional Comment <span style={{ color: '#9ca3af', fontWeight: '400' }}>(optional)</span>
+          </label>
+          <textarea
+            value={additionalComment}
+            onChange={e => setAdditionalComment(e.target.value)}
+            placeholder="Add any other remarks or notes for the user..."
+            rows={2}
+            disabled={isSubmitting}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', outline: 'none', color: '#374151', background: '#fff', transition: 'border-color 0.12s' }}
+            onFocus={e => { e.target.style.borderColor = '#f59e0b'; }}
+            onBlur={e => { e.target.style.borderColor = '#e5e7eb'; }}
+          />
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 24px 16px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '10px', justifyContent: 'flex-end', background: '#fafafa' }}>
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleMarkForEditing}
+            disabled={isSubmitting}
+            style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#f59e0b', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            title="Mark this file as needing edits"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            Mark as For Editing
+          </button>
+          <button
+            onClick={handleDoneChecking}
+            disabled={isSubmitting}
+            style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#1d4ed8', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Done Checking
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+CheckingModal.displayName = 'CheckingModal';
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
-const FileMoreMenuInline = memo(({ onDelete, onViewDetails, isFolder = false }) => {
+// ─── Checklist View Modal (read-only wrong items viewer) ──────────────────────
+const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
+  const [resolvedNote, setResolvedNote] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [checklistType, setChecklistType] = useState('2D');
+
+  useEffect(() => {
+    if (!isOpen || !file) { setResolvedNote(null); setLoading(false); return; }
+    // If checker_note is already on the file object, use it directly
+    if (file.checker_note !== undefined) {
+      setResolvedNote(file.checker_note || '');
+      setLoading(false);
+      return;
+    }
+    // Otherwise fetch the full file details to get checker_note
+    setLoading(true);
+    apiFetch(`/api/files/${file.id}`)
+      .then(data => setResolvedNote((data.file || data)?.checker_note || ''))
+      .catch(() => setResolvedNote(''))
+      .finally(() => setLoading(false));
+  }, [isOpen, file?.id]);
+
+  // Auto-detect the right checklist if any wrong items exist in 3D
+  useEffect(() => {
+    if (!isOpen || !file) return;
+    
+    // We need to re-parse the wrong items here to do the detection since we moved this above the return.
+    const note = file.checker_note !== undefined ? (file.checker_note || '') : resolvedNote;
+    if (!note) return;
+    
+    const noteBody = note.split('|')[0];
+    const match = noteBody.match(/Wrong items?:\s*(.+)/i);
+    let items = [];
+    if (match) items = match[1].trim().split(',').map(s => s.trim()).filter(Boolean);
+    
+    if (items.length > 0) {
+      const has3D = items.some(item => CHECKLIST_SECTIONS_3D.some(sec => sec.items.includes(item)));
+      setChecklistType(has3D ? '3D' : '2D');
+    }
+  }, [isOpen, file, resolvedNote]);
+
+  if (!isOpen || !file) return null;
+
+  // Parse wrong items and additional comment from checker_note
+  const wrongItems = (() => {
+    if (!resolvedNote) return [];
+    // Note format: "Wrong items: X, Y | Comment: Z"
+    const noteBody = resolvedNote.split('|')[0];
+    const match = noteBody.match(/Wrong items?:\s*(.+)/i);
+    if (match) return match[1].trim().split(',').map(s => s.trim()).filter(Boolean);
+    return [];
+  })();
+
+  const additionalComment = (() => {
+    if (!resolvedNote) return '';
+    // Handles both formats:
+    //   "Wrong items: X, Y | Comment: Z"  (mark-for-editing with wrong items)
+    //   "Comment: Z"                       (done-checking with note only)
+    const pipeMatch = resolvedNote.match(/\|\s*Comment:\s*(.+)/i);
+    if (pipeMatch) return pipeMatch[1].trim();
+    const directMatch = resolvedNote.match(/^Comment:\s*(.+)/i);
+    if (directMatch) return directMatch[1].trim();
+    return '';
+  })();
+
+  const wrongSet = new Set(wrongItems);
+  const filename = file.original_name || file.filename || 'Unknown';
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+    >
+      <div
+        style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', width: '560px', maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+              </svg>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#111827' }}>Checklist Results</h3>
+            </div>
+            <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>
+              {filename}
+            </p>
+            
+            {/* 2D / 3D Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+              <div style={{ display: 'inline-flex', background: '#f3f4f6', borderRadius: '8px', padding: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('2D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '2D' ? '#fff' : 'transparent', color: checklistType === '2D' ? '#111827' : '#6b7280', boxShadow: checklistType === '2D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  2D Checklist
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('3D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '3D' ? '#fff' : 'transparent', color: checklistType === '3D' ? '#111827' : '#6b7280', boxShadow: checklistType === '3D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  3D Checklist
+                </button>
+              </div>
+            </div>
+            
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#9ca3af', lineHeight: 1, padding: '0', flexShrink: 0 }}>×</button>
+        </div>
+
+        {/* Wrong items summary banner */}
+        {loading ? (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>Loading checklist...</p>
+          </div>
+        ) : wrongItems.length > 0 ? (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#dc2626' }}>
+              ⚠ {wrongItems.length} item{wrongItems.length !== 1 ? 's' : ''} marked as wrong: {wrongItems.join(', ')}
+            </p>
+          </div>
+        ) : file?.status === 'revision' ? (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#dc2626' }}>✎ Need to Edit{additionalComment ? ' — see note below' : ''}</p>
+          </div>
+        ) : additionalComment ? (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#15803d' }}>✓ No wrong items — checker left a note below</p>
+          </div>
+        ) : (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#15803d' }}>✓ No issues found — all items passed</p>
+          </div>
+        )}
+
+        {/* Additional comment from checker */}
+        {!loading && additionalComment && (
+          <div style={{ margin: '10px 22px 0', padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '1px' }}>
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            </svg>
+            <div>
+              <p style={{ margin: 0, fontSize: '11px', fontWeight: '700', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>Checker Note</p>
+              <p style={{ margin: 0, fontSize: '13px', color: '#78350f' }}>{additionalComment}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Checklist (read-only) */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '14px 22px 18px' }}>
+          {(checklistType === '2D' ? CHECKLIST_SECTIONS_2D : CHECKLIST_SECTIONS_3D).map(({ section, items }) => (
+            <div key={section} style={{ marginBottom: '14px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '5px 10px', background: '#f3f4f6', borderRadius: '6px', marginBottom: '4px' }}>
+                {section}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {items.map(item => {
+                  const isWrong = wrongSet.has(item);
+                  return (
+                    <div
+                      key={item}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '7px 10px', borderRadius: '6px',
+                        background: isWrong ? '#fef2f2' : 'transparent',
+                        border: isWrong ? '1px solid #fecaca' : '1px solid transparent',
+                      }}
+                    >
+                      {/* Read-only indicator */}
+                      <div style={{
+                        width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0,
+                        border: isWrong ? '2px solid #dc2626' : '2px solid #d1d5db',
+                        background: isWrong ? '#dc2626' : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {isWrong && (
+                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '13.5px', color: isWrong ? '#dc2626' : '#374151', fontWeight: isWrong ? '600' : '400', flex: 1 }}>
+                        {item}
+                      </span>
+                      {isWrong && (
+                        <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: '600', background: '#fee2e2', padding: '2px 8px', borderRadius: '10px', flexShrink: 0 }}>Wrong</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 22px', borderTop: '1px solid #e5e7eb', background: '#fafafa', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{ padding: '9px 22px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+ChecklistViewModal.displayName = 'ChecklistViewModal';
+
+const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder = false, onChecking, onChecklist, onMarkForEditing, onDoneChecking }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -54,7 +551,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, isFolder = false }) 
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  if (!onDelete && !onViewDetails) return null;
+  if (!onDelete && !onViewDetails && !onChecking && !onChecklist) return null;
 
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
@@ -80,7 +577,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, isFolder = false }) 
             position: 'absolute', right: 0, top: '34px', zIndex: 1000,
             backgroundColor: '#fff', border: '1px solid #e5e7eb',
             borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-            minWidth: '160px', overflow: 'hidden',
+            minWidth: '180px', overflow: 'hidden',
           }}
         >
           {onViewDetails && (
@@ -99,6 +596,63 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, isFolder = false }) 
               </svg>
               File Details
             </button>
+          )}
+          {onOpenPath && (
+            <button
+              onClick={() => { setOpen(false); onOpenPath(); }}
+              style={{
+                width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                padding: '10px 14px', fontSize: '13px', color: '#374151',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f3f4f6'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v12z" />
+              </svg>
+              {isFolder ? 'Open Folder Path' : 'Open File Path'}
+            </button>
+          )}
+          {onChecking && (onViewDetails || onOpenPath) && (
+            <div style={{ height: '1px', backgroundColor: '#f3f4f6', margin: '2px 0' }} />
+          )}
+          {onChecklist && (
+            <button
+              onClick={() => { setOpen(false); onChecklist(); }}
+              style={{
+                width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                padding: '10px 14px', fontSize: '13px', color: '#d97706',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#fef3c7'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+              </svg>
+              Checklist
+            </button>
+          )}
+          {onChecking && (
+            <button
+              onClick={() => { setOpen(false); onChecking(); }}
+              style={{
+                width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                padding: '10px 14px', fontSize: '13px', color: '#4f46e5',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#ede9fe'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+              </svg>
+              Checking
+            </button>
+          )}
+          {onDelete && (onChecking || onChecklist) && (
+            <div style={{ height: '1px', backgroundColor: '#f3f4f6', margin: '2px 0' }} />
           )}
           {onDelete && (
             <button
@@ -201,12 +755,15 @@ AttachmentMoreMenu.displayName = 'AttachmentMoreMenu';
 
 const getFileStatusBadge = (status) => {
   const badges = {
+    new:      { bg: '#1d4ed8', color: '#fff', label: 'New', radius: '20px' },
     uploaded: { bg: '#1d4ed8', color: '#fff', label: 'New', radius: '20px' },
     team_leader_approved: { bg: '#fef9c3', color: '#92400e', label: 'Pending Admin', radius: '20px' },
     final_approved: { bg: '#d1fae5', color: '#065f46', label: '✓ APPROVED', radius: '4px', weight: '600' },
     rejected_by_team_leader: { bg: '#ffe4e6', color: '#be123c', label: 'Rejected', radius: '20px' },
     rejected_by_admin: { bg: '#ffe4e6', color: '#be123c', label: 'Rejected', radius: '20px' },
     under_revision: { bg: '#fef3c7', color: '#92400e', label: '✎ REVISED', radius: '4px', weight: '600' },
+    revision: { bg: '#fef9c3', color: '#854d0e', label: '✎ CHECKED - NEED TO EDIT', radius: '4px', weight: '600' },
+    checked: { bg: '#EFF6FF', color: '#1D4ED8', label: '✓ CHECKED', radius: '4px', weight: '600' },
   };
   const b = badges[status] || badges.uploaded;
   return (
@@ -216,22 +773,43 @@ const getFileStatusBadge = (status) => {
   );
 };
 
-const getStatusBadge = (assignment) => {
-  // If TL/admin marked the task as completed, show Completed badge regardless of file uploads
+const getStatusBadge = (assignment, activeTab = 'my-tasks', userId = null) => {
   if (assignment.status === 'completed') {
     return <span style={{ backgroundColor: '#F0FDF4', color: '#15803D', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ COMPLETED</span>;
   }
-  if (assignment.submitted_files?.length > 0) {
-    return <span style={{ backgroundColor: '#F0FDF4', color: '#15803D', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ SUBMITTED</span>;
+  if (assignment.status === 'checked') {
+    return <span style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ CHECKED</span>;
+  }
+  // In My Tasks: only count the current user's own submitted files for badge logic
+  const mySubmittedFiles = activeTab === 'for-checking'
+    ? assignment.submitted_files
+    : (assignment.submitted_files || []).filter(f =>
+        !f.submitter_name
+        || (userId && String(f.user_id) === String(userId))
+        || (userId && String(f.submitter_username) === String(userId))
+      );
+  if (assignment.status === 'for_editing') {
+    // For Checking tab: checker sees "FOR CHECKING"; My Tasks tab with submitted files: user sees "SUBMITTED"
+    if (activeTab === 'for-checking') {
+      return <span style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1px solid #FDBA74' }}>FOR CHECKING</span>;
+    }
+    if (mySubmittedFiles?.length > 0) {
+      return <span style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>✓ SUBMITTED</span>;
+    }
+    return <span style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #FCD34D' }}>✎ FOR EDITING</span>;
+  }
+  if (mySubmittedFiles?.length > 0) {
+    if (activeTab === 'for-checking') {
+      return <span style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1px solid #FDBA74' }}>FOR CHECKING</span>;
+    }
+    return <span style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>✓ SUBMITTED</span>;
   }
   if (!assignment.due_date) return null;
-
   const dueDate = new Date(assignment.due_date);
   const now = new Date();
   dueDate.setHours(0, 0, 0, 0);
   now.setHours(0, 0, 0, 0);
   const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
-
   if (assignment.user_status === 'submitted' && !assignment.submitted_files?.length) {
     return <span style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>⚠ MISSING</span>;
   }
@@ -249,25 +827,32 @@ const TasksTab = memo(({
   user,
   highlightedAssignmentId,
   highlightedFileId,
+  highlightedFileStatus,
   notificationCommentContext,
   onClearHighlight,
   onClearFileHighlight,
   onClearNotificationContext,
+  initialTab,
+  onClearInitialTab,
 }) => {
   // Core data
-  const setAssignmentsCache = useStore(state => state.setAssignmentsCache);
-  const cacheKey = `user-${user.id}`;
-  const assignments = useStore(state => state.assignmentsCache[cacheKey]) || [];
-  const [isLoading, setIsLoading] = useState(!useStore.getState().assignmentsCache[cacheKey]);
+  const [assignments, setAssignments] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Tab toggle: 'my-tasks' | 'for-checking'
+  const [activeTab, setActiveTab] = useState('my-tasks');
 
   // UI state
   const [sortFilter, setSortFilter] = useState('all');
+  // Team filter toggle: 'all' | 'KUSAKABE' | 'IT Dept'
+  const [teamFilter, setTeamFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const prevSearchQueryRef = useRef('');
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' });
-  const [fileOpenToast, setFileOpenToast] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [expandedFolders, setExpandedFolders] = useState({});
   const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({});
-
 
   // Comments
   const [comments, setComments] = useState({});
@@ -276,6 +861,8 @@ const TasksTab = memo(({
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
   const [highlightCommentBy, setHighlightCommentBy] = useState(null);
+  const [highlightTargetCommentId, setHighlightTargetCommentId] = useState(null);
+  const [isPostingReply, setIsPostingReply] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [visibleReplies, setVisibleReplies] = useState({});
 
@@ -286,17 +873,40 @@ const TasksTab = memo(({
   const [fileDescription, setFileDescription] = useState('');
   const [fileTag, setFileTag] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, percentage: 0, currentFileName: '' });
   const [uploadMode, setUploadMode] = useState('files');
   const [targetFolder, setTargetFolder] = useState(null);
+  const uploadAbortControllerRef = useRef(null); // ref to abort in-progress XHR upload
 
   // Delete modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
 
+  // File open modal
+  const [showOpenFileModal, setShowOpenFileModal] = useState(false);
+  const [fileToOpen, setFileToOpen] = useState(null);
+  const [openModalType, setOpenModalType] = useState('file');
+
   // File Details modal
   const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
   const [fileDetailsTarget, setFileDetailsTarget] = useState(null);
+
+  // Checking modal (per-file checklist)
+  const [checkingModal, setCheckingModal] = useState({ isOpen: false, file: null, assignment: null });
+  // Checklist view modal (read-only wrong items viewer)
+  const [checklistViewModal, setChecklistViewModal] = useState({ isOpen: false, file: null });
+
+  // Checker three-dot menu
+  const [checkerMenuOpen, setCheckerMenuOpen] = useState(null); // assignmentId
+  const checkerMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!checkerMenuOpen) return;
+    const handler = (e) => {
+      if (checkerMenuRef.current && !checkerMenuRef.current.contains(e.target)) setCheckerMenuOpen(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [checkerMenuOpen]);
 
   // Refs
   const fileInputRef = useRef(null);
@@ -305,27 +915,19 @@ const TasksTab = memo(({
   const newCommentRef = useRef(newComment);
   newCommentRef.current = newComment;
 
-  const [fileToOpen, setFileToOpen] = useState(null);
-  const [isOpeningFile, setIsOpeningFile] = useState(false);
+  // Warm up the server's path cache when a folder is expanded
+  const prefetchFolderFiles = useCallback((files, type = 'file') => {
+    if (!files || files.length === 0) return
+    
+    // Use bulk prefetch to resolve all paths in one parallel request
+    const fileIds = files.map(f => f.id).filter(Boolean);
+    if (fileIds.length === 0) return;
 
-  // Prevent accidental window closure during active uploads
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (isUploading) {
-        e.preventDefault();
-        e.returnValue = '';
-        return '';
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isUploading]);
-
-  const handleCloseSubmitModal = useCallback(() => {
-    if (isUploading) return;
-    setShowSubmitModal(false);
-    resetSubmitModal();
-  }, [isUploading]);
+    apiFetch('/api/files/bulk-path', {
+      method: 'POST',
+      body: JSON.stringify({ fileIds, type })
+    }).catch(() => {}); // Ignore prefetch errors
+  }, []);
 
   // ─── Fetch helpers ─────────────────────────────────────────────────────────
   const showError = useCallback((message) =>
@@ -337,7 +939,7 @@ const TasksTab = memo(({
       const data = await apiFetch(`/api/assignments/${assignmentId}/comments`);
       if (data.success) {
         setComments(prev => ({ ...prev, [assignmentId]: data.comments || [] }));
-        setAssignmentsCache(cacheKey, prev => prev.map(a =>
+        setAssignments(prev => prev.map(a =>
           a.id === assignmentId ? { ...a, comment_count: (data.comments || []).length } : a
         ));
       }
@@ -347,12 +949,11 @@ const TasksTab = memo(({
   }, []);
 
   const fetchAssignments = useCallback(async () => {
-    const currentAssignments = useStore.getState().assignmentsCache[cacheKey];
-    if (!currentAssignments) setIsLoading(true);
+    setIsLoading(true);
     try {
       const data = await apiFetch(`/api/assignments/user/${user.id}`);
       if (data.success) {
-        setAssignmentsCache(cacheKey, data.assignments || []);
+        setAssignments(data.assignments || []);
       } else {
         showError('Failed to fetch assignments');
       }
@@ -362,6 +963,60 @@ const TasksTab = memo(({
       setIsLoading(false);
     }
   }, [user.id, showError]);
+
+  // ─── Checker actions (must be after fetchAssignments & showError) ────────────
+  const handleMarkForEditing = useCallback(async (assignment, fileId = null, note = null) => {
+    setCheckerMenuOpen(null);
+    try {
+      const data = await apiFetch(`/api/assignments/${assignment.id}/mark-for-editing`, {
+        method: 'PUT',
+        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username, fileId, note }),
+      });
+      if (data.success) {
+        setSuccessModal({ isOpen: true, title: 'Status Updated', message: 'Marked as For Editing — user has been notified.', type: 'success' });
+        fetchAssignments();
+      } else { showError(data.message || 'Failed to update status'); }
+    } catch { showError('Failed to update status'); }
+  }, [user, fetchAssignments, showError]);
+
+  const handleMarkChecked = useCallback(async (assignment) => {
+    setCheckerMenuOpen(null);
+    try {
+      const data = await apiFetch(`/api/assignments/${assignment.id}/mark-checked`, {
+        method: 'PUT',
+        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username }),
+      });
+      if (data.success) {
+        setSuccessModal({ isOpen: true, title: 'Review Complete', message: `Done Checked by: ${user.fullName || user.username}. Team Leader has been notified.`, type: 'success' });
+        fetchAssignments();
+      } else {
+        showError(data.message || 'Failed to update status');
+      }
+    } catch (err) {
+      showError(err?.message || 'Failed to update status');
+    }
+  }, [user, fetchAssignments, showError]);
+
+  const handleMarkFileChecked = useCallback(async (assignment, fileId, checkerNote = '') => {
+    setCheckerMenuOpen(null);
+    if (!fileId) { showError('Cannot mark file: file ID is missing.'); return; }
+    try {
+      const data = await apiFetch(`/api/assignments/${assignment.id}/files/${fileId}/mark-file-checked`, {
+        method: 'PUT',
+        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username, checkerNote }),
+      });
+      if (data.success) {
+        if (data.allChecked) {
+          setSuccessModal({ isOpen: true, title: 'All Files Checked', message: `All files checked — Team Leader has been notified.`, type: 'success' });
+        } else {
+          setSuccessModal({ isOpen: true, title: 'File Checked', message: 'File marked as Checked.', type: 'success' });
+        }
+        await fetchAssignments();
+      } else { showError(data.message || 'Failed to update file status'); }
+    } catch (err) {
+      showError(err?.message || 'Failed to update file status');
+    }
+  }, [user, fetchAssignments, showError]);
 
   // ─── Session storage scroll-to on mount ────────────────────────────────────
   const openCommentsModal = useCallback((assignment) => {
@@ -394,6 +1049,23 @@ const TasksTab = memo(({
 
   useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
 
+  // Reset display state when search query changes so results refresh cleanly
+  useEffect(() => {
+    if (prevSearchQueryRef.current !== searchQuery) {
+      prevSearchQueryRef.current = searchQuery;
+      setShowAllSubmittedFiles({});
+      setExpandedFolders({});
+    }
+  }, [searchQuery]);
+
+  // Apply initialTab from notification click (e.g. 'for-checking')
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+      if (onClearInitialTab) onClearInitialTab();
+    }
+  }, [initialTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Keep currentAssignmentIdRef in sync
   currentAssignmentIdRef.current = currentCommentsAssignment?.id;
 
@@ -403,6 +1075,7 @@ const TasksTab = memo(({
     items: assignments,
     highlightedItemId: highlightedAssignmentId,
     highlightedFileId,
+    highlightedFileStatus,
     notificationContext: notificationCommentContext,
     onClearHighlight,
     onClearFileHighlight,
@@ -412,7 +1085,84 @@ const TasksTab = memo(({
     showCommentsModal,
     selectedItem: currentCommentsAssignment,
     comments: comments[currentCommentsAssignment?.id] || [],
+    setHighlightUsername: setHighlightCommentBy,
+    setHighlightCommentId: setHighlightTargetCommentId
   });
+
+  // Auto-set team filter to ensure the highlighted assignment is visible
+  useEffect(() => {
+    if (highlightedAssignmentId && assignments.length > 0) {
+      const assignment = assignments.find(a => a.id === parseInt(highlightedAssignmentId));
+      if (assignment) {
+        const assignmentTeam = assignment.team || user?.team || 'IT Dept';
+        setTeamFilter(assignmentTeam);
+      }
+    }
+  }, [highlightedAssignmentId, assignments, user?.team]);
+
+  // Auto-expand the folder that contains highlightedFileId so the file is visible.
+  // activeTab dependency ensures this runs after the tab has switched (For Checking vs My Tasks).
+  useEffect(() => {
+    if (!highlightedFileId || assignments.length === 0) return;
+    const fid = parseInt(highlightedFileId);
+    for (const assignment of assignments) {
+      const allFiles = assignment.submitted_files || [];
+      const targetFile = allFiles.find(f => f.id === fid);
+      if (targetFile) {
+        // Always expand "See more" so the file isn't hidden behind the limit
+        setShowAllSubmittedFiles(prev => prev[assignment.id] ? prev : { ...prev, [assignment.id]: true });
+        // If the file is inside a folder, expand that folder too
+        if (targetFile.folder_name) {
+          const key = `${assignment.id}-${targetFile.folder_name}`;
+          setExpandedFolders(prev => prev[key] ? prev : { ...prev, [key]: true });
+        }
+        break;
+      }
+    }
+  }, [highlightedFileId, assignments, activeTab]);
+
+  // Scroll to and visually highlight the file card after expand/show-all state settles.
+  // activeTab is a dependency so this re-runs after the tab switch renders the correct cards.
+  // NOTE: onClearFileHighlight is NOT called here — useSmartNavigation.js EFFECT 4 handles
+  // that cleanup via its own retry loop. Calling it here too would double-clear and cause
+  // a second re-render. This effect only handles the visual scroll+pulse.
+  useEffect(() => {
+    if (!highlightedFileId || assignments.length === 0) return;
+    const fid = parseInt(highlightedFileId);
+    // 500ms gives time for: tab switch render + folder auto-expand render + show-all render
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-file-id="${fid}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Pulse highlight: indigo ring + light indigo background, fades after 2.5s
+      el.style.transition = 'box-shadow 0.3s, background-color 0.3s';
+      el.style.boxShadow = '0 0 0 3px #6366f1';
+      el.style.backgroundColor = '#eef2ff';
+      const cleanup = setTimeout(() => {
+        el.style.boxShadow = '';
+        el.style.backgroundColor = '';
+      }, 2500);
+      return () => clearTimeout(cleanup);
+    }, 500); // 500ms — tab switch + folder expand + see-all settle
+    return () => clearTimeout(timer);
+  }, [highlightedFileId, assignments, activeTab]); // activeTab ensures re-run after tab switch
+
+  // Auto-open ChecklistViewModal when navigating from a "Submission Needs Editing" notification
+  useEffect(() => {
+    if (!highlightedFileId || highlightedFileStatus !== 'revision' || assignments.length === 0) return;
+    const fid = parseInt(highlightedFileId);
+    for (const assignment of assignments) {
+      const targetFile = (assignment.submitted_files || []).find(f => f.id === fid);
+      if (targetFile) {
+        // Small delay so the task card has time to scroll into view first
+        const timer = setTimeout(() => {
+          setChecklistViewModal({ isOpen: true, file: targetFile });
+          if (onClearFileHighlight) onClearFileHighlight();
+        }, 600);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [highlightedFileId, highlightedFileStatus, assignments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Comment actions ───────────────────────────────────────────────────────
   const postComment = useCallback(async (assignmentId, commentText) => {
@@ -439,6 +1189,7 @@ const TasksTab = memo(({
   const postReply = useCallback(async (_e, commentId, replyTextValue, onSuccess) => {
     const assignmentId = currentAssignmentIdRef.current;
     if (!assignmentId || !commentId || !replyTextValue?.trim()) return;
+    setIsPostingReply(true);
     try {
       const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
         method: 'POST',
@@ -447,11 +1198,12 @@ const TasksTab = memo(({
       if (data.success) { onSuccess?.(); fetchComments(assignmentId); }
       else showError(data.message || 'Failed to post reply');
     } catch { showError('Failed to post reply'); }
+    finally { setIsPostingReply(false); }
   }, [user.id, user.username, user.fullName, fetchComments, showError]);
 
   const editComment = useCallback(async (assignmentId, commentId, newText) => {
     try {
-      const data = await apiFetch(`/api/assignments/comments/${commentId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
         method: 'PUT',
         body: JSON.stringify({ userId: user.id, comment: newText }),
       });
@@ -462,7 +1214,7 @@ const TasksTab = memo(({
 
   const deleteComment = useCallback(async (assignmentId, commentId) => {
     try {
-      const data = await apiFetch(`/api/assignments/comments/${commentId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
         method: 'DELETE',
         body: JSON.stringify({ userId: user.id }),
       });
@@ -473,9 +1225,9 @@ const TasksTab = memo(({
 
   const editReply = useCallback(async (assignmentId, commentId, replyId, newText) => {
     try {
-      const data = await apiFetch(`/api/assignments/comments/${replyId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
         method: 'PUT',
-        body: JSON.stringify({ userId: user.id, comment: newText }),
+        body: JSON.stringify({ userId: user.id, reply: newText }),
       });
       if (data.success) fetchComments(assignmentId);
       else showError(data.message || 'Failed to edit reply');
@@ -484,7 +1236,7 @@ const TasksTab = memo(({
 
   const deleteReply = useCallback(async (assignmentId, commentId, replyId) => {
     try {
-      const data = await apiFetch(`/api/assignments/comments/${replyId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
         method: 'DELETE',
         body: JSON.stringify({ userId: user.id }),
       });
@@ -517,64 +1269,116 @@ const TasksTab = memo(({
   }, [showError]);
 
   const handleDownloadFolder = useCallback(async (folderFiles, folderName) => {
-    const fileIds = folderFiles.map(f => f.id).join(',');
-    const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`;
-    const fileName = `${folderName}.zip`;
-    if (window.electron?.downloadFile) {
-      const result = await window.electron.downloadFile(fileUrl, fileName);
-      if (result && !result.success && !result.canceled) showError(result.error || 'Folder download failed');
-    } else {
-      const a = Object.assign(document.createElement('a'), { href: fileUrl, download: fileName });
+    if (!window.electron?.downloadFolder) {
+      const fileIds = folderFiles.map(f => f.id).join(',');
+      const a = Object.assign(document.createElement('a'), {
+        href: `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`,
+        download: `${folderName}.zip`
+      });
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    }
-  }, [showError]);
-
-  const handleOpenFile = async (filePath, fileId) => {
-    if (!filePath) {
-      showError('File path not available');
-      return false;
+      return;
     }
     try {
-      setIsOpeningFile(true);
-      const isElectron = window.electron && window.electron.openFileInApp;
-      if (isElectron) {
-        const pathData = await apiFetch(`/api/files/${fileId}/path`);
-        if (!pathData.success) throw new Error(pathData.message || 'Failed to get file path');
-        const result = await window.electron.openFileInApp(pathData.filePath);
-        if (result.success) return true;
-        else throw new Error(result.error || 'Failed to open file');
-      } else {
-        const fileUrl = `${API_BASE_URL}${filePath}`;
-        const newWindow = window.open(fileUrl, '_blank');
-        if (!newWindow) throw new Error('Pop-up blocked. Please allow pop-ups for this site.');
-        newWindow.focus();
-        return true;
+      const fileIds = folderFiles.map(f => f.id).filter(Boolean);
+      const data = await apiFetch('/api/files/bulk-path', {
+        method: 'POST',
+        body: JSON.stringify({ fileIds, type: 'file' })
+      });
+      const fileInfoList = (data.results || []).map((r, i) => {
+        const file = folderFiles.find(f => f.id === r.id) || folderFiles[i] || {};
+        return { srcPath: r.success ? r.path : null, name: file.original_name || r.originalName, relativePath: file.relative_path || null };
+      });
+      const result = await window.electron.downloadFolder(folderName, fileInfoList);
+      if (result?.success) {
+        setDownloadToast({ show: true, fileName: folderName });
+        setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500);
+      } else if (result && !result.success) { showError(result.error || 'Folder download failed'); }
+    } catch (err) { showError(err.message || 'Folder download failed'); }
+  }, [showError]);
+
+  const handleOpenFile = useCallback(async () => {
+    if (!fileToOpen) return;
+    
+    // Close immediately for responsiveness
+    const file = { ...fileToOpen };
+    const type = openModalType;
+    setShowOpenFileModal(false);
+    setFileToOpen(null);
+
+    setSuccessModal({ isOpen: true, title: 'Success', message: type === 'folder' ? 'Folder opened successfully!' : 'File opened successfully!', type: 'success' });
+
+    try {
+      if (type === 'folder' || type === 'filePath') {
+        const pathType = file.isAttachment ? 'attachment' : 'file';
+        const folderParam = file.folderName && file.folderName !== 'Folder Path' ? `&folderName=${encodeURIComponent(file.folderName)}` : '';
+        const data = await apiFetch(`/api/files/${file.id}/path?type=${pathType}${folderParam}`);
+        if (data.success && data.filePath && window.electron?.openFolderInExplorer) {
+          await window.electron.openFolderInExplorer(data.filePath);
+        }
+        return;
       }
-    } catch (error) {
-      console.error('Error opening file:', error);
-      showError(`Error opening file: ${error.message || 'Failed to open file'}`);
-      return false;
-    } finally {
-      setIsOpeningFile(false);
-    }
-  };
 
+      const pathType = file.isAttachment ? 'attachment' : 'file';
+      const pathData = await apiFetch(`/api/files/${file.id}/path?type=${pathType}`);
+      if (!pathData.success || !pathData.filePath) throw new Error(pathData.message || 'Could not resolve file path');
 
+      if (window.electron?.openFileInApp) {
+        const result = await window.electron.openFileInApp(pathData.filePath);
+        if (!result.success) {
+          showError(result.error || 'Failed to open file');
+        }
+      } else {
+        const ext = (pathData.filePath.split('.').pop() || '').toLowerCase();
+        const browserViewable = ['pdf','png','jpg','jpeg','gif','svg','webp','txt','html','css','js','json','xml','mp4','mp3'];
+        if (browserViewable.includes(ext)) {
+          window.open(`${API_BASE_URL}/api/files/${file.id}/stream`, '_blank', 'noopener,noreferrer');
+        } else {
+          const a = Object.assign(document.createElement('a'), {
+            href: `${API_BASE_URL}/api/files/${file.id}/stream`,
+            download: file.original_name || 'file',
+          });
+          a.click();
+        }
+      }
+    } catch { showError('Failed to open file. Please try again.'); }
+  }, [fileToOpen, openModalType, showError]);
 
   const confirmDeleteFile = useCallback((assignmentId, fileId, fileName) => {
     setFileToDelete({ assignmentId, fileId, fileName });
     setShowDeleteModal(true);
   }, []);
 
+  const confirmOpenFile = useCallback((file) => {
+    setFileToOpen(file);
+    setOpenModalType('file');
+    setShowOpenFileModal(true);
+  }, []);
 
+  // ─── Submit modal helpers ─────────────────────────────────────────────────
+  const resetSubmitModal = useCallback(() => {
+    // Abort any in-flight XHR upload before clearing state
+    if (uploadAbortControllerRef.current) {
+      uploadAbortControllerRef.current.abort();
+      uploadAbortControllerRef.current = null;
+    }
+    setUploadedFiles([]);
+    setFileDescription('');
+    setFileTag('');
+    setUploadMode('files');
+    setTargetFolder(null);
+    setUploadProgress(0);
+    setIsUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (folderInputRef.current) folderInputRef.current.value = '';
+  }, []);
 
   const handleRemoveSubmittedFile = useCallback(async (assignmentId, fileId) => {
     setShowDeleteModal(false);
     setFileToDelete(null);
     // Optimistic update
-    setAssignmentsCache(cacheKey, prev => prev.map(a =>
+    setAssignments(prev => prev.map(a =>
       a.id === assignmentId
-        ? { ...a, submitted_files: a.submitted_files?.filter(f => f.id !== fileId) }
+        ? { ...a, submitted_files: a.submitted_files.filter(f => f.id !== fileId) }
         : a
     ));
     try {
@@ -600,16 +1404,7 @@ const TasksTab = memo(({
     }
   }, [user.id, user.username, user.role, user.team, fetchAssignments, showError]);
 
-  // ─── Submit modal helpers ─────────────────────────────────────────────────
-  const resetSubmitModal = useCallback(() => {
-    setUploadedFiles([]);
-    setFileDescription('');
-    setFileTag('');
-    setUploadMode('files');
-    setTargetFolder(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (folderInputRef.current) folderInputRef.current.value = '';
-  }, []);
+  // resetSubmitModal defined above (near uploadProgress state)
 
   const handleSubmit = useCallback((assignment) => {
     setCurrentAssignment(assignment);
@@ -622,139 +1417,99 @@ const TasksTab = memo(({
 
   const handleFileUpload = useCallback(async () => {
     if (!uploadedFiles.length || !currentAssignment) return;
+
+    // Cancel any previous in-flight upload before starting a new one
+    if (uploadAbortControllerRef.current) {
+      uploadAbortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    uploadAbortControllerRef.current = abortController;
+
     setIsUploading(true);
-    const totalFiles = uploadedFiles.length;
-    setUploadProgress({ current: 0, total: totalFiles, percentage: 0, currentFileName: '' });
+    setUploadProgress(0);
 
     try {
-      // Auto-replace duplicate file names
-      if (currentAssignment.submitted_files?.length) {
-        for (const fileObj of uploadedFiles) {
-          const match = currentAssignment.submitted_files.find(
-            f => f.original_name === fileObj.file.name || f.filename === fileObj.file.name
-          );
-          if (match) {
-            await apiFetch(`/api/assignments/${currentAssignment.id}/files/${match.id}`, {
-              method: 'DELETE',
-              body: JSON.stringify({ userId: user.id }),
-            }).catch(() => {});
-          }
+      const allPaths = uploadedFiles.map(f => {
+        if (targetFolder) {
+          // If the file came from a folder drag-drop it already has the correct full
+          // relative path — keep it.
+          // If it's a plain individual file (no folderName), do NOT prepend the
+          // top-level folder name here.  Sending just the filename lets the server's
+          // path-inheritance logic look up the original subfolder path from the DB
+          // (e.g. "TESTING!/New folder/file.pdf") instead of landing flat at the
+          // top level ("TESTING!/file.pdf").
+          return f.folderName ? f.relativePath : f.file.name;
         }
-      }
+        return f.relativePath;
+      });
 
-      const uploadedFileIds = [];
-      const uploadErrors = [];
-      
-      // Parallel upload worker pool (concurrency = 5)
-      const CONCURRENCY = 5;
-      let nextIndex = 0;
+      const fd = new FormData();
+      fd.append('userId', user.id);
+      fd.append('username', user.username);
+      fd.append('assignmentId', currentAssignment.id);
+      fd.append('tag', fileTag || '');
+      fd.append('description', fileDescription || '');
+      fd.append('relativePaths', JSON.stringify(allPaths));
+      uploadedFiles.forEach(f => fd.append('files', f.file));
 
-      const uploadWorker = async () => {
-        while (nextIndex < totalFiles) {
-          const index = nextIndex++;
-          const fileObj = uploadedFiles[index];
-          
-          setUploadProgress(prev => ({ 
-            ...prev, 
-            currentFileName: fileObj.file.name 
-          }));
-
-          try {
-            const formData = new FormData();
-            formData.append('file', fileObj.file);
-            formData.append('userId', user.id);
-            formData.append('username', user.username);
-            formData.append('fullName', user.fullName);
-            formData.append('userTeam', user.team);
-            formData.append('userRole', user.role || '');
-            formData.append('description', fileDescription || '');
-            formData.append('tag', fileTag || '');
-            formData.append('replaceExisting', 'true');
-
-            const effectiveFolderName = targetFolder || fileObj.folderName;
-            if (effectiveFolderName) {
-              formData.append('folderName', effectiveFolderName);
-              formData.append('relativePath', `${effectiveFolderName}/${fileObj.file.name}`);
-              formData.append('isFolder', 'true');
-            } else {
-              formData.append('isFolder', 'false');
-            }
-
-            const isRevision = currentAssignment.submitted_files?.some(
-              f => (f.original_name === fileObj.file.name || f.filename === fileObj.file.name) &&
-                ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)
-            ) ?? false;
-            formData.append('isRevision', String(isRevision));
-
-            const uploadData = await apiFetch(`/api/files/upload`, { 
-              method: 'POST', 
-              body: formData,
-              headers: {} 
-            });
-
-            if (uploadData.success) {
-              uploadedFileIds.push(uploadData.file.id);
-            } else {
-              uploadErrors.push(`${fileObj.file.name}: ${uploadData.message}`);
-            }
-          } catch (err) {
-            uploadErrors.push(`${fileObj.file.name}: ${err.message}`);
-          } finally {
-            setUploadProgress(prev => {
-              const newCurrent = prev.current + 1;
-              return {
-                ...prev,
-                current: newCurrent,
-                percentage: Math.round((newCurrent / totalFiles) * 100)
-              };
-            });
-          }
+      const result = await uploadWithProgress(
+        '/api/files/bulk-upload',
+        fd,
+        {
+          onProgress: (p) => setUploadProgress(Math.min(p, 99)),
+          signal: abortController.signal,  // ← wire AbortController so cancel kills the XHR
         }
-      };
+      );
 
-      // Start the workers
-      await Promise.all(Array(Math.min(CONCURRENCY, totalFiles)).fill().map(uploadWorker));
+      // Guard: if the user cancelled while the last bytes were in-flight, bail out
+      if (abortController.signal.aborted) return;
 
-      if (!uploadedFileIds.length) throw new Error('No files were uploaded successfully. ' + uploadErrors.join(', '));
+      setUploadProgress(100);
 
-      // Batch submit file IDs (these are small JSON requests, no need to parallelize individually but could be grouped)
-      const submissionErrors = [];
-      for (const fileId of uploadedFileIds) {
-        const submitData = await apiFetch(`/api/assignments/submit`, {
-          method: 'POST',
-          body: JSON.stringify({ assignmentId: currentAssignment.id, userId: user.id, fileId }),
+      if (result.success) {
+        setSuccessModal({
+          isOpen: true,
+          title: 'Success',
+          message: 'Files uploaded and submitted successfully!',
+          type: 'success'
         });
-        if (!submitData.success) submissionErrors.push(`File ID ${fileId}: ${submitData.message}`);
-      }
-
-      if (!submissionErrors.length) {
-        setSuccessModal({ isOpen: true, title: 'Success', message: `${uploadedFileIds.length} file(s) uploaded and submitted successfully!`, type: 'success' });
-      } else if (submissionErrors.length < uploadedFileIds.length) {
-        setSuccessModal({ isOpen: true, title: 'Partially Submitted', message: `${uploadedFileIds.length - submissionErrors.length} of ${uploadedFileIds.length} file(s) submitted.\n\nFailed:\n${submissionErrors.join('\n')}`, type: 'error' });
+        setShowSubmitModal(false);
+        resetSubmitModal();
+        fetchAssignments();
       } else {
-        throw new Error('Failed to submit files: ' + submissionErrors.join(', '));
+        throw new Error(result.message || 'Upload failed');
       }
-
-      setShowSubmitModal(false);
-      resetSubmitModal();
-      fetchAssignments();
     } catch (err) {
+      // Silently ignore intentional cancellations
+      if (err.name === 'AbortError') return;
       showError(err.message || 'Failed to upload files');
     } finally {
+      uploadAbortControllerRef.current = null;
       setIsUploading(false);
-      setUploadProgress({ current: 0, total: 0, percentage: 0, currentFileName: '' });
+      setUploadProgress(0);
     }
-  }, [uploadedFiles, currentAssignment, user, fileDescription, fileTag, targetFolder, fetchAssignments, resetSubmitModal, showError]);
+  }, [uploadedFiles, currentAssignment, user, fileTag, fileDescription, targetFolder, fetchAssignments, resetSubmitModal, showError]);
 
   // ─── Utility ───────────────────────────────────────────────────────────────
   const formatRelativeTime = useCallback((dateString) => {
-    // This is now handled by formatTimeAgo in ui-helpers.js
-    // keeping the name formatRelativeTime for compatibility with local usage if any
-    return formatDate(dateString);
+    const diff = Math.floor((Date.now() - new Date(dateString)) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    if (diff < 2592000) return `${Math.floor(diff / 604800)}w ago`;
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }, []);
 
-  const getInitialsLocal = useCallback((name) => {
-    return getInitials(name);
+  const getInitials = useCallback((name) => {
+    if (!name) return '?';
+    if (name.includes('.')) {
+      const [a, b] = name.split('.');
+      if (b) return (a[0] + b[0]).toUpperCase();
+    }
+    const parts = name.split(' ');
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
   }, []);
 
   const handleCloseCommentsModal = useCallback(() => setShowCommentsModal(false), []);
@@ -771,27 +1526,24 @@ const TasksTab = memo(({
 
   const openFileDetails = useCallback(async (file) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/files/${file.id}`);
-      const data = await res.json();
+      const data = await apiFetch(`/api/files/${file.id}`);
       const fileData = data.file || file;
-      // Preserve assignment_title if passed in (from notification path or from tasks data)
       if (file.assignment_title && !fileData.assignment_title) {
         fileData.assignment_title = file.assignment_title;
       }
       setFileDetailsTarget(fileData);
-    } catch {
+    } catch (err) {
+      showError('Failed to load file details. Please try again.');
       setFileDetailsTarget(file);
     }
     setShowFileDetailsModal(true);
   }, []);
 
-  // Open FileModal when navigated from a notification
   useEffect(() => {
     const fileId = sessionStorage.getItem('openFileDetailsId');
     if (!fileId || assignments.length === 0) return;
     sessionStorage.removeItem('openFileDetailsId');
 
-    // Find assignment title from already-loaded assignments
     const fid = parseInt(fileId);
     let assignmentTitle = null;
     for (const a of assignments) {
@@ -804,23 +1556,79 @@ const TasksTab = memo(({
     openFileDetails({ id: fid, assignment_title: assignmentTitle });
   }, [assignments, openFileDetails]);
 
-  const openFolderInExplorer = useCallback(async (file) => {
-    if (!window.electron?.openFolderInExplorer || !file) return;
-    const fileId = file.id || file; // Handle both object and ID
-    try {
-      const data = await apiFetch(`/api/files/${fileId}/path`);
-      if (data.success && data.filePath) await window.electron.openFolderInExplorer(data.filePath);
-    } catch (e) { console.error('Open folder path error:', e); }
+  const openFolderInExplorer = useCallback(async (fileId, isAttachment = true, folderName = 'Folder Path', isFolder = false) => {
+    if (!window.electron?.openFolderInExplorer) return;
+    setFileToOpen({ id: fileId, isAttachment, folderName });
+    setOpenModalType(isFolder ? 'folder' : 'filePath');
+    setShowOpenFileModal(true);
   }, []);
 
   // ─── Sorted + Filtered assignments ────────────────────────────────────────
-  const filteredAssignments = useMemo(() => {
-    const sorted = [...assignments].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    if (sortFilter === 'all') return sorted;
-    return sorted.filter(a => getAssignmentStatus(a) === sortFilter);
-  }, [assignments, sortFilter]);
+  const myTaskAssignments = useMemo(() => {
+    return assignments.filter(a => {
+      const isAssigned = a.assigned_to === 'all' || (a.assigned_member_details || []).some(m => String(m.id) === String(user.id))
+      return isAssigned
+    })
+  }, [assignments, user.id])
 
-  // ─── Filter counts for badge ───────────────────────────────────────────────
+  const forCheckingAssignments = useMemo(() => {
+    return assignments.filter(a => {
+      const checkerIds = (() => { try { return JSON.parse(a.checker_ids || '[]').map(String) } catch { return [] } })()
+      return checkerIds.includes(String(user.id))
+    })
+  }, [assignments, user.id])
+
+  const filteredAssignments = useMemo(() => {
+    const base = activeTab === 'for-checking' ? forCheckingAssignments : myTaskAssignments
+    const sorted = [...base].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const bySort = sortFilter === 'all' ? sorted : sorted.filter(a => getAssignmentStatus(a) === sortFilter);
+    const byTeam = teamFilter === 'all' ? bySort : bySort.filter(a => (a.team || 'IT Dept') === teamFilter);
+    if (!searchQuery.trim()) return byTeam;
+    
+    const q = searchQuery.toLowerCase();
+    
+    // Normalization helper to handle accents like ñ and common typos like Micheal/Michael
+    const matchesQuery = (text) => {
+      if (!text) return false;
+      const normText = String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const normQuery = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      
+      if (normText.includes(normQuery)) return true;
+      
+      // Michael/Micheal typo tolerance
+      const altQuery = normQuery.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+      if (normText.includes(altQuery)) return true;
+      
+      const altText = normText.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+      if (altText.includes(normQuery) || altText.includes(altQuery)) return true;
+      
+      return false;
+    };
+
+    return byTeam.filter(a =>
+      matchesQuery(a.title) ||
+      matchesQuery(a.description) ||
+      matchesQuery(a.team_leader_username) ||
+      matchesQuery(a.team_leader_fullname) ||
+      matchesQuery(a.assigned_user_fullname) ||
+      matchesQuery(a.assigned_to) ||
+      (a.assigned_member_details || []).some(m =>
+        matchesQuery(m.fullName) ||
+        matchesQuery(m.username)
+      ) ||
+      (a.attachments || []).some(f => 
+        matchesQuery(f.original_name) ||
+        matchesQuery(f.file_name) ||
+        matchesQuery(f.folder_name)
+      ) ||
+      (a.submitted_files || a.recent_submissions || []).some(f => 
+        matchesQuery(f.original_name) ||
+        matchesQuery(f.file_name) ||
+        matchesQuery(f.folder_name)
+      )
+    );
+  }, [myTaskAssignments, forCheckingAssignments, activeTab, sortFilter, teamFilter, searchQuery]);
+
   const filterCounts = useMemo(() => {
     const counts = { all: assignments.length, completed: 0, overdue: 0, no_due_date: 0 };
     for (const a of assignments) {
@@ -832,7 +1640,6 @@ const TasksTab = memo(({
     return counts;
   }, [assignments]);
 
-  // ─── Drag-and-drop file reader helper ────────────────────────────────────
   const readAllFilesFromEntry = (entry, basePath = '') => new Promise((resolve) => {
     if (entry.isFile) {
       entry.file(file => resolve([{ file, relativePath: basePath + file.name, folderName: basePath ? basePath.split('/')[0] : null }]), () => resolve([]));
@@ -857,34 +1664,40 @@ const TasksTab = memo(({
     const approved = folderFiles.filter(f => f.status === 'final_approved').length;
     const tlApproved = folderFiles.filter(f => f.status === 'team_leader_approved').length;
     const rejected = folderFiles.filter(f => ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)).length;
+    const revision = folderFiles.filter(f => f.status === 'revision').length;
+    const checked = folderFiles.filter(f => f.status === 'checked').length;
     const pending = folderFiles.filter(f => !f.status || f.status === 'uploaded').length;
 
     if (approved === total) return <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✓ All Approved</span>;
+    if (checked === total) return <span style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✓ All Checked</span>;
     if (rejected === total) return <span style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '500' }}>All Rejected</span>;
 
     return (
       <>
+        {revision > 0 && <span style={{ background: '#fef9c3', color: '#854d0e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fef08a', marginRight: '4px' }}>Checked - Need to Edit ({revision})</span>}
+        {checked > 0 && checked < total && <span style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Checked ({checked})</span>}
         {(tlApproved > 0 || (approved > 0 && !pending && !rejected)) && <span style={{ background: '#fef9c3', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '500', marginRight: '4px' }}>Pending Admin</span>}
-        {pending > 0 && <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Pending Review</span>}
+        {pending > 0 && revision === 0 && <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Pending Review</span>}
         {rejected > 0 && <span style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', marginRight: '4px' }}>{rejected} Rejected</span>}
         {approved > 0 && approved < total && <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>{approved} Approved</span>}
       </>
     );
   };
 
-  const renderFileCard = (file, assignmentId, indented = false, assignmentTitle = null) => {
+  const renderFileCard = (file, assignmentId, indented = false, assignmentTitle = null, isAttachment = false, checkerActions = null) => {
     const canDelete = file.status !== 'final_approved';
     const fileWithTitle = assignmentTitle ? { ...file, assignment_title: assignmentTitle } : file;
     return (
       <div
         key={file.id}
+        data-file-id={file.id}
         className="submitted-file-card"
-        onClick={() => confirmOpenFile(file)}
+        onClick={() => confirmOpenFile({ ...file, isAttachment })}
         style={{ cursor: 'pointer', marginBottom: indented ? '4px' : undefined }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ flexShrink: 0 }}>
-            <FileIcon file={file} size={indented ? 'small' : 'default'} />
+            <FileIcon fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} isFolder={false} size={indented ? 'small' : 'default'} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: '500', fontSize: indented ? '14px' : '15px', color: '#111827', marginBottom: indented ? '2px' : '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -893,7 +1706,12 @@ const TasksTab = memo(({
             <div style={{ fontSize: indented ? '12px' : '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: indented ? '6px' : '8px', flexWrap: 'wrap' }}>
               <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
               <span style={{ color: '#9ca3af' }}>•</span>
-              <span>{formatDate(file.submitted_at || file.uploaded_at)}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                </svg>
+                {formatDateTime(file.submitted_at || file.uploaded_at)}
+              </span>
               {file.tag && (
                 <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>🏷️ {file.tag}</span>
               )}
@@ -903,7 +1721,10 @@ const TasksTab = memo(({
           <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
             <FileMoreMenuInline
               onViewDetails={() => openFileDetails(fileWithTitle)}
+              onOpenPath={() => openFolderInExplorer(file.id, false, file.original_name || file.filename, false)}
               onDelete={canDelete ? () => confirmDeleteFile(assignmentId, file.id, file.original_name || file.filename) : undefined}
+              onChecking={checkerActions?.onChecking ? () => checkerActions.onChecking(file) : undefined}
+              onChecklist={(file.checker_note || file.status === 'revision' || file.status === 'checked') ? () => setChecklistViewModal({ isOpen: true, file }) : undefined}
             />
           </div>
         </div>
@@ -911,93 +1732,805 @@ const TasksTab = memo(({
     );
   };
 
+  const renderRecursiveItems = (assignment, files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true, checkerActions = null, stripPrefix = null) => {
+    // Strip the top-level folder prefix from relative_path so recursiveGroupByPath
+    // sees paths relative to the current folder, not the global root.
+    // e.g. files with relative_path="TESTING!/New folder/file.pdf" inside the
+    // "TESTING!" folder should be processed as "New folder/file.pdf".
+    const normalizedFiles = stripPrefix
+      ? files.map(f => {
+          const file = f.file || f;
+          const rp = (file.relative_path || '').replace(/\\/g, '/');
+          const prefix = stripPrefix.replace(/\\/g, '/') + '/';
+          const stripped = rp.startsWith(prefix) ? rp.slice(prefix.length) : rp;
+          return { ...f, file: { ...file, relative_path: stripped } };
+        })
+      : files;
+
+    const { subfolders, rootFiles } = recursiveGroupByPath(normalizedFiles);
+    const subItems = [];
+
+    const subfolderEntries = Object.entries(subfolders);
+    const totalSubfolders = subfolderEntries.length;
+    const totalRootFiles = rootFiles.length;
+
+    // 1. Render subfolders
+    subfolderEntries.forEach(([subName, subFiles], index) => {
+      const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
+      const subKey = parentKey ? `${parentKey}__${subName}` : `${assignment.id}__${subName}`;
+      const isSubOpen = expandedFolders[subKey];
+      const subFirstFile = subFiles[0].file || subFiles[0];
+
+      subItems.push(
+        <div key={`subfolder-${subKey}`} style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="tl-tree-container" style={{ marginBottom: '7px' }}>
+            {parentIsLastArr.map((isLastParent, i) => (
+              <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+            ))}
+            {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+            
+            <div
+              className="submitted-file-card"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }));
+              }}
+              style={{ 
+                cursor: 'pointer', 
+                backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', 
+                padding: '14px 20px',
+                flex: 1
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                <div style={{ fontSize: '32px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '600', fontSize: '15px', color: '#111827' }}>{subName}</div>
+                  <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>
+                    {isAttachment ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                        <span>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span>
+                        <span style={{ color: '#9ca3af' }}>•</span>
+                        <span>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</span>
+                        {(subFirstFile.submitted_at || subFirstFile.uploaded_at || subFirstFile.created_at) && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            {formatDateTime(subFirstFile.submitted_at || subFirstFile.uploaded_at || subFirstFile.created_at)}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                        <span>Submitted by <span style={{ fontWeight: '500', color: '#2563eb' }}>{subFirstFile.submitter_name || user.fullName || user.username}</span></span>
+                        <span style={{ color: '#9ca3af' }}>•</span>
+                        <span>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</span>
+                        {(subFirstFile.submitted_at || subFirstFile.uploaded_at) && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            {formatDateTime(subFirstFile.submitted_at || subFirstFile.uploaded_at)}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                  <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          {isSubOpen && renderRecursiveItems(assignment, subFiles, level + 1, subKey, [...parentIsLastArr, isLast], isAttachment, checkerActions, null)}
+        </div>
+      );
+    });
+
+    // 2. Render root files
+    rootFiles.forEach((fileItem, index) => {
+      const isLast = index === totalRootFiles - 1;
+      const file = fileItem.file || fileItem;
+
+      if (isAttachment) {
+        subItems.push(
+          <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '7px' }}>
+            {parentIsLastArr.map((isLastParent, i) => (
+              <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+            ))}
+            {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+            
+            <div
+              className="submitted-file-card nested-file-item"
+              data-file-id={file.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                confirmOpenFile({ ...file, isAttachment: true });
+              }}
+              style={{ 
+                cursor: 'pointer', 
+                backgroundColor: '#fafafa',
+                padding: '14px 20px',
+                flex: 1
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                <FileIcon fileType={(file.original_name || 'file').split('.').pop().toLowerCase()} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                  <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>{formatFileSize(file.file_size)}</div>
+                </div>
+                <AttachmentMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => openFolderInExplorer(file.id, true, file.original_name, false)} />
+              </div>
+            </div>
+          </div>
+        );
+      } else {
+        const canDelete = file.status !== 'final_approved';
+        const fileWithTitle = assignment.title ? { ...file, assignment_title: assignment.title } : file;
+        subItems.push(
+          <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '7px' }}>
+            {parentIsLastArr.map((isLastParent, i) => (
+              <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+            ))}
+            {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+            
+            <div
+              className="submitted-file-card nested-file-item"
+              data-file-id={file.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                confirmOpenFile({ ...file, isAttachment: false });
+              }}
+              style={{ 
+                cursor: 'pointer', 
+                backgroundColor: '#fafafa',
+                padding: '14px 20px',
+                flex: 1
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                <FileIcon fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {file.original_name || file.filename}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#4b5563', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '1px' }}>
+                    <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
+                    <span style={{ color: '#9ca3af' }}>•</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      {formatDateTime(file.submitted_at || file.uploaded_at)}
+                    </span>
+                    {file.tag && (
+                      <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>🏷️ {file.tag}</span>
+                    )}
+                    {getFileStatusBadge(file.status)}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                  <FileMoreMenuInline
+                    onViewDetails={() => openFileDetails(fileWithTitle)}
+                    onOpenPath={() => openFolderInExplorer(file.id, false, file.original_name || file.filename, false)}
+                    onDelete={canDelete ? () => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename) : undefined}
+                    onChecking={checkerActions?.onChecking ? () => checkerActions.onChecking(file) : undefined}
+                    onChecklist={(file.checker_note || file.status === 'revision' || file.status === 'checked') ? () => setChecklistViewModal({ isOpen: true, file }) : undefined}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+    });
+
+    return subItems;
+  };
+
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="tasks-container">
       {/* Header */}
       <div className="tasks-header">
-        <div className="tasks-header-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h1>My Tasks</h1>
-            <p className="tasks-subtitle" style={{ margin: 0 }}>{assignments.length} assignment{assignments.length !== 1 ? 's' : ''}</p>
+        <div className="tasks-header-content">
+          <div style={{ marginBottom: '12px' }}>
+            <h1 style={{ margin: 0 }}>My Tasks</h1>
+            <p className="tasks-subtitle" style={{ margin: '2px 0 0' }}>
+              {activeTab === 'for-checking'
+                ? `${forCheckingAssignments.length} task${forCheckingAssignments.length !== 1 ? 's' : ''} to check`
+                : `${myTaskAssignments.length} assignment${myTaskAssignments.length !== 1 ? 's' : ''}`}
+            </p>
           </div>
 
-          {/* ── Sort Dropdown ── */}
-          <div style={{ position: 'relative' }}>
-            <select
-              value={sortFilter}
-              onChange={e => setSortFilter(e.target.value)}
-              style={{
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                padding: '5px 30px 5px 12px',
-                borderRadius: '20px',
-                border: '1.5px solid #d1d5db',
-                backgroundColor: '#ffffff',
-                color: '#374151',
-                fontSize: '13px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                outline: 'none',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-                transition: 'border-color 0.15s',
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#9ca3af'; }}
-              onBlur={e => { e.currentTarget.style.borderColor = '#d1d5db'; }}
-            >
-              {SORT_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label} ({filterCounts[opt.value] ?? 0})
-                </option>
-              ))}
-            </select>
-            {/* chevron icon */}
-            <svg
-              width="12" height="12" viewBox="0 0 24 24" fill="none"
-              stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              border: '1.5px solid #d1d5db', borderRadius: '8px',
+              overflow: 'hidden', backgroundColor: '#f9fafb',
+            }}>
+              <button
+                onClick={() => setActiveTab('my-tasks')}
+                style={{
+                  padding: '7px 20px', border: 'none', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: activeTab === 'my-tasks' ? '700' : '500',
+                  transition: 'all 0.18s',
+                  background: activeTab === 'my-tasks' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'my-tasks' ? '#111827' : '#9ca3af',
+                  borderRight: '1.5px solid #d1d5db',
+                  boxShadow: activeTab === 'my-tasks' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                }}
+              >
+                My Tasks
+              </button>
+              <button
+                onClick={() => setActiveTab('for-checking')}
+                style={{
+                  padding: '7px 20px', border: 'none', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: activeTab === 'for-checking' ? '700' : '500',
+                  transition: 'all 0.18s',
+                  background: activeTab === 'for-checking' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'for-checking' ? '#111827' : '#9ca3af',
+                  boxShadow: activeTab === 'for-checking' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                For Checking
+                {forCheckingAssignments.length > 0 && (
+                  <span style={{
+                    backgroundColor: activeTab === 'for-checking' ? '#f97316' : '#f97316',
+                    color: '#fff',
+                    borderRadius: '50px',
+                    padding: '1px 7px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    lineHeight: '18px',
+                    minWidth: '18px',
+                    textAlign: 'center',
+                  }}>
+                    {forCheckingAssignments.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <select
+                value={sortFilter}
+                onChange={e => setSortFilter(e.target.value)}
+                style={{
+                  appearance: 'none', WebkitAppearance: 'none',
+                  padding: '5px 30px 5px 12px', borderRadius: '20px',
+                  border: '1.5px solid #d1d5db', backgroundColor: '#ffffff',
+                  color: '#374151', fontSize: '13px', fontWeight: '500',
+                  cursor: 'pointer', outline: 'none',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.06)', transition: 'border-color 0.15s',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = '#9ca3af'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = '#d1d5db'; }}
+              >
+                {SORT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} ({filterCounts[opt.value] ?? 0})
+                  </option>
+                ))}
+              </select>
+              <svg
+                width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Success Modal */}
-      <SuccessModal
-        isOpen={successModal.isOpen}
-        onClose={() => setSuccessModal({ isOpen: false, title: '', message: '', type: 'success' })}
-        title={successModal.title}
-        message={successModal.message}
-        type={successModal.type}
-      />
+      {/* Search Bar */}
+      <div style={{ padding: '0 20px 4px', maxWidth: '340px', margin: '0 auto 0 20px', position: 'relative' }}>
+        <svg style={{ position: 'absolute', left: '29px', top: '50%', transform: 'translateY(-50%)', color: '#c4c9d4', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          type="text"
+          placeholder="Search tasks..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            padding: '8px 28px 8px 28px',
+            border: '1.5px solid #e8eaed', borderRadius: '8px',
+            fontSize: '13.5px', color: '#374151',
+            outline: 'none', background: '#fff',
+            transition: 'border-color 0.15s',
+            boxShadow: 'none'
+          }}
+          onFocus={e => e.target.style.borderColor = '#c4c9d4'}
+          onBlur={e => e.target.style.borderColor = '#e8eaed'}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            style={{ position: 'absolute', right: '28px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#c4c9d4', fontSize: '15px', lineHeight: 1, padding: '1px' }}
+          >×</button>
+        )}
+      </div>
 
-      {/* Content */}
+      {/* Team Filter Toggle */}
+      {(() => {
+        const teams = (user?.role === 'TEAM_LEADER' || user?.role === 'ADMIN') && user?.ledTeams?.length > 0
+          ? user.ledTeams.map(t => t.name).sort()
+          : [...new Set(assignments.map(a => a.team).filter(Boolean))].sort()
+        if (teams.length < 2) return null
+        const palette = [
+          { bg: '#7c3aed', shadow: 'rgba(124,58,237,0.30)', dot: '#7c3aed' },
+          { bg: '#0284c7', shadow: 'rgba(2,132,199,0.30)',   dot: '#0284c7' },
+          { bg: '#059669', shadow: 'rgba(5,150,105,0.30)',   dot: '#059669' },
+          { bg: '#d97706', shadow: 'rgba(217,119,6,0.30)',   dot: '#d97706' },
+          { bg: '#dc2626', shadow: 'rgba(220,38,38,0.30)',   dot: '#dc2626' },
+          { bg: '#db2777', shadow: 'rgba(219,39,119,0.30)',  dot: '#db2777' },
+        ]
+        const filterOptions = [
+          { value: 'all', label: 'All Teams', color: null },
+          ...teams.map((t, i) => ({ value: t, label: t, color: palette[i % palette.length] }))
+        ]
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 20px 10px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#6b7280', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
+            <div style={{ display: 'flex', gap: '0', background: '#f3f4f6', borderRadius: '10px', padding: '3px', flexWrap: 'wrap' }}>
+              {filterOptions.map(opt => {
+                const isActive = teamFilter === opt.value
+                const c = opt.color
+                const activeBg = c && isActive ? c.bg : (isActive ? '#fff' : 'transparent')
+                const activeColor = c && isActive ? '#fff' : (isActive ? '#111827' : '#6b7280')
+                const activeShadow = c && isActive ? `0 2px 8px ${c.shadow}` : (isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none')
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setTeamFilter(opt.value)}
+                    style={{
+                      padding: '5px 16px', borderRadius: '8px', border: 'none',
+                      fontWeight: '600', fontSize: '12.5px', cursor: 'pointer',
+                      transition: 'all 0.18s',
+                      background: activeBg, color: activeColor, boxShadow: activeShadow,
+                      display: 'flex', alignItems: 'center', gap: '5px',
+                    }}
+                  >
+                    {c && (
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.7)' : c.dot, display: 'inline-block', flexShrink: 0 }} />
+                    )}
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
       {isLoading ? (
         <div style={{ padding: '0 20px', maxWidth: '1400px', margin: '0 auto' }}>
           <LoadingCards count={3} />
         </div>
       ) : filteredAssignments.length > 0 ? (
-        <div className="user-tasks-feed" style={{ maxWidth: '1400px', margin: '0 auto', padding: '16px 20px' }}>
-          {filteredAssignments.map(assignment => (
-            <PremiumTaskCard
-              key={assignment.id}
-              task={assignment}
-              role="user"
-              onCommentClick={openCommentsModal}
-              onActionClick={(action, t) => {
-                if (action === 'refresh') fetchAssignments();
-              }}
-              onPrimaryClick={(action, t) => action === 'submit' && handleSubmit(t)}
-              onFileClick={(file) => {
-                setFileToOpen(file);
-              }}
-              onDownloadFile={handleDownloadFile}
-              onFileDelete={(file) => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename)}
-              onOpenPath={openFolderInExplorer}
-              className="user-task-card-margin"
-            />
-          ))}
+        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '16px 20px' }}>
+          {filteredAssignments.map((assignment) => {
+            const assignmentComments = comments[assignment.id] || [];
+            const isCompleted = assignment.status === 'completed';
+
+            return (
+              <div
+                key={assignment.id}
+                id={`user-assignment-${assignment.id}`}
+                style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '20px', marginBottom: '16px', border: '1px solid #E5E7EB' }}
+              >
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '48px', height: '48px', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Avatar user={{
+                        username: assignment.team_leader_username,
+                        fullName: assignment.team_leader_fullname || assignment.team_leader_full_name,
+                        profile_picture: assignment.team_leader_profile_picture
+                      }} size="md" />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: '600', fontSize: '15px', color: '#050505' }}>
+                          {assignment.team_leader_fullname || assignment.team_leader_username}
+                        </span>
+                        <span style={{ backgroundColor: 'transparent', color: '#1D4ED8', padding: '2px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', border: '1px solid #1D4ED8' }}>
+                          {assignment.team_leader_role === 'TEAM_LEADER' ? 'TEAM LEADER' : assignment.team_leader_role || 'TEAM LEADER'}
+                        </span>
+                        {assignment.assigned_to === 'all' ? (
+                          <span style={{ fontSize: '14px', color: '#6B7280' }}>assigned to <span style={{ fontWeight: '600', color: '#050505' }}>all team members</span></span>
+                        ) : assignment.assigned_member_details?.length > 0 ? (
+                          <span style={{ fontSize: '14px', color: '#6B7280' }}>
+                            assigned to <span style={{ fontWeight: '600', color: '#050505' }}>
+                              {assignment.assigned_member_details.map((m, i) => <span key={m.id}>{m.fullName}{i < assignment.assigned_member_details.length - 1 && ', '}</span>)}
+                            </span>
+                          </span>
+                        ) : assignment.assigned_user_fullname && (
+                          <span style={{ fontSize: '14px', color: '#6B7280' }}>assigned to <span style={{ fontWeight: '600', color: '#050505' }}>{assignment.assigned_user_fullname}</span></span>
+                        )}
+                      </div>
+                      {(() => {
+                        try {
+                          const names = JSON.parse(assignment.checker_names || '[]')
+                          if (!names.length) return null
+                          return (
+                            <div style={{ fontSize: '15px', color: '#6b7280', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: '700', color: '#374151' }}>Check by:</span>
+                              {names.map((name, i) => (
+                                <span key={i} style={{ color: '#4f46e5', fontWeight: '700' }}>
+                                  {name}{i < names.length - 1 ? ',' : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )
+                        } catch { return null }
+                      })()}
+                      <div style={{ fontSize: '13px', color: '#6B7280' }}>📅 Assigned on: {formatDateTime(assignment.created_at)}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    {isCompleted ? (
+                      <div style={{ backgroundColor: '#d1fae5', color: '#059669', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        ✓ Completed
+                      </div>
+                    ) : assignment.status === 'checked' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        <div style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          ✓ Checked
+                        </div>
+                        {(() => {
+                          const checkerName = assignment.submitted_files?.find(f => f.checked_by)?.checked_by;
+                          if (!checkerName) return null;
+                          return (
+                            <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
+                              Checked by : <span style={{ color: '#1D4ED8', fontWeight: '700' }}>{checkerName}</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : assignment.status === 'for_editing' ? (
+                      activeTab === 'for-checking' ? (
+                        <>
+                          <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                            For Checking
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✎ Due Date Edited</span>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : assignment.submitted_files?.length > 0 ? (
+                        <>
+                          <div style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>
+                            ✓ Submitted
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✎ Due Date Edited</span>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #FCD34D' }}>
+                            ✎ For Editing
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✎ Due Date Edited</span>
+                            </div>
+                          ) : null}
+                        </>
+                      )
+                    ) : assignment.submitted_files?.length > 0 ? (
+                      activeTab === 'for-checking' ? (
+                        <>
+                          <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                            For Checking
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✎ Due Date Edited</span>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>
+                            ✓ Submitted
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✎ Due Date Edited</span>
+                            </div>
+                          ) : null}
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000', whiteSpace: 'nowrap' }}>
+                          Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
+                          {assignment.due_date && (
+                            <span style={{ color: getBusinessDaysColor(assignment.due_date, assignment.ot_dates), fontWeight: '400', marginLeft: '4px', whiteSpace: 'nowrap' }}>
+                              ({formatBusinessDaysLeft(assignment.due_date, assignment.ot_dates)})
+                            </span>
+                          )}
+                        </div>
+                        {assignment.due_date_edited ? (
+                          <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                            <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              ✎ Due Date Edited
+                            </span>
+                          </div>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '18px', fontWeight: '600', color: '#101828', marginBottom: '8px' }}>{assignment.title}</div>
+
+                {assignment.description && (
+                  <div style={{ fontSize: '14px', color: '#4B5563', marginBottom: '16px', lineHeight: '1.5' }}>{assignment.description}</div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                  {getStatusBadge(assignment, activeTab, user.id)}
+                </div>
+
+                {/* Team Leader Attachments */}
+                {assignment.attachments?.length > 0 && (() => {
+                  const { folders: attFolders, individualFiles: attIndividual } = groupFilesByFolder(assignment.attachments);
+                  const folderNames = Object.keys(attFolders);
+                  const totalItems = folderNames.length + attIndividual.length;
+                  const attExpKey = `att-${assignment.id}`;
+                  const attExpanded = showAllSubmittedFiles[attExpKey];
+                  const allAttTop = [
+                    ...folderNames.map(n => ({ type: 'folder', name: n })),
+                    ...attIndividual.map(f => ({ type: 'file', file: f }))
+                  ];
+                  const visAttTop = attExpanded ? allAttTop : allAttTop.slice(0, 5);
+                  const visAttFolderNames = new Set(visAttTop.filter(i => i.type === 'folder').map(i => i.name));
+                  const visAttFiles = visAttTop.filter(i => i.type === 'file').map(i => i.file);
+                  return (
+                    <div style={{ padding: '8px 0', marginBottom: '16px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                        📎 Attached Files ({totalItems === 1 ? '1 item' : `${folderNames.length} folder${folderNames.length !== 1 ? 's' : ''}${attIndividual.length > 0 ? `, ${attIndividual.length} file${attIndividual.length !== 1 ? 's' : ''}` : ''}`})
+                      </div>
+                      {folderNames.filter(fn => visAttFolderNames.has(fn)).map(folderName => {
+                        const folderFiles = attFolders[folderName];
+                        const key = `att-${assignment.id}-${folderName}`;
+                        const isExpanded = expandedFolders[key];
+                        return (
+                          <div key={folderName} style={{ marginBottom: '8px' }}>
+                            <div
+                              className="submitted-file-card"
+                              onClick={() => {
+                                const newState = !expandedFolders[key];
+                                setExpandedFolders(prev => ({ ...prev, [key]: newState }));
+                                if (newState && folderFiles) prefetchFolderFiles(folderFiles, 'attachment');
+                              }}
+                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{folderName}</div>
+                                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                    {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
+                                  </div>
+                                </div>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                                  <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                <AttachmentMoreMenu
+                                  isFolder
+                                  onDownload={() => handleDownloadFolder(folderFiles, folderName)}
+                                  onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, true, folderName, true)}
+                                />
+                              </div>
+                            </div>
+                            {isExpanded && renderRecursiveItems(assignment, folderFiles, 1, key, [], true, null, folderName)}
+                          </div>
+                        );
+                      })}
+                      {visAttFiles.map(attachment => (
+                        <div key={attachment.id} onClick={() => confirmOpenFile({ ...attachment, isAttachment: true })} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.original_name}</div>
+                              <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
+                                <span style={{ color: '#9ca3af' }}>•</span>
+                                <span>{formatFileSize(attachment.file_size)}</span>
+                              </div>
+                            </div>
+                            <AttachmentMoreMenu onDownload={() => handleDownloadFile(attachment)} onOpenPath={() => openFolderInExplorer(attachment.id, true, attachment.original_name, false)} />
+                          </div>
+                        </div>
+                      ))}
+                      {totalItems > 5 && (
+                        <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                          <button
+                            onClick={() => setShowAllSubmittedFiles(prev => ({ ...prev, [attExpKey]: !prev[attExpKey] }))}
+                            style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '14px', fontWeight: '500', cursor: 'pointer', padding: '8px 16px', textDecoration: 'underline' }}
+                          >
+                            {attExpanded ? 'See less' : `See more (${totalItems - 5} more)`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Submitted Files */}
+                {assignment.submitted_files?.length > 0 && (() => {
+                  // In My Tasks tab: only show the current user's own submitted files
+                  // In For Checking tab: show all members' files for review
+                  const visibleFiles = activeTab === 'for-checking'
+                    ? assignment.submitted_files
+                    : assignment.submitted_files.filter(f =>
+                        !f.submitter_name // attachment-style files (no submitter_name) always show
+                        || String(f.user_id) === String(user.id)
+                        || String(f.submitter_username) === String(user.username)
+                      );
+
+                  if (visibleFiles.length === 0) return null;
+
+                  const sortedFiles = [...visibleFiles].sort((a, b) =>
+                    new Date(b.submitted_at || b.uploaded_at) - new Date(a.submitted_at || a.uploaded_at)
+                  );
+                  const { folders, individualFiles } = groupFilesByFolder(sortedFiles);
+                  const foldersToShow = Object.keys(folders);
+                  const showAll = showAllSubmittedFiles[assignment.id];
+                  const totalItems = foldersToShow.length + individualFiles.length;
+                  const shouldShowSeeMore = totalItems > INITIAL_FILE_DISPLAY_LIMIT;
+
+                  const checkerActions = activeTab === 'for-checking' ? {
+                    onChecking: (file) => setCheckingModal({ isOpen: true, file, assignment }),
+                  } : null;
+
+                  let displayFolders = foldersToShow;
+                  let displayIndividualFiles = individualFiles;
+                  if (!showAll && shouldShowSeeMore) {
+                    if (foldersToShow.length >= INITIAL_FILE_DISPLAY_LIMIT) {
+                      displayFolders = foldersToShow.slice(0, INITIAL_FILE_DISPLAY_LIMIT);
+                      displayIndividualFiles = [];
+                    } else {
+                      displayIndividualFiles = individualFiles.slice(0, INITIAL_FILE_DISPLAY_LIMIT - foldersToShow.length);
+                    }
+                  }
+
+                  return (
+                    <div className="submitted-files-section">
+                      <div className="submitted-files-header">
+                        <span style={{ fontSize: '16px' }}>📎</span>
+                        Submitted Files ({visibleFiles.length}):
+                      </div>
+
+                      {displayFolders.map(folderName => {
+                        const folderFiles = folders[folderName];
+                        const key = `${assignment.id}-${folderName}`;
+                        const isExpanded = expandedFolders[key];
+                        return (
+                          <div key={folderName} style={{ marginBottom: '8px' }}>
+                            <div
+                              className="submitted-file-card"
+                              onClick={() => {
+                                const newState = !expandedFolders[key];
+                                setExpandedFolders(prev => ({ ...prev, [key]: newState }));
+                                if (newState && folderFiles) prefetchFolderFiles(folderFiles, 'file');
+                              }}
+                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{folderName}</div>
+                                  <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                    <span>Submitted by <span style={{ fontWeight: '500' }}>{folderFiles[0].submitter_name || user.fullName || user.username}</span> • {folderFiles.length} files</span>
+                                    {renderFolderStatusBadges(folderFiles)}
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                                  <FileMoreMenuInline
+                                  isFolder
+                                  onViewDetails={() => { const firstFile = folderFiles[0]; if (firstFile) openFileDetails(firstFile); }}
+                                  onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false, folderName, true)}
+                                  onDelete={() => {
+                                  setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
+                                  setShowDeleteModal(true);
+                                  }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            {isExpanded && renderRecursiveItems(assignment, folderFiles, 1, key, [], false, checkerActions, folderName)}
+                          </div>
+                        );
+                      })}
+
+                      {displayIndividualFiles.map(file => renderFileCard(file, assignment.id, false, assignment.title, false, checkerActions))}
+
+                      {shouldShowSeeMore && (
+                        <div style={{ marginTop: '12px', textAlign: 'center' }}>
+                          <button
+                            onClick={() => setShowAllSubmittedFiles(prev => ({ ...prev, [assignment.id]: !prev[assignment.id] }))}
+                            style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '14px', fontWeight: '500', cursor: 'pointer', padding: '8px 16px', textDecoration: 'underline' }}
+                          >
+                            {showAll ? 'See less' : `See more (${totalItems - INITIAL_FILE_DISPLAY_LIMIT} more)`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {(assignment.user_status === 'submitted' || assignment.status === 'completed') && !assignment.submitted_files?.length && (
+                  <div style={{ backgroundColor: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: '8px', padding: '12px', marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#92400E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                    <div style={{ fontSize: '14px', color: '#92400E', lineHeight: '1.5' }}><strong>No files found.</strong><br />Please upload files for this assignment.</div>
+                  </div>
+                )}
+
+                {(assignment.assigned_to === 'all' || assignment.assigned_member_details?.some(m => m.id === user.id)) && (
+                  <div style={{ paddingTop: '16px' }}>
+                    <button
+                      onClick={() => handleSubmit(assignment)}
+                      style={{ backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '6px', padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', width: '100%', cursor: 'pointer', outline: 'none', gap: '12px' }}
+                    >
+                      <span style={{ backgroundColor: assignment.submitted_files?.length ? '#10b981' : '#000000', padding: '6px 16px', borderRadius: '4px', fontSize: '14px', fontWeight: '500', color: 'white', whiteSpace: 'nowrap' }}>
+                        {assignment.submitted_files?.length ? 'Add more files' : 'Submit file'}
+                      </span>
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>
+                        {assignment.submitted_files?.length ? 'Upload additional files' : 'Click to attach files'}
+                      </span>
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <button
+                    onClick={() => openCommentsModal(assignment)}
+                    style={{ background: 'transparent', border: 'none', color: '#1c1e21', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0' }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    </svg>
+                    Comment
+                    {(() => {
+                      const count = assignmentComments.length > 0 ? assignmentComments.length : (assignment.comment_count || 0);
+                      const hasRejected = assignment.submitted_files?.some(f =>
+                        ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)
+                      );
+                      return (
+                        <span style={{
+                          backgroundColor: hasRejected && count > 0 ? '#fee2e2' : '#f3f4f6',
+                          color: hasRejected && count > 0 ? '#dc2626' : '#6b7280',
+                          borderRadius: '10px', padding: '1px 8px', fontSize: '12px', fontWeight: '600',
+                        }}>
+                          {count}
+                        </span>
+                      );
+                    })()}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="tasks-empty">
@@ -1006,12 +2539,11 @@ const TasksTab = memo(({
               <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
             </svg>
           </div>
-          <h3>{sortFilter === 'all' ? 'No assignments' : `No ${SORT_OPTIONS.find(o => o.value === sortFilter)?.label.toLowerCase()} assignments`}</h3>
-          <p>{sortFilter === 'all' ? "You don't have any assignments at this time." : 'Try a different filter.'}</p>
+          <h3>{searchQuery ? 'No Results Found' : sortFilter === 'all' ? 'No assignments' : `No ${SORT_OPTIONS.find(o => o.value === sortFilter)?.label.toLowerCase()} assignments`}</h3>
+          <p>{searchQuery ? `No tasks match "${searchQuery}".` : sortFilter === 'all' ? "You don't have any assignments at this time." : 'Try a different filter.'}</p>
         </div>
       )}
 
-      {/* Comments Modal */}
       {showCommentsModal && currentCommentsAssignment && (
         <CommentsModal
           isOpen={showCommentsModal}
@@ -1022,7 +2554,9 @@ const TasksTab = memo(({
           newComment={newComment[currentCommentsAssignment.id] || ''}
           setNewComment={handleSetNewComment}
           onPostComment={handlePostComment}
+          isPostingComment={isPostingComment[currentCommentsAssignment.id]}
           onPostReply={postReply}
+          isPostingReply={isPostingReply}
           onEditComment={editComment}
           onDeleteComment={deleteComment}
           onEditReply={editReply}
@@ -1033,10 +2567,10 @@ const TasksTab = memo(({
           formatTimeAgo={formatRelativeTime}
           user={user}
           highlightUsername={highlightCommentBy}
+          highlightCommentId={highlightTargetCommentId}
         />
       )}
 
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && fileToDelete && (
         <div className="tasks-modal-overlay" onClick={() => setShowDeleteModal(false)}>
           <div className="tasks-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
@@ -1056,9 +2590,7 @@ const TasksTab = memo(({
                 <div style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
                   <span style={{ fontSize: '14px', fontWeight: '500', color: '#991b1b' }}>{fileToDelete.fileName}</span>
                 </div>
-                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
-                  This action is permanent and cannot be undone.
-                </p>
+                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>This action is permanent and cannot be undone.</p>
               </div>
             </div>
             <div className="tasks-modal-footer" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
@@ -1071,23 +2603,16 @@ const TasksTab = memo(({
                     const { assignmentId, folderFiles, fileName: folderName } = fileToDelete;
                     setShowDeleteModal(false);
                     setFileToDelete(null);
-                    setAssignmentsCache(cacheKey, prev => prev.map(a =>
-                      a.id === assignmentId
-                        ? { ...a, submitted_files: a.submitted_files?.filter(f => !folderFiles.some(ff => ff.id === f.id)) }
-                        : a
+                    const folderFileIds = new Set(folderFiles.map(f => f.id));
+                    setAssignments(prev => prev.map(a =>
+                      a.id !== assignmentId ? a : { ...a, submitted_files: a.submitted_files.filter(f => !folderFileIds.has(f.id)) }
                     ));
-                    for (const file of folderFiles) {
-                      try {
-                        await apiFetch(`/api/assignments/${assignmentId}/files/${file.id}`, { method: 'DELETE', body: JSON.stringify({ userId: user.id }) });
-                        await apiFetch(`/api/files/${file.id}`, { method: 'DELETE', body: JSON.stringify({ adminId: user.id, adminUsername: user.username, adminRole: user.role, team: user.team }) });
-                      } catch (e) { console.error('Error deleting folder file:', e); }
-                    }
                     try {
                       await apiFetch(`/api/files/folder/delete`, {
                         method: 'POST',
                         body: JSON.stringify({ folderName, username: user.username, fileIds: folderFiles.map(f => f.id), userId: user.id, userRole: user.role, team: user.team }),
                       });
-                    } catch (e) { console.error('Error deleting folder directory:', e); }
+                    } catch (_e) { /* Directory cleanup failure is non-fatal — ignore */ }
                     setSuccessModal({ isOpen: true, title: 'Removed', message: 'Folder removed successfully', type: 'error' });
                     setTimeout(() => fetchAssignments(), 500);
                   } else {
@@ -1103,43 +2628,48 @@ const TasksTab = memo(({
         </div>
       )}
 
-
-
-      {/* File Open Modal */}
       <FileOpenModal
-        isOpen={!!fileToOpen}
+        isOpen={showOpenFileModal}
+        onClose={() => { setShowOpenFileModal(false); setFileToOpen(null); }}
+        onConfirm={handleOpenFile}
         file={fileToOpen}
-        isLoading={isOpeningFile}
-        onClose={() => setFileToOpen(null)}
-        onConfirm={async () => {
-          if (!fileToOpen) return;
-          const success = await handleOpenFile(fileToOpen.file_path, fileToOpen.id);
-          if (success) {
-            setFileToOpen(null);
-            setFileOpenToast(true);
-            setTimeout(() => setFileOpenToast(false), 3500);
-          }
+        type={openModalType}
+      />
+
+      <ChecklistViewModal
+        isOpen={checklistViewModal.isOpen}
+        onClose={() => setChecklistViewModal({ isOpen: false, file: null })}
+        file={checklistViewModal.file}
+      />
+
+      <CheckingModal
+        isOpen={checkingModal.isOpen}
+        onClose={() => setCheckingModal({ isOpen: false, file: null, assignment: null })}
+        file={checkingModal.file}
+        assignment={checkingModal.assignment}
+        onMarkForEditing={async (fileId, wrongItems, additionalComment) => {
+          const parts = [];
+          if (wrongItems.length > 0) parts.push(`Wrong items: ${wrongItems.join(', ')}`);
+          if (additionalComment) parts.push(`Comment: ${additionalComment}`);
+          const note = parts.length > 0 ? parts.join(' | ') : 'Marked for editing by checker.';
+          await handleMarkForEditing(checkingModal.assignment, fileId, note);
+          setCheckingModal({ isOpen: false, file: null, assignment: null });
+        }}
+        onDoneChecking={async (fileId, additionalComment) => {
+          const note = additionalComment ? `Comment: ${additionalComment}` : '';
+          await handleMarkFileChecked(checkingModal.assignment, fileId, note);
+          setCheckingModal({ isOpen: false, file: null, assignment: null });
         }}
       />
 
-      {/* File Open Toast */}
-      {fileOpenToast && (
-        <div style={{ position: 'fixed', top: '28px', right: '28px', zIndex: 9999, background: '#fff', border: '1px solid #bbf7d0', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.13)', padding: '18px 22px 14px 18px', display: 'flex', alignItems: 'flex-start', gap: '14px', minWidth: '280px', maxWidth: '380px', animation: 'slideInRight 0.25s ease' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', border: '2px solid #86efac', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '15px', fontWeight: '700', color: '#15803d', marginBottom: '4px' }}>Success</div>
-            <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>File opened successfully!</div>
-            <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: '#dcfce7', overflow: 'hidden' }}>
-              <div style={{ height: '100%', borderRadius: '2px', background: '#22c55e', animation: 'shrinkBar 3.5s linear forwards' }} />
-            </div>
-          </div>
-          <button onClick={() => setFileOpenToast(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '20px', lineHeight: 1, padding: 0 }}>×</button>
-        </div>
-      )}
+      <SuccessModal
+        isOpen={successModal.isOpen}
+        onClose={() => setSuccessModal({ ...successModal, isOpen: false })}
+        title={successModal.title}
+        message={successModal.message}
+        type={successModal.type}
+      />
 
-      {/* Download Toast */}
       {downloadToast.show && (
         <div style={{ position: 'fixed', top: '28px', right: '28px', zIndex: 9999, background: '#fff', border: '1px solid #bbf7d0', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.13)', padding: '18px 22px 14px 18px', display: 'flex', alignItems: 'flex-start', gap: '14px', minWidth: '280px', maxWidth: '380px', animation: 'slideInRight 0.25s ease' }}>
           <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', border: '2px solid #86efac', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1163,20 +2693,8 @@ const TasksTab = memo(({
         @keyframes shrinkBar { from { width: 100%; } to { width: 0%; } }
       `}</style>
 
-      {/* File Details Modal */}
-      {showFileDetailsModal && fileDetailsTarget && (
-        <FileModal
-          showFileModal={showFileDetailsModal}
-          setShowFileModal={setShowFileDetailsModal}
-          selectedFile={fileDetailsTarget}
-          fileComments={[]}
-          formatFileSize={formatFileSize}
-        />
-      )}
-
-      {/* Submit Modal */}
       {showSubmitModal && currentAssignment && (
-        <div className="tasks-modal-overlay" onClick={handleCloseSubmitModal}>
+        <div className="tasks-modal-overlay">
           <div className="tasks-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <div className="tasks-modal-header" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '16px' }}>
               <div style={{ flex: 1, marginRight: '40px' }}>
@@ -1188,18 +2706,12 @@ const TasksTab = memo(({
                   )}
                 </div>
               </div>
-              <button 
-                className="tasks-modal-close" 
-                onClick={handleCloseSubmitModal} 
-                disabled={isUploading}
-                style={{ opacity: isUploading ? 0.5 : 1, cursor: isUploading ? 'not-allowed' : 'pointer' }}
-              >×</button>
+              <button className="tasks-modal-close" onClick={() => { resetSubmitModal(); setShowSubmitModal(false); }}>×</button>
             </div>
 
             <div className="tasks-modal-body">
               <div className="tasks-file-selection">
                 <div className="upload-section">
-                  {/* Existing folder picker */}
                   {(() => {
                     const existingFolders = [...new Set((currentAssignment.submitted_files || []).filter(f => f.folder_name).map(f => f.folder_name))];
                     if (!existingFolders.length) return null;
@@ -1231,7 +2743,6 @@ const TasksTab = memo(({
                       e.target.value = '';
                     }} style={{ display: 'none' }} disabled={isUploading} />
 
-                    {/* Drop zone */}
                     <div
                       className="file-upload-label"
                       style={{ border: '2px dashed #d1d5db', borderRadius: '12px', padding: '32px', textAlign: 'center', cursor: 'pointer', backgroundColor: '#fafafa', transition: 'all 0.2s' }}
@@ -1290,7 +2801,7 @@ const TasksTab = memo(({
                             <div style={{ maxHeight: '300px', overflowY: 'auto', backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '8px' }}>
                               {uploadedFiles.map((fileObj, index) => (
                                 <div key={index} style={{ fontSize: '12px', color: '#4b5563', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: index < uploadedFiles.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                                  <FileIcon file={fileObj.file} size="small" />
+                                  <FileIcon fileType={fileObj.file.name.split('.').pop().toLowerCase()} isFolder={false} size="small" />
                                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileObj.relativePath}</span>
                                   <span style={{ fontSize: '11px', color: '#9ca3af', flexShrink: 0 }}>{formatFileSize(fileObj.file.size)}</span>
                                 </div>
@@ -1303,7 +2814,7 @@ const TasksTab = memo(({
                     ) : (
                       uploadedFiles.map((fileObj, index) => (
                         <div key={index} style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '12px 16px', marginBottom: '8px', backgroundColor: '#fff', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <FileIcon file={fileObj.file} size="default" />
+                          <FileIcon fileType={fileObj.file.name.split('.').pop().toLowerCase()} isFolder={false} size="default" />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontWeight: '500', fontSize: '14px', color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileObj.file.name}</div>
                             <div style={{ fontSize: '12px', color: '#6B7280' }}>{formatFileSize(fileObj.file.size)}</div>
@@ -1313,7 +2824,6 @@ const TasksTab = memo(({
                       ))
                     )}
 
-                    {/* Tag + Description */}
                     <div style={{ marginTop: '24px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb' }}>
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827' }}>🏷️ Tag</label>
                       <SingleSelectTags selectedTag={fileTag} onChange={setFileTag} disabled={isUploading} user={user} />
@@ -1332,57 +2842,46 @@ const TasksTab = memo(({
               </div>
             </div>
 
-            {isUploading && (
-              <div style={{ padding: '0 24px 16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#4b5563', marginBottom: '8px' }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
-                    Uploading <strong>{uploadProgress.currentFileName || 'files'}</strong>...
-                  </span>
-                  <span>{uploadProgress.current} of {uploadProgress.total}</span>
+            <div className="tasks-modal-footer" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end', flexDirection: 'column' }}>
+              {isUploading && (
+                <div style={{ width: '100%', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#4f46e5' }}>{uploadProgress < 100 ? 'Uploading files...' : 'Finalizing...'}</span>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#4f46e5' }}>{uploadProgress}%</span>
+                  </div>
+                  <div style={{ width: '100%', height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${uploadProgress}%`, height: '100%', backgroundColor: '#4f46e5', transition: 'width 0.3s ease' }} />
+                  </div>
                 </div>
-                <div style={{ height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ width: `${uploadProgress.percentage}%`, height: '100%', backgroundColor: '#4f46e5', transition: 'width 0.3s ease' }} />
-                </div>
+              )}
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => { resetSubmitModal(); setShowSubmitModal(false); }}
+                  disabled={false}
+                  style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+                >
+                  {isUploading ? 'Stop Upload' : 'Cancel'}
+                </button>
+                <button
+                  onClick={handleFileUpload}
+                  disabled={!uploadedFiles.length || isUploading}
+                  style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: !uploadedFiles.length || isUploading ? '#d1d5db' : '#4f46e5', color: '#fff', fontSize: '14px', fontWeight: '500', cursor: !uploadedFiles.length || isUploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  {isUploading ? '⏳ Uploading...' : `✓ Upload ${uploadedFiles.length > 0 ? `${uploadedFiles.length} ` : ''}File${uploadedFiles.length !== 1 ? 's' : ''} & Submit`}
+                </button>
               </div>
-            )}
-
-            <div className="tasks-modal-footer" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button
-                onClick={handleCloseSubmitModal}
-                disabled={isUploading}
-                style={{ 
-                  padding: '10px 20px', 
-                  borderRadius: '8px', 
-                  border: '1px solid #d1d5db', 
-                  backgroundColor: '#fff', 
-                  color: '#374151', 
-                  fontSize: '14px', 
-                  fontWeight: '500', 
-                  cursor: isUploading ? 'not-allowed' : 'pointer',
-                  opacity: isUploading ? 0.5 : 1
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleFileUpload}
-                disabled={!uploadedFiles.length || isUploading}
-                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: !uploadedFiles.length || isUploading ? '#d1d5db' : '#4f46e5', color: '#fff', fontSize: '14px', fontWeight: '500', cursor: !uploadedFiles.length || isUploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                {isUploading ? '⏳ Uploading...' : `✓ Upload ${uploadedFiles.length > 0 ? `${uploadedFiles.length} ` : ''}File${uploadedFiles.length !== 1 ? 's' : ''} & Submit`}
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* File Details Modal */}
       <FileModal
         showFileModal={showFileDetailsModal}
         setShowFileModal={setShowFileDetailsModal}
         selectedFile={fileDetailsTarget}
         fileComments={[]}
         formatFileSize={formatFileSize}
+        onOpenFile={() => confirmOpenFile(fileDetailsTarget)}
       />
     </div>
   );

@@ -16,6 +16,7 @@ const SuccessModal = ({ isOpen, onClose, title, message, type = 'success' }) => 
   const getIcon = () => {
     switch (type) {
       case 'success': return '✓';
+      case 'delete':  return '🗑';
       case 'error':   return '✕';
       case 'warning': return '⚠';
       case 'info':    return 'ℹ';
@@ -25,6 +26,7 @@ const SuccessModal = ({ isOpen, onClose, title, message, type = 'success' }) => 
 
   const colors = {
     success: { bg: '#dcfce7', border: '#86efac', icon: '#16a34a', text: '#15803d', progress: '#16a34a' },
+    delete:  { bg: '#fee2e2', border: '#fca5a5', icon: '#dc2626', text: '#b91c1c', progress: '#dc2626' },
     error:   { bg: '#fee2e2', border: '#fca5a5', icon: '#dc2626', text: '#b91c1c', progress: '#dc2626' },
     warning: { bg: '#fef9c3', border: '#fde047', icon: '#ca8a04', text: '#a16207', progress: '#ca8a04' },
     info:    { bg: '#dbeafe', border: '#93c5fd', icon: '#2563eb', text: '#1d4ed8', progress: '#2563eb' },

@@ -40,28 +40,32 @@ async function up() {
       const colNames = columns.map(c => c.COLUMN_NAME.toLowerCase());
 
       if (!colNames.includes('username')) {
-        await query(`ALTER TABLE file_views ADD COLUMN username VARCHAR(255) NOT NULL DEFAULT ''`);
+        await query('ALTER TABLE file_views ADD COLUMN username VARCHAR(255) NOT NULL DEFAULT \'\'');
         console.log('  ✅ Added username column');
       }
       if (!colNames.includes('full_name')) {
-        await query(`ALTER TABLE file_views ADD COLUMN full_name VARCHAR(255)`);
+        await query('ALTER TABLE file_views ADD COLUMN full_name VARCHAR(255)');
         console.log('  ✅ Added full_name column');
       }
       if (!colNames.includes('role')) {
-        await query(`ALTER TABLE file_views ADD COLUMN role VARCHAR(100)`);
+        await query('ALTER TABLE file_views ADD COLUMN role VARCHAR(100)');
         console.log('  ✅ Added role column');
       }
       if (!colNames.includes('viewed_at')) {
-        await query(`ALTER TABLE file_views ADD COLUMN viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`);
+        await query('ALTER TABLE file_views ADD COLUMN viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
         console.log('  ✅ Added viewed_at column');
       }
 
       // Ensure unique key exists
-      try {
-        await query(`ALTER TABLE file_views ADD UNIQUE KEY unique_user_file (file_id, user_id)`);
+      const existingIndexes = await query(`
+        SHOW INDEX FROM file_views WHERE Key_name = 'unique_user_file'
+      `);
+
+      if (existingIndexes.length === 0) {
+        await query('ALTER TABLE file_views ADD UNIQUE KEY unique_user_file (file_id, user_id)');
         console.log('  ✅ Added unique key');
-      } catch (e) {
-        // Already exists — fine
+      } else {
+        console.log('  ⏭️  Unique key already exists');
       }
 
       console.log('  ✅ file_views columns verified');

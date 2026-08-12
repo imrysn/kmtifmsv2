@@ -9,35 +9,35 @@ const backupPath = path.join(__dirname, 'server.js.backup');
 try {
   // Read current server.js
   let serverContent = fs.readFileSync(serverPath, 'utf8');
-  
+
   // Create backup if it doesn't exist
   if (!fs.existsSync(backupPath)) {
     fs.writeFileSync(backupPath, serverContent);
     console.log('✅ Created backup: server.js.backup');
   }
-  
+
   // Check if already in test mode
   if (serverContent.includes('test-projects-directory')) {
     console.log('⚠️ Already in local test mode');
     process.exit(0);
   }
-  
+
   // Create local test directory first
   const testDir = path.join(__dirname, 'test-projects-directory');
   if (!fs.existsSync(testDir)) {
     console.log('📁 Creating local test directory...');
     require('./create-local-test-directory.js');
   }
-  
+
   // Replace network path with local path
   const networkPathLine = "const networkProjectsPath = '\\\\\\\\KMTI-NAS\\\\Shared\\\\Public\\\\PROJECTS';";
   const localPathLine = `const networkProjectsPath = '${testDir.replace(/\\/g, '\\\\')}';
   console.log('🏠 RUNNING IN LOCAL TEST MODE - Using local directory:', networkProjectsPath);`;
-  
+
   if (serverContent.includes(networkPathLine)) {
     serverContent = serverContent.replace(networkPathLine, localPathLine);
     fs.writeFileSync(serverPath, serverContent);
-    
+
     console.log('✅ Modified server.js to use local test directory');
     console.log('📁 Local test path:', testDir);
     console.log('\n🚀 Next steps:');
@@ -51,7 +51,7 @@ try {
     console.log('Please manually edit server.js');
     console.log('Looking for:', networkPathLine);
   }
-  
+
 } catch (error) {
   console.error('❌ Error:', error.message);
 }

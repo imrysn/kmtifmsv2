@@ -1,5 +1,38 @@
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
+
+// Cache of already-created directories to avoid redundant mkdir NAS round-trips
+const _createdDirs = new Set();
+async function ensureDirCached(dirPath) {
+  if (_createdDirs.has(dirPath)) {
+    return;
+  }
+  try {
+    await fs.mkdir(dirPath, { recursive: true });
+  } catch (e) {
+    if (e.code !== 'EEXIST') {
+      throw new Error(`Failed to create folder: ${e.message}`);
+    }
+  }
+  _createdDirs.add(dirPath);
+}
+
+/**
+ * Fast streaming copy using fs.createReadStream/WriteStream with an 8 MB buffer.
+ * 8 MB chunks dramatically reduce NAS round-trips vs the old 256 KB buffer:
+ * a 100 MB file goes from ~400 NAS reads down to ~13.
+ */
+function streamCopy(src, dest) {
+  return new Promise((resolve, reject) => {
+    const rd = fsSync.createReadStream(src, { highWaterMark: 8 * 1024 * 1024 });
+    const wr = fsSync.createWriteStream(dest, { highWaterMark: 8 * 1024 * 1024 });
+    rd.on('error', reject);
+    wr.on('error', reject);
+    wr.on('finish', resolve);
+    rd.pipe(wr);
+  });
+}
 
 /**
  * Robustly decode a filename that may have been mis-decoded as Latin-1 (ISO-8859-1).
@@ -7,7 +40,9 @@ const path = require('path');
  * This utility recovers the original UTF-8 characters.
  */
 function decodeUTF8Filename(name) {
-  if (!name) return name;
+  if (!name) {
+    return name;
+  }
   try {
     // Re-interpret the string as raw bytes (latin1), then decode as UTF-8.
     const buffer = Buffer.from(name, 'latin1');
@@ -18,7 +53,7 @@ function decodeUTF8Filename(name) {
     if (utf8Attempt !== name && !utf8Attempt.includes('\uFFFD')) {
       return utf8Attempt;
     }
-  } catch (_) {
+  } catch {
     // Fallback to original if any error occurs
   }
   return name;
@@ -28,141 +63,60 @@ function decodeUTF8Filename(name) {
  * Move uploaded file from temp location to user's folder.
  * Supports folder structure preservation via folderName + relativePath.
  * Handles cross-device moves (EXDEV) for NAS targets.
+ * @param {string} taskPrefix  Optional sub-directory under userDir (e.g. "task_42")
+ *                             used to isolate uploads per assignment.
+ * @param {boolean} isTeamLeaderAttachment  If true, files go to teamleader/<username>/
+ *                             instead of uploads/<username>/.
  */
-async function moveToUserFolder(tempPath, username, originalFilename, folderName = null, relativePath = null) {
+async function moveToUserFolder(tempPath, username, originalFilename, folderName = null, relativePath = null, taskPrefix = null, isTeamLeaderAttachment = false) {
   const { uploadsDir } = require('../config/middleware');
-  const userDir = path.join(uploadsDir, username);
+  const { networkDataPath } = require('../config/database');
 
-  // Ensure user directory exists (race-safe)
-  try {
-    await fs.mkdir(userDir, { recursive: true });
-  } catch (mkdirError) {
-    throw new Error(`Failed to create user folder: ${mkdirError.message}`);
-  }
+  const baseDir = isTeamLeaderAttachment
+    ? path.join(networkDataPath, 'teamleader')
+    : uploadsDir;
 
-  // Decode garbled UTF-8 filenames (latin1 mis-decoded by multer)
+  const userDir = taskPrefix
+    ? path.join(baseDir, username, taskPrefix)
+    : path.join(baseDir, username);
+
   const decodedFilename = decodeUTF8Filename(originalFilename);
-
-  // Sanitize for Windows filesystem
   const sanitizedFilename = sanitizeFilename(decodedFilename);
 
-  // Handle folder structure preservation
+  // Resolve final destination path
   let finalPath;
   if (folderName && relativePath) {
-    // relativePath = "FolderName/subfolder/file.txt"
-    // Sanitize each path segment individually (preserves separators)
     const normalizedRelPath = relativePath.replace(/\\/g, '/');
     const segments = normalizedRelPath.split('/');
     const sanitizedSegments = segments.map((seg, i) =>
       i === segments.length - 1 ? sanitizeFilename(seg) : sanitizeFilename(seg) || seg
     );
     const sanitizedRelPath = sanitizedSegments.join(path.sep);
-
     const subfolderPath = path.dirname(path.join(userDir, sanitizedRelPath));
-    await fs.mkdir(subfolderPath, { recursive: true });
+    await ensureDirCached(subfolderPath);
     finalPath = path.join(userDir, sanitizedRelPath);
   } else if (relativePath) {
-    // Edge case: single file with relative path but no folderName
+    await ensureDirCached(userDir);
     finalPath = path.join(userDir, sanitizeFilename(relativePath));
   } else {
+    await ensureDirCached(userDir);
     finalPath = path.join(userDir, sanitizedFilename);
   }
 
-  // Verify temp file exists before moving
-  try {
-    await fs.access(tempPath);
-  } catch {
-    throw new Error(`Temp file not found: ${tempPath}`);
-  }
-
-  // Move: try fast rename first, fall back to copy+delete for cross-device (NAS)
+  // Move: try fast rename first, fall back to streaming copy for cross-device (NAS)
   try {
     await fs.rename(tempPath, finalPath);
   } catch (renameError) {
     if (renameError.code === 'EXDEV') {
-      // Cross-device (local temp → NAS): copy then delete
       try {
-        await fs.copyFile(tempPath, finalPath);
-        await fs.unlink(tempPath).catch(() => {}); // best-effort cleanup
+        await streamCopy(tempPath, finalPath);
+        await fs.unlink(tempPath).catch(() => {});
       } catch (copyError) {
         throw new Error(`Failed to copy file to NAS: ${copyError.message}`);
       }
     } else {
       throw new Error(`Failed to move file: ${renameError.message}`);
     }
-  }
-
-  // Verify file landed at destination
-  try {
-    await fs.access(finalPath);
-  } catch {
-    throw new Error(`File verification failed after move — not found at: ${finalPath}`);
-  }
-
-  return finalPath;
-}
-
-/**
- * Move uploaded file from temp location to Team Leader's folder.
- * Uses a different root directory (teamLeaderDir) than user submissions.
- */
-async function moveToTeamLeaderFolder(tempPath, username, originalFilename, folderName = null, relativePath = null) {
-  const { teamLeaderDir } = require('../config/middleware');
-  const userDir = path.join(teamLeaderDir, username);
-
-  // Ensure user directory exists
-  try {
-    await fs.mkdir(userDir, { recursive: true });
-  } catch (mkdirError) {
-    throw new Error(`Failed to create team leader folder: ${mkdirError.message}`);
-  }
-
-  const decodedFilename = decodeUTF8Filename(originalFilename);
-  const sanitizedFilename = sanitizeFilename(decodedFilename);
-
-  let finalPath;
-  if (folderName && relativePath) {
-    const normalizedRelPath = relativePath.replace(/\\/g, '/');
-    const segments = normalizedRelPath.split('/');
-    const sanitizedSegments = segments.map((seg, i) =>
-      i === segments.length - 1 ? sanitizeFilename(seg) : sanitizeFilename(seg) || seg
-    );
-    const sanitizedRelPath = sanitizedSegments.join(path.sep);
-
-    const subfolderPath = path.dirname(path.join(userDir, sanitizedRelPath));
-    await fs.mkdir(subfolderPath, { recursive: true });
-    finalPath = path.join(userDir, sanitizedRelPath);
-  } else if (relativePath) {
-    finalPath = path.join(userDir, sanitizeFilename(relativePath));
-  } else {
-    finalPath = path.join(userDir, sanitizedFilename);
-  }
-
-  try {
-    await fs.access(tempPath);
-  } catch {
-    throw new Error(`Temp file not found: ${tempPath}`);
-  }
-
-  try {
-    await fs.rename(tempPath, finalPath);
-  } catch (renameError) {
-    if (renameError.code === 'EXDEV') {
-      try {
-        await fs.copyFile(tempPath, finalPath);
-        await fs.unlink(tempPath).catch(() => {});
-      } catch (copyError) {
-        throw new Error(`Failed to copy file to NAS (TL): ${copyError.message}`);
-      }
-    } else {
-      throw new Error(`Failed to move TL file: ${renameError.message}`);
-    }
-  }
-
-  try {
-    await fs.access(finalPath);
-  } catch {
-    throw new Error(`TL file verification failed after move: ${finalPath}`);
   }
 
   return finalPath;
@@ -176,6 +130,7 @@ function sanitizeFilename(filename) {
   // Windows forbidden: < > : " / \ | ? *
   // Control chars: 0x00-0x1F
   const sanitized = filename
+    // eslint-disable-next-line no-control-regex
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
     .replace(/^\.+|\.+$/g, '_')  // No leading/trailing dots
     .trim();
@@ -191,22 +146,10 @@ async function safeDeleteFile(filePath) {
     await fs.unlink(filePath);
     return { success: true };
   } catch (error) {
-    if (error.code === 'ENOENT') return { success: true, notFound: true };
+    if (error.code === 'ENOENT') {
+      return { success: true, notFound: true };
+    }
     console.error(`Failed to delete ${filePath}:`, error.message);
-    return { success: false, error, message: error.message };
-  }
-}
-
-/**
- * Safely delete a directory and its contents.
- */
-async function safeDeleteDir(dirPath) {
-  try {
-    await fs.rm(dirPath, { recursive: true, force: true });
-    return { success: true };
-  } catch (error) {
-    if (error.code === 'ENOENT') return { success: true, notFound: true };
-    console.error(`Failed to delete directory ${dirPath}:`, error.message);
     return { success: false, error, message: error.message };
   }
 }
@@ -214,8 +157,7 @@ async function safeDeleteDir(dirPath) {
 /** Returns true if dirPath is an existing directory. */
 async function directoryExists(dirPath) {
   try {
-    const stats = await fs.stat(dirPath);
-    return stats.isDirectory();
+    return (await fs.stat(dirPath)).isDirectory();
   } catch {
     return false;
   }
@@ -232,13 +174,79 @@ async function ensureDirectory(dirPath) {
   }
 }
 
+/**
+ * Move an uploaded file into a task's project folder on the NAS.
+ *
+ * Flat layout — no user sub-folder:
+ *   projectsDataPath / {tlUsername} / {sanitized taskTitle} / {relativePath or filename}
+ *
+ * If the destination file already exists it is overwritten (same-filename replacement).
+ *
+ * @param {string} tempPath         - OS temp path from multer
+ * @param {string} tlUsername       - Team leader's username (project owner)
+ * @param {string} taskTitle        - Assignment title (used as the folder name)
+ * @param {string} originalFilename - File's original name
+ * @param {string|null} folderName  - Top-level folder from drag-drop (or null)
+ * @param {string|null} relativePath - Full relative path from drag-drop (or null)
+ * @returns {string} finalPath      - Absolute NAS path where the file now lives
+ */
+async function moveToProjectFolder(
+  tempPath, tlUsername, taskTitle,
+  originalFilename, folderName = null, relativePath = null
+) {
+  const { projectsDataPath } = require('../config/database');
+
+  const safeTitle    = sanitizeFilename(taskTitle) || 'untitled_task';
+  const taskDir      = path.join(projectsDataPath, tlUsername, safeTitle);
+
+  const decodedFilename   = decodeUTF8Filename(originalFilename);
+  const sanitizedFilename = sanitizeFilename(decodedFilename);
+
+  let finalPath;
+
+  if (folderName && relativePath) {
+    // Folder upload — preserve full relative path inside taskDir
+    const normalizedRelPath = relativePath.replace(/\\/g, '/');
+    const segments = normalizedRelPath.split('/');
+    const sanitizedSegments = segments.map((seg, i) =>
+      i === segments.length - 1
+        ? sanitizeFilename(seg)
+        : (sanitizeFilename(seg) || seg)
+    );
+    const sanitizedRelPath = sanitizedSegments.join(path.sep);
+    const subfolderPath = path.dirname(path.join(taskDir, sanitizedRelPath));
+    await ensureDirCached(subfolderPath);
+    finalPath = path.join(taskDir, sanitizedRelPath);
+  } else if (relativePath) {
+    await ensureDirCached(taskDir);
+    finalPath = path.join(taskDir, sanitizeFilename(relativePath));
+  } else {
+    await ensureDirCached(taskDir);
+    finalPath = path.join(taskDir, sanitizedFilename);
+  }
+
+  // Move: rename (fast) → fallback to streaming copy for cross-device NAS targets
+  try {
+    await fs.rename(tempPath, finalPath);
+  } catch (renameError) {
+    if (renameError.code === 'EXDEV') {
+      await streamCopy(tempPath, finalPath);   // overwrite if exists — intentional
+      await fs.unlink(tempPath).catch(() => {});
+    } else {
+      throw new Error(`Failed to move file to project folder: ${renameError.message}`);
+    }
+  }
+
+  return finalPath;
+}
+
 module.exports = {
   moveToUserFolder,
-  moveToTeamLeaderFolder,
+  moveToProjectFolder,
+  streamCopy,          // exported so fileService can reuse the large-buffer copy
   decodeUTF8Filename,
   sanitizeFilename,
   safeDeleteFile,
-  safeDeleteDir,
   directoryExists,
   ensureDirectory
 };

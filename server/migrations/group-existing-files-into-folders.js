@@ -2,7 +2,7 @@ const { db } = require('../config/database');
 
 /**
  * Migration: Group existing files into folders
- * 
+ *
  * This script identifies files that were uploaded together (within 1 minute)
  * to the same assignment and groups them under a folder name.
  */
@@ -58,7 +58,7 @@ async function groupExistingFilesIntoFolders() {
         // Group files uploaded within 1 minute of each other
         const fileGroups = [];
         let currentGroup = [files[0]];
-        
+
         for (let i = 1; i < files.length; i++) {
           const prevTime = new Date(files[i - 1].submitted_at).getTime();
           const currTime = new Date(files[i].submitted_at).getTime();
@@ -83,10 +83,10 @@ async function groupExistingFilesIntoFolders() {
         // Update each group with a folder name
         for (let groupIndex = 0; groupIndex < fileGroups.length; groupIndex++) {
           const group = fileGroups[groupIndex];
-          
+
           // Create a folder name based on the assignment title
           const folderName = `${files[0].assignment_title}_Group${groupIndex + 1}`;
-          
+
           console.log(`📁 Creating folder "${folderName}" with ${group.length} files in assignment ${assignmentId}`);
 
           // Update all files in this group
@@ -113,7 +113,7 @@ async function groupExistingFilesIntoFolders() {
       }
 
       console.log('✅ Migration complete!');
-      console.log(`📊 Stats:`);
+      console.log('📊 Stats:');
       console.log(`   - ${totalFolders} folders created`);
       console.log(`   - ${totalUpdated} files updated`);
 

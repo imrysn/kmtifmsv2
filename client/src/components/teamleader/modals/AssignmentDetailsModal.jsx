@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentDetailsModal.css'
-import { FileIcon, StatusBadge, TeamBadge } from '../../shared'
+import FileIcon from '../../shared/FileIcon'
+import { Avatar } from '../../shared'
 
 const AssignmentDetailsModal = ({
   showAssignmentDetailsModal,
@@ -343,6 +344,39 @@ const AssignmentDetailsModal = ({
     }
   }
 
+  const getStatusDisplayName = (status) => {
+    switch (status) {
+      case 'uploaded':
+      case 'submitted':
+        return 'Pending Team Leader'
+      case 'team_leader_approved':
+        return 'Pending Admin'
+      case 'final_approved':
+        return 'Approved'
+      case 'rejected_by_team_leader':
+        return 'Rejected by Team Leader'
+      case 'rejected_by_admin':
+        return 'Rejected by Admin'
+      default:
+        return 'Pending Review'
+    }
+  }
+
+  const mapFileStatus = (status) => {
+    switch (status) {
+      case 'uploaded':
+      case 'submitted':
+      case 'team_leader_approved':
+        return 'pending'
+      case 'final_approved':
+        return 'approved'
+      case 'rejected_by_team_leader':
+      case 'rejected_by_admin':
+        return 'rejected'
+      default:
+        return 'pending'
+    }
+  }
 
   // Only show submission modal if one is selected
   if (selectedSubmission) {
@@ -377,7 +411,9 @@ const AssignmentDetailsModal = ({
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">TEAM:</span>
-                  <TeamBadge team={selectedAssignment.team || 'IT Dept'} size="sm" />
+                  <span className="detail-value team-badge-inline">
+                    {selectedAssignment.team || 'IT Dept'}
+                  </span>
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">UPLOAD DATE:</span>
@@ -385,7 +421,9 @@ const AssignmentDetailsModal = ({
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">STATUS:</span>
-                  <StatusBadge status={selectedSubmission.status} size="sm" />
+                  <span className={`detail-value status-badge status-${mapFileStatus(selectedSubmission.status)}`}>
+                    {getStatusDisplayName(selectedSubmission.status)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -592,20 +630,8 @@ const AssignmentDetailsModal = ({
                         gap: '8px',
                         marginBottom: '8px'
                       }}>
-                        <div style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '50%',
-                          background: 'var(--primary-color)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          fontWeight: '600',
-                          fontSize: '14px',
-                          flexShrink: 0
-                        }}>
-                          {getInitials(comment.username)}
+                        <div style={{ background: 'transparent', flexShrink: 0 }}>
+                          <Avatar user={comment} size="sm" />
                         </div>
                         <div>
                           <div style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-primary)' }}>
@@ -640,20 +666,8 @@ const AssignmentDetailsModal = ({
                                 gap: '8px',
                                 marginBottom: '6px'
                               }}>
-                                <div style={{
-                                  width: '24px',
-                                  height: '24px',
-                                  borderRadius: '50%',
-                                  background: 'var(--primary-color)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: 'white',
-                                  fontWeight: '600',
-                                  fontSize: '11px',
-                                  flexShrink: 0
-                                }}>
-                                  {getInitials(reply.username)}
+                                <div style={{ background: 'transparent', flexShrink: 0 }}>
+                                  <Avatar user={reply} size="xs" />
                                 </div>
                                 <div>
                                   <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-primary)' }}>
@@ -840,7 +854,9 @@ const AssignmentDetailsModal = ({
                               <div className="file-cell">
                                 <div className="file-icon">
                                   <FileIcon
-                                    file={submission}
+                                    fileType={fileExtension}
+                                    isFolder={false}
+                                    altText={`Icon for ${submission.original_name}`}
                                     size="medium"
                                   />
                                 </div>
@@ -862,7 +878,9 @@ const AssignmentDetailsModal = ({
                               </div>
                             </td>
                             <td>
-                              <StatusBadge status={submission.status} size="sm" />
+                              <span className={`status-badge status-${mapFileStatus(submission.status)}`}>
+                                {getStatusDisplayName(submission.status)}
+                              </span>
                             </td>
                           </tr>
                         )
@@ -898,8 +916,8 @@ const AssignmentDetailsModal = ({
               <div className="members-list">
                 {selectedAssignment.assigned_member_details.map((member) => (
                   <div key={member.id} className="member-item">
-                    <div className="member-avatar">
-                      {(member.fullName || member.username).charAt(0).toUpperCase()}
+                    <div className="member-avatar" style={{ background: 'transparent' }}>
+                      <Avatar user={member} size="md" />
                     </div>
                     <div className="member-details">
                       <div className="member-name">{member.fullName || member.username}</div>

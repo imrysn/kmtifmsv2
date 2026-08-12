@@ -172,15 +172,12 @@
 }
 
 .tl-files-table td {
-  padding: 1rem;
+  padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--border-light);
   vertical-align: middle;
 }
 
-.tl-files-table td:nth-child(6) {
-  text-align: left;
-  vertical-align: middle;
-}
+/* Status column (6th in collection view) — no override needed; badges are inline-flex and self-aligning */
 
 /* Clickable Rows */
 .tl-clickable-row {
@@ -251,8 +248,8 @@
 }
 
 .file-icon {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -272,15 +269,16 @@
 }
 
 .file-name {
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 14px;
 }
 
 .file-size {
-  font-size: 0.8rem;
+  font-size: 11.5px;
   color: var(--text-secondary);
 }
 
@@ -588,7 +586,7 @@
   background-color: #ffffff !important;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .tl-folder-row,
@@ -601,7 +599,8 @@
 }
 
 .tl-folder-row:hover {
-  background-color: #f9fafb !important;
+  background-color: #f3f4f6 !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .tl-folder-file-row {
@@ -610,6 +609,46 @@
 
 .tl-folder-file-row td {
   vertical-align: middle !important;
+  padding: 0.6rem 1rem !important;
+}
+
+.tl-folder-file-row .file-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.tl-folder-file-row .file-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.tl-folder-file-row .file-size {
+  font-size: 0.8rem;
+}
+
+.tl-folder-file-row .assignment-title {
+  font-size: 0.82rem;
+}
+
+.tl-folder-file-row .assignment-due-date {
+  font-size: 0.72rem;
+}
+
+.tl-folder-file-row .user-name {
+  font-size: 0.82rem;
+}
+
+.tl-folder-file-row .date {
+  font-size: 0.82rem;
+}
+
+.tl-folder-file-row .time {
+  font-size: 0.72rem;
+}
+
+.tl-folder-file-row .status-badge {
+  font-size: 0.68rem;
+  padding: 0.25rem 0.5rem;
 }
 
 .tl-folder-file-row:hover {
@@ -639,4 +678,68 @@
     font-size: 0.8rem;
     padding: 0 0.25rem;
   }
+}
+
+/* Hierarchy Tree Lines */
+.tl-tree-container {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  width: 100%;
+}
+
+.tl-tree-line-vertical {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-vertical::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -60px; /* Connect to previous row */
+  bottom: -60px; /* Connect to next row */
+  width: 2px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-empty {
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.tl-tree-line-connector {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-connector::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -60px;
+  bottom: -60px;
+  width: 2px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-connector::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  width: 15px;
+  height: 2px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-connector.last-item::before {
+  height: calc(50% + 60px);
+  bottom: auto;
+}
+
+.file-cell {
+  padding-left: 0 !important; /* Managed by tree lines */
 }

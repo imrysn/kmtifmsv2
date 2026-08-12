@@ -1,5 +1,31 @@
-import React from 'react'
 import { FileIcon } from '../../shared';
+import { getWeekendDatesBetween, calcBusinessDaysLeft } from '@utils/otDatesUtils';
+
+const recursiveGroupByPath = (files, pathKey = 'relative_path') => {
+  const result = { subfolders: {}, rootFiles: [] };
+  files.forEach((item, originalIdx) => {
+    // 'item' might be a File, an existing attachment object, or our internal wrapper
+    const file = item.file || item;
+    const info = {
+      _original_idx: item._original_idx !== undefined ? item._original_idx : originalIdx,
+      _temp_path: item._temp_path
+    };
+
+    const getPath = (f) => f[pathKey] || f.webkitRelativePath || '';
+    const currentPath = info._temp_path !== undefined ? info._temp_path : getPath(file);
+    
+    const parts = currentPath.split('/').filter(Boolean);
+    if (parts.length > 1) {
+      const folderName = parts[0].trim();
+      if (!result.subfolders[folderName]) result.subfolders[folderName] = [];
+      const remainingPath = parts.slice(1).join('/');
+      result.subfolders[folderName].push({ file, _original_idx: info._original_idx, _temp_path: remainingPath });
+    } else {
+      result.rootFiles.push({ file, _original_idx: info._original_idx });
+    }
+  });
+  return result;
+};
 
 const CreateAssignmentModal = ({
   showCreateAssignmentModal,
@@ -9,12 +35,12 @@ const CreateAssignmentModal = ({
   teamMembers,
   teams,
   isProcessing,
+  uploadProgress = null,
   createAssignment,
   currentUserId,
   isEditMode = false,
   onClose,
-  initialAttachments = [], // array of existing attachment objects when editing
-  uploadProgress = null // { current, total, percentage, currentFileName }
+  initialAttachments = [] // array of existing attachment objects when editing
 }) => {
   const [showMemberDropdown, setShowMemberDropdown] = React.useState(false)
   const [showFileTypeDropdown, setShowFileTypeDropdown] = React.useState(false)
@@ -26,6 +52,8 @@ const CreateAssignmentModal = ({
   const [attachmentsToRemove, setAttachmentsToRemove] = React.useState([])
   const [showRemoveConfirmation, setShowRemoveConfirmation] = React.useState(false)
   const [fileToRemove, setFileToRemove] = React.useState(null)
+  const [expandedFolders, setExpandedFolders] = React.useState({})
+  const [folderFileLimits, setFolderFileLimits] = React.useState({})
 
   // populate existing attachments when modal is opened in edit mode
   React.useEffect(() => {
@@ -86,18 +114,68 @@ const CreateAssignmentModal = ({
   }
 
   const handleFileSelect = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
     const files = Array.from(e.target.files)
-    if (files.length > 0) {
-      setAttachedFiles(prevFiles => [...prevFiles, ...files])
-    }
+    if (files.length === 0) return
+
+    setAttachedFiles(prev => {
+      // For each incoming file, replace any existing loose file with the same name
+      const replaced = new Set()
+      const updated = prev.map(existing => {
+        const match = files.find(f => !f.webkitRelativePath.includes('/') && f.name === existing.name && !existing.webkitRelativePath?.includes('/'))
+        if (match) { replaced.add(match.name); return match }
+        return existing
+      })
+      // Append files that didn't replace anything
+      const newOnes = files.filter(f => !replaced.has(f.name) && !f.webkitRelativePath?.includes('/'))
+      return [...updated, ...newOnes]
+    })
+
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const handleFolderSelect = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
     const files = Array.from(e.target.files)
-    if (files.length > 0) {
-      // Preserve webkitRelativePath for folder structure
-      setAttachedFiles(prevFiles => [...prevFiles, ...files])
-    }
+    if (files.length === 0) return
+
+    const newFolderName = files[0]?.webkitRelativePath?.split('/')[0]
+    if (!newFolderName) return
+
+    // Tag each file with its relative path
+    const tagged = files.map(file => {
+      Object.defineProperty(file, 'relativeFolderPath', {
+        value: file.webkitRelativePath || file.name,
+        writable: true
+      })
+      return file
+    })
+
+    setAttachedFiles(prev => {
+      // Remove all files that belong to the same folder name (replace, not merge)
+      const withoutOld = prev.filter(f => {
+        const existingFolder = f.webkitRelativePath?.split('/')[0]
+        return existingFolder !== newFolderName
+      })
+      return [...withoutOld, ...tagged]
+    })
+
+    // Also auto-queue removal of the matching existing server attachment folder
+    setExistingAttachments(prev => {
+      const toRemove = prev.filter(f => f.folder_name === newFolderName)
+      if (toRemove.length > 0) {
+        setAttachmentsToRemove(ids => [
+          ...ids,
+          ...toRemove.map(f => f.id).filter(Boolean)
+        ])
+        return prev.filter(f => f.folder_name !== newFolderName)
+      }
+      return prev
+    })
+
+    if (folderInputRef.current) folderInputRef.current.value = ''
   }
 
   const handleRemoveFile = (index) => {
@@ -139,21 +217,34 @@ const CreateAssignmentModal = ({
   }
 
   const toggleMemberSelection = (memberId) => {
-    const updatedMembers = assignmentForm.assignedMembers.includes(memberId)
-      ? assignmentForm.assignedMembers.filter(id => id !== memberId)
-      : [...assignmentForm.assignedMembers, memberId]
+    // remove any stale __ALL__ when picking specific members
+    const current = assignmentForm.assignedMembers.filter(id => id !== '__ALL__')
+    const updatedMembers = current.includes(memberId)
+      ? current.filter(id => id !== memberId)
+      : [...current, memberId]
     setAssignmentForm({ ...assignmentForm, assignedMembers: updatedMembers })
   }
 
+  const ALL_MEMBERS_VALUE = '__ALL__'
+
   const getSelectedMembersText = () => {
-    if (assignmentForm.assignedMembers.length === 0) {
+    const realMembers = assignmentForm.assignedMembers.filter(id => id !== '__ALL__')
+    if (realMembers.length === 0) {
       return 'Select members...'
     }
-    if (assignmentForm.assignedMembers.length === 1) {
-      const member = teamMembers.find(m => m.id === assignmentForm.assignedMembers[0])
+    if (realMembers.length === 1) {
+      const member = teamMembers.find(m => m.id === realMembers[0])
       return member ? member.name : '1 member selected'
     }
-    return `${assignmentForm.assignedMembers.length} members selected`
+    return `${realMembers.length} members selected`
+  }
+
+  const toggleAllMembers = () => {
+    if (assignmentForm.assignedMembers.includes(ALL_MEMBERS_VALUE)) {
+      setAssignmentForm({ ...assignmentForm, assignedMembers: [] })
+    } else {
+      setAssignmentForm({ ...assignmentForm, assignedMembers: [ALL_MEMBERS_VALUE] })
+    }
   }
 
   const handleDropdownToggle = () => {
@@ -190,8 +281,92 @@ const CreateAssignmentModal = ({
     return option ? option.label : 'Any file type'
   }
 
+  const FolderTree = ({ files, level = 0, parentKey = '', onRemoveFile, onRemoveFolder, isExisting = false, pathKey = 'relative_path' }) => {
+    const { subfolders, rootFiles } = recursiveGroupByPath(files, pathKey);
+    
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {Object.entries(subfolders).map(([folderName, folderFiles]) => {
+          const currentKey = parentKey ? `${parentKey}__${folderName}` : folderName;
+          const isExpanded = !!expandedFolders[currentKey];
+          const totalSize = folderFiles.reduce((sum, f) => {
+            const af = f.file || f;
+            return sum + (isExisting ? (af.file_size || 0) : (af.size || 0));
+          }, 0);
+          
+          return (
+            <div key={currentKey} style={{ borderRadius: '8px', border: '1px solid #E5E7EB', overflow: 'hidden', background: 'white' }}>
+              <div 
+                onClick={() => setExpandedFolders(prev => ({ ...prev, [currentKey]: !prev[currentKey] }))}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', cursor: 'pointer', userSelect: 'none', background: isExpanded ? '#f8faff' : '#ffffff' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                  <path d="M6 4L10 8L6 12" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <div style={{ fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: isExpanded ? '#dbeafe' : '#f1f5f9', borderRadius: '6px', color: isExpanded ? '#2563eb' : '#64748b' }}>
+                  {isExpanded ? '📂' : '📁'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folderName}</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>{folderFiles.length} item{folderFiles.length !== 1 ? 's' : ''} &bull; {formatFileSize(totalSize)}</div>
+                </div>
+                {onRemoveFolder && level === 0 && (
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onRemoveFolder(folderName); }} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                )}
+              </div>
+              
+              {isExpanded && (
+                <div style={{ background: '#fafafa', padding: '2px 0 2px 24px', borderLeft: '1px solid #f1f5f9' }}>
+                  <FolderTree 
+                    files={folderFiles} 
+                    level={level + 1} 
+                    parentKey={currentKey} 
+                    onRemoveFile={onRemoveFile}
+                    isExisting={isExisting}
+                    pathKey={pathKey}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+        
+        {rootFiles.map((item, idx) => {
+          const actualFile = item.file || item;
+          const fileName = actualFile.original_name || actualFile.name || '';
+          
+          return (
+            <div key={`${fileName}-${idx}`} style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '10px', 
+              padding: '8px 12px 8px 12px', 
+              background: 'white', 
+              borderBottom: idx === rootFiles.length - 1 && level > 0 ? 'none' : '1px solid #f1f5f9', 
+              position: 'relative' 
+            }}>
+              <div style={{ width: '14px', flexShrink: 0 }} /> {/* Spacer to align with chevron/gap */}
+              <FileIcon fileType={fileName.split('.').pop()} size="small" style={{ color: '#64748b', flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: '500', color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8' }}>{formatFileSize(isExisting ? actualFile.file_size : actualFile.size)}</div>
+              </div>
+              {onRemoveFile && (
+                <button type="button" onClick={() => onRemoveFile(isExisting ? actualFile : item._original_idx)} style={{ padding: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
-    <div className="tl-modal-overlay" onClick={() => !isProcessing && handleClose()}>
+    <div className="tl-modal-overlay">
       <div className="tl-modal-large" onClick={e => e.stopPropagation()}>
         <div className="tl-modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -205,7 +380,7 @@ const CreateAssignmentModal = ({
           <button onClick={handleClose} disabled={isProcessing} style={{ opacity: isProcessing ? 0.5 : 1, cursor: isProcessing ? 'not-allowed' : 'pointer' }}>×</button>
         </div>
         <div className="tl-modal-body-large">
-          <form>
+          <div onSubmit={e => e.preventDefault()}>
             <div className="tl-form-group">
               <label>Task Title *</label>
               <input
@@ -233,8 +408,37 @@ const CreateAssignmentModal = ({
                 <input
                   type="date"
                   value={assignmentForm.dueDate}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value })}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value, otDates: [] })}
                 />
+                {/* Live business-days preview — updates when date or OT Saturdays change */}
+                {assignmentForm.dueDate && (() => {
+                  const days = calcBusinessDaysLeft(assignmentForm.dueDate, assignmentForm.otDates || []);
+                  if (days === null) return null;
+                  const isOverdue = days < 0;
+                  const isToday = days === 0;
+                  const label = isOverdue
+                    ? `${Math.abs(days)} working ${Math.abs(days) === 1 ? 'day' : 'days'} overdue`
+                    : isToday
+                    ? 'Due today'
+                    : `${days} working ${days === 1 ? 'day' : 'days'} left`;
+                  const bg = isOverdue ? '#FEF2F2' : isToday ? '#FFFBEB' : '#F0FDF4';
+                  const color = isOverdue ? '#DC2626' : isToday ? '#D97706' : '#16A34A';
+                  const border = isOverdue ? '#FECACA' : isToday ? '#FDE68A' : '#BBF7D0';
+                  return (
+                    <div style={{
+                      marginTop: '6px',
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      padding: '4px 10px', borderRadius: '20px',
+                      background: bg, border: `1px solid ${border}`,
+                      fontSize: '12px', fontWeight: '600', color,
+                    }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                      {label}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="tl-form-group">
@@ -275,6 +479,68 @@ const CreateAssignmentModal = ({
                 </div>
               </div>
             </div>
+
+            {/* ── Approved OT Weekend Dates ─────────────────────────── */}
+            {assignmentForm.dueDate && (() => {
+              const weekends = getWeekendDatesBetween(assignmentForm.dueDate);
+              if (weekends.length === 0) return null;
+              const selectedOtDates = assignmentForm.otDates || [];
+              return (
+                <div className="tl-form-group" style={{ marginTop: '4px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    Approved Overtime (OT) Weekends
+                    <span style={{ fontSize: '11px', fontWeight: '400', color: '#6B7280', fontStyle: 'italic' }}>
+                      — counted as working days in the countdown
+                    </span>
+                  </label>
+                  <div style={{
+                    display: 'flex', flexWrap: 'wrap', gap: '8px',
+                    padding: '12px', background: '#F9FAFB', borderRadius: '8px',
+                    border: '1px solid #E5E7EB', maxHeight: '180px', overflowY: 'auto'
+                  }}>
+                    {weekends.map(dateStr => {
+                      const d = new Date(dateStr + 'T00:00:00');
+                      const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                      const checked = selectedOtDates.includes(dateStr);
+                      return (
+                        <div
+                          key={dateStr}
+                          role="checkbox"
+                          aria-checked={checked}
+                          onClick={() => {
+                            setAssignmentForm(prev => {
+                              const current = prev.otDates || [];
+                              const isChecked = current.includes(dateStr);
+                              const next = isChecked
+                                ? current.filter(d => d !== dateStr)
+                                : [...current, dateStr];
+                              return { ...prev, otDates: next };
+                            });
+                          }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            padding: '6px 10px', borderRadius: '20px', cursor: 'pointer',
+                            fontSize: '12.5px', fontWeight: '500', userSelect: 'none',
+                            background: checked ? '#EEF2FF' : '#fff',
+                            border: checked ? '1.5px solid #6366F1' : '1.5px solid #D1D5DB',
+                            color: checked ? '#4338CA' : '#374151',
+                            transition: 'all 0.12s'
+                          }}
+                        >
+                          {checked && <span style={{ fontSize: '10px', color: '#4338CA' }}>✓</span>}
+                          {dateLabel}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {selectedOtDates.length > 0 && (
+                    <div style={{ fontSize: '11.5px', color: '#4338CA', marginTop: '4px' }}>
+                      {selectedOtDates.length} OT {selectedOtDates.length === 1 ? 'day' : 'days'} approved
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="tl-form-row">
               {teams && teams.length > 1 && (
@@ -431,163 +697,98 @@ const CreateAssignmentModal = ({
                   </button>
                 </div>
 
-                {/* existing attachments from server when editing */}
                 {existingAttachments.length > 0 && (
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                    padding: '12px',
-                    background: '#F9FAFB',
-                    borderRadius: '8px',
-                    border: '1px solid #E5E7EB'
-                  }}>
-                    {existingAttachments.map((file, index) => (
-                      <div key={`existing-${file.id || index}`} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        padding: '8px 12px',
-                        background: 'white',
-                        borderRadius: '6px',
-                        border: '1px solid #E5E7EB'
-                      }}>
-                        <FileIcon
-                          file={file}
-                          size="small"
-                          style={{ color: '#6B7280' }}
-                        />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {file.original_name}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                            {formatFileSize(file.file_size)}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveExisting(index)}
-                          style={{
-                            padding: '4px',
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: '#EF4444',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: '#F9FAFB', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#4B5563', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Existing Server Attachments</div>
+                    <FolderTree 
+                      files={existingAttachments} 
+                      isExisting={true} 
+                      onRemoveFile={(file) => {
+                        const idx = existingAttachments.indexOf(file);
+                        if (idx !== -1) handleRemoveExisting(idx);
+                      }}
+                      onRemoveFolder={(folderName) => {
+                        const filesToRemove = existingAttachments.filter(f => f.folder_name === folderName);
+                        filesToRemove.forEach(f => {
+                          if (f.id) setAttachmentsToRemove(ids => [...ids, f.id]);
+                        });
+                        setExistingAttachments(prev => prev.filter(f => f.folder_name !== folderName));
+                      }}
+                    />
                   </div>
                 )}
 
                 {attachedFiles.length > 0 && (
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                    padding: '12px',
-                    background: '#F9FAFB',
-                    borderRadius: '8px',
-                    border: '1px solid #E5E7EB'
-                  }}>
-                    {attachedFiles.map((file, index) => (
-                      <div key={index} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px 12px',
-                        background: 'white',
-                        borderRadius: '6px',
-                        border: '1px solid #E5E7EB'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                          {/* file icon based on type */}
-                          <FileIcon
-                            file={file}
-                            size="small"
-                            style={{ color: '#6B7280' }}
-                          />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {file.webkitRelativePath || file.name}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                              {formatFileSize(file.size)}
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveFile(index)}
-                          style={{
-                            padding: '4px',
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: '#EF4444',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: '#F9FAFB', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#4B5563', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Newly Added Files</div>
+                    <FolderTree 
+                      files={attachedFiles} 
+                      pathKey="relativeFolderPath"
+                      onRemoveFile={(fileIndex) => handleRemoveFile(fileIndex)}
+                      onRemoveFolder={(folderName) => {
+                        setAttachedFiles(prev => prev.filter(f => {
+                          const existingFolder = f.webkitRelativePath?.split('/')[0];
+                          return existingFolder !== folderName;
+                        }));
+                      }}
+                    />
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="tl-modal-footer" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '16px' }}>
-              {isProcessing && uploadProgress && uploadProgress.total > 0 && (
-                <div style={{ width: '100%' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#4b5563', marginBottom: '8px' }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
-                      Uploading <strong>{uploadProgress.currentFileName || 'files'}</strong>...
-                    </span>
-                    <span>{uploadProgress.current} of {uploadProgress.total}</span>
-                  </div>
-                  <div style={{ height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ width: `${uploadProgress.percentage}%`, height: '100%', backgroundColor: '#10B981', transition: 'width 0.3s ease' }} />
-                  </div>
-                </div>
+            <div className="tl-modal-footer">
+              {isProcessing && (
+                <span style={{ fontSize: '13px', color: '#6B7280', display: 'flex', flexDirection: 'column', gap: '4px', marginRight: 'auto', minWidth: '220px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="60" strokeDashoffset="20" strokeLinecap="round"/>
+                    </svg>
+                    {uploadProgress !== null && uploadProgress < 100
+                      ? `Uploading files... ${uploadProgress}%`
+                      : uploadProgress === 100
+                      ? 'Finalizing…'
+                      : (isEditMode ? 'Updating task...' : 'Creating task, please wait...')
+                    }
+                  </span>
+                  {uploadProgress !== null && (
+                    <div style={{ width: '100%', height: '4px', background: '#E5E7EB', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%',
+                        width: uploadProgress < 100 ? `${uploadProgress}%` : '100%',
+                        background: uploadProgress < 100 ? '#16A34A' : '#F59E0B',
+                        borderRadius: '2px',
+                        transition: 'width 0.3s ease, background 0.3s ease'
+                      }} />
+                    </div>
+                  )}
+                  {uploadProgress === 100 && (
+                    <span style={{ fontSize: '11px', color: '#92400E' }}>Moving files to server… please wait</span>
+                  )}
+                </span>
               )}
-              
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  className="tl-btn secondary"
-                  onClick={handleClose}
-                  disabled={isProcessing}
-                  style={{ opacity: isProcessing ? 0.5 : 1, cursor: isProcessing ? 'not-allowed' : 'pointer' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="tl-btn success"
-                  onClick={() => createAssignment(attachedFiles, attachmentsToRemove)}
-                  disabled={isProcessing || !assignmentForm.title.trim() || assignmentForm.assignedMembers.length === 0}
-                >
-                  {isProcessing
-                    ? (uploadProgress && uploadProgress.total > 0 ? `Uploading...` : (isEditMode ? 'Updating...' : 'Creating...'))
-                    : (isEditMode ? 'Update Task' : 'Create Task')
-                  }
-                </button>
-              </div>
+              <button
+                type="button"
+                className="tl-btn secondary"
+                onClick={handleClose}
+                disabled={isProcessing}
+                style={{ opacity: isProcessing ? 0.5 : 1, cursor: isProcessing ? 'not-allowed' : 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="tl-btn success"
+                onClick={() => createAssignment(attachedFiles, attachmentsToRemove, assignmentForm.otDates || [])}
+                disabled={isProcessing || !assignmentForm.title.trim()}
+              >
+                {isProcessing
+                  ? (isEditMode ? 'Updating...' : 'Creating...')
+                  : (isEditMode ? 'Update Task' : 'Create Task')
+                }
+              </button>
             </div>
-          </form>
+          </div>
         </div>
       </div>
 

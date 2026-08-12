@@ -17,7 +17,7 @@ if (process.platform === 'win32' && process.pkg) {
   try {
     const { execSync } = require('child_process');
     // Use PowerShell to hide the current console window
-    // eslint-disable-next-line no-useless-escape
+
     execSync('powershell -command "(Get-Process -Id $PID).MainWindowHandle | ForEach-Object { $hwnd = $_; Add-Type -TypeDefinition \'using System; using System.Runtime.InteropServices; public class Win32 { [DllImport(\\"user32.dll\\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }\'; [Win32]::ShowWindow($hwnd, 0) }" 2>nul', { stdio: 'ignore' });
   } catch (_e) {
     // If PowerShell method fails, try direct API calls
@@ -61,6 +61,7 @@ const fileViewerRoutes = require('./routes/fileViewer');
 const { router: notificationsRoutes } = require('./routes/notifications');
 const assignmentsRoutes = require('./routes/assignments');
 const customTagsRoutes = require('./routes/customTags');
+const presenceRoutes = require('./routes/presence');
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -146,6 +147,7 @@ app.use('/api/file-viewer', dbReadyGuard, fileViewerRoutes);
 app.use('/api/notifications', dbReadyGuard, notificationsRoutes);
 app.use('/api/assignments', dbReadyGuard, assignmentsRoutes);
 app.use('/api/custom-tags', dbReadyGuard, customTagsRoutes);
+app.use('/api/presence', dbReadyGuard, presenceRoutes);
 
 // Serve static files from the React app build directory
 // In bundled mode, client files are in client-dist, otherwise in ../client/dist
@@ -183,50 +185,81 @@ handleUncaughtException();
 
 // Cleanup leftover temp files from previous sessions (prevents ghost Electron multipart replays)
 function cleanupTempFiles() {
-  try {
-    const { uploadsDir } = require('./config/middleware');
-    if (!fs.existsSync(uploadsDir)) return;
-    const files = fs.readdirSync(uploadsDir);
-    let cleaned = 0;
-    const ONE_HOUR = 60 * 60 * 1000;
-    for (const file of files) {
-      if (!file.startsWith('temp_')) continue;
-      const filePath = require('path').join(uploadsDir, file);
-      try {
-        const stat = fs.statSync(filePath);
-        // Only delete temp files older than 1 hour (not currently-uploading files)
-        if (Date.now() - stat.mtimeMs > ONE_HOUR) {
-          fs.unlinkSync(filePath);
-          cleaned++;
-        }
-      } catch (_e) { /* ignore */ }
+  // Run fully async — never block the event loop on startup
+  setImmediate(async () => {
+    try {
+      const os = require('os');
+      const tmpDir = os.tmpdir();
+      const files = await fs.promises.readdir(tmpDir);
+      let cleaned = 0;
+      const ONE_HOUR = 60 * 60 * 1000;
+      await Promise.all(files
+        .filter(f => f.startsWith('temp_'))
+        .map(async file => {
+          const filePath = require('path').join(tmpDir, file);
+          try {
+            const stat = await fs.promises.stat(filePath);
+            if (Date.now() - stat.mtimeMs > ONE_HOUR) {
+              await fs.promises.unlink(filePath);
+              cleaned++;
+            }
+          } catch (_e) { /* ignore */ }
+        })
+      );
+      if (cleaned > 0) {
+        console.log(`🧹 Cleaned up ${cleaned} leftover temp file(s) from OS temp directory`);
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not clean temp files:', e.message);
     }
-    if (cleaned > 0) {
-      console.log(`🧹 Cleaned up ${cleaned} leftover temp file(s) from uploads directory`);
-    }
-  } catch (e) {
-    console.warn('⚠️ Could not clean temp files:', e.message);
-  }
+  });
 }
 
 // Kill any process already using our port (Windows-safe, with retry)
 async function freePort(port) {
-  if (process.platform !== 'win32') return;
+  if (process.platform !== 'win32') {
+    return;
+  }
 
   const { exec } = require('child_process');
+  const net = require('net');
 
-  // Helper: get all PIDs listening on the port
+  // Helper: check if port is free by trying to bind it (fast — no netstat)
+  function isPortFree() {
+    return new Promise((resolve) => {
+      const tester = net.createServer();
+      tester.once('error', () => resolve(false));
+      tester.once('listening', () => {
+        tester.close(); resolve(true);
+      });
+      tester.listen(port, '127.0.0.1');
+    });
+  }
+
+  // FAST PATH: if port is already free (common after graceful shutdown), skip netstat entirely
+  if (await isPortFree()) {
+    console.log(`✅ Port ${port} is already free — skipping netstat.`);
+    return;
+  }
+
+  // Port is busy — now use netstat to find and kill the occupying process
+  console.log(`⚠️  Port ${port} is busy — finding occupying process...`);
+
+  // Helper: get all PIDs listening on the port (only called when port is actually busy)
   function getPidsOnPort() {
     return new Promise((resolve) => {
       exec(`netstat -ano | findstr :${port}`, (err, stdout) => {
-        if (err || !stdout) { resolve(new Set()); return; }
+        if (err || !stdout) {
+          resolve(new Set()); return;
+        }
         const pids = new Set();
         stdout.split('\n').forEach(line => {
-          // Only kill LISTENING processes, not TIME_WAIT / CLOSE_WAIT
           if (line.toUpperCase().includes('LISTENING')) {
             const parts = line.trim().split(/\s+/);
             const pid = parseInt(parts[parts.length - 1]);
-            if (!isNaN(pid) && pid !== process.pid) pids.add(pid);
+            if (!isNaN(pid) && pid !== process.pid) {
+              pids.add(pid);
+            }
           }
         });
         resolve(pids);
@@ -236,17 +269,6 @@ async function freePort(port) {
 
   // Helper: wait N ms
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
-
-  // Helper: check if port is free by trying to bind it
-  function isPortFree() {
-    return new Promise((resolve) => {
-      const net = require('net');
-      const tester = net.createServer();
-      tester.once('error', () => resolve(false));
-      tester.once('listening', () => { tester.close(); resolve(true); });
-      tester.listen(port, '127.0.0.1');
-    });
-  }
 
   // Kill all PIDs currently occupying the port
   const pids = await getPidsOnPort();
@@ -305,7 +327,7 @@ async function initDbWithRetry(attempt = 1) {
       const watchPaths = [
         uploadsDir,                                          // pending uploads
         require('path').join(networkDataPath, 'user_approvals'), // approved files
-        require('path').join(networkDataPath, 'PROJECTS'),       // moved-to-projects files
+        require('path').join(networkDataPath, 'PROJECTS')       // moved-to-projects files
       ].filter(Boolean);
       startWatcher(watchPaths);
     } catch (watchErr) {
@@ -339,7 +361,7 @@ async function startServer() {
         server.once('listening', () => {
           console.log('\n' + '='.repeat(70));
           console.log(`🚀 Express server running on http://localhost:${PORT}`);
-          console.log(`🗄️  Database Type: MySQL (connecting in background…)`);
+          console.log('🗄️  Database Type: MySQL (connecting in background…)');
           console.log('='.repeat(70) + '\n');
           resolve(server);
         });
@@ -360,6 +382,14 @@ async function startServer() {
     initDbWithRetry().then(() => {
       // 4. Start weekly performance snapshots once DB is ready
       scheduleWeeklyJob();
+
+      // 5. Start due-date notifier (due-soon + overdue notifications for users)
+      try {
+        const { startDueDateNotifier } = require('./services/dueDateNotifier');
+        startDueDateNotifier();
+      } catch (notifierErr) {
+        console.warn('⚠️ Due-date notifier could not start:', notifierErr.message);
+      }
     });
 
   } catch (error) {

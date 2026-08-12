@@ -317,6 +317,9 @@ const Login = ({ onLogin }) => {
               </button>
             </form>
           </div>
+          <div className="login-version-footer">
+            Version {__APP_VERSION__}
+          </div>
         </div>
 
       </div>

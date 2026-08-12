@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
-import { apiFetch, API_BASE_URL } from '@/config/api'
+import { apiFetch } from '@/config/api'
 import FileIcon from '../shared/FileIcon'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileApproval-Optimized.css'
 import { ConfirmationModal, AlertMessage, FileDetailsModal } from './modals'
-import { StatusBadge, TeamBadge } from '../shared'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
+import { recursiveGroupByPath } from '@utils/folderUtils'
 
 const API_BASE = '/api'
-
 
 const StatusCard = memo(({ icon, label, count, className }) => (
   <div className={`file-status-card ${className}`}>
@@ -33,21 +32,21 @@ const FileRowSkeleton = memo(() => (
 ))
 
 // Helper: compute folder-level status
-// Rule: keep as 'Pending Team Leader' unless ALL files are team_leader_approved (or beyond).
-// Only set to 'Pending Admin' once every file has been approved by the team leader.
 const getFolderStatus = (folderFiles) => {
   const statuses = folderFiles.map(f => f.status)
-  const allFinalApproved = statuses.every(s => s === 'final_approved')
-  if (allFinalApproved) return { status: 'final_approved', label: 'Approved', cls: 'approved' }
 
-  const allRejected = statuses.every(s => s === 'rejected_by_team_leader' || s === 'rejected_by_admin')
-  if (allRejected) return { status: 'rejected', label: 'Rejected', cls: 'rejected' }
+  if (statuses.every(s => s === 'final_approved'))
+    return { status: 'final_approved', label: 'Approved', cls: 'approved' }
 
-  // If ALL files have passed team leader review (approved or final_approved) → Pending Admin
-  const allPassedTL = statuses.every(s => s === 'team_leader_approved' || s === 'final_approved')
-  if (allPassedTL) return { status: 'team_leader_approved', label: 'Pending Admin', cls: 'pending' }
+  if (statuses.every(s => s === 'rejected_by_team_leader' || s === 'rejected_by_admin'))
+    return { status: 'rejected', label: 'Rejected', cls: 'rejected' }
 
-  // Otherwise (even one file is still 'uploaded') → Pending Team Leader
+  if (statuses.every(s => s === 'team_leader_approved' || s === 'final_approved'))
+    return { status: 'team_leader_approved', label: 'Pending Admin', cls: 'pending' }
+
+  if (statuses.some(s => s === 'revision'))
+    return { status: 'revision', label: 'Revision', cls: 'pending' }
+
   return { status: 'uploaded', label: 'Pending Team Leader', cls: 'pending' }
 }
 
@@ -71,13 +70,14 @@ const FolderRow = memo(({
   onToggle,
   onDelete,
   onApproveFolder,
-  onRejectFolder,
   onOpenFolderPath,
-  formatFileSize
+  isReference = false,
+  isHighlighted = false,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
   const btnRef = useRef(null)
+  const rowRef = useRef(null)
   const dropdownPos = useDropdownPosition(btnRef, dropdownOpen)
 
   useEffect(() => {
@@ -90,6 +90,12 @@ const FolderRow = memo(({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    if (isHighlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [isHighlighted])
 
   const handleClick = useCallback(() => {
     onToggle(folderName)
@@ -104,47 +110,39 @@ const FolderRow = memo(({
   const canReject = folderStatus.status !== 'final_approved' && folderStatus.status !== 'rejected'
 
   return (
-    <tr 
-      className="file-row folder-row" 
+    <tr
+      ref={rowRef}
+      className={`file-row folder-row${isHighlighted ? ' highlighted-row' : ''}`}
       onClick={handleClick}
-      style={{ 
-        cursor: 'pointer', 
-        backgroundColor: isExpanded ? '#f9fafb' : '#ffffff',
-        fontWeight: '600'
+      style={{
+        cursor: 'pointer',
+        backgroundColor: isHighlighted ? '#eff6ff' : isExpanded ? '#f9fafb' : '#ffffff',
+        fontWeight: '600',
+        outline: isHighlighted ? '2px solid #3b82f6' : 'none',
+        outlineOffset: '-2px',
       }}
     >
       <td>
         <div className="file-cell">
-          <div className="file-icon">
-            <FileIcon
-              isFolder={true}
-              size="medium"
-            />
+          <div className="file-icon" style={{ width: '34px', height: '34px', position: 'relative', zIndex: 2 }}>
+            <FileIcon fileType="folder" isFolder={true} altText={`Folder: ${folderName}`} size="medium" style={{ position: 'relative', zIndex: 2 }} />
           </div>
           <div className="file-details">
             <span className="file-name">{folderName}</span>
           </div>
         </div>
       </td>
-      <td>
-        <div className="user-cell">
-          <span className="user-name">{firstFile.username}</span>
-        </div>
-      </td>
+      <td><div className="user-cell"><span className="user-name">{firstFile.user_fullname || firstFile.username}</span></div></td>
       <td>
         <div className="datetime-cell">
           <div className="date">{formattedDate}</div>
           <div className="time">{formattedTime}</div>
         </div>
       </td>
+      <td><span className="team-badge">{firstFile.user_team}</span></td>
+      {!isReference && <td><span className={`status-badge status-${folderStatus.cls}`}>{folderStatus.label}</span></td>}
       <td>
-        <TeamBadge team={firstFile.user_team} size="sm" />
-      </td>
-      <td>
-        <StatusBadge status={folderStatus.status} size="sm" />
-      </td>
-      <td>
-        <div className="action-dropdown-wrapper">
+        <div className="action-dropdown-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <button
             ref={btnRef}
             className="action-dots-btn"
@@ -160,7 +158,7 @@ const FolderRow = memo(({
                   className="dropdown-item dropdown-approve-reject"
                   onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onApproveFolder(folderName, folderFiles) }}
                 >
-                  <svg className="dropdown-svg-icon" width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="dropdown-svg-icon" width="15" height="15" viewBox="0 0 20 20" fill="none">
                     <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
                     <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
                     <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -182,7 +180,156 @@ const FolderRow = memo(({
                 className="dropdown-item dropdown-delete"
                 onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onDelete(folderName, folderFiles) }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{color:'#ef4444',flexShrink:0}}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> Delete
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{color:'#ef4444',flexShrink:0}}>
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg> Delete
+              </button>
+            </div>
+          )}
+        </div>
+      </td>
+    </tr>
+  )
+})
+
+// SubFolder Row Component
+const SubFolderRow = memo(({
+  folderName,
+  folderFiles,
+  isExpanded,
+  onToggle,
+  onDelete,
+  onApproveFolder,
+  onOpenFolderPath,
+  isLast,
+  level,
+  parentIsLastArr,
+  isReference = false,
+  isHighlighted = false,
+}) => {
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
+  const btnRef = useRef(null)
+  const rowRef = useRef(null)
+  const dropdownPos = useDropdownPosition(btnRef, dropdownOpen)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          btnRef.current && !btnRef.current.contains(event.target)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    if (isHighlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [isHighlighted])
+
+  const handleClick = useCallback(() => {
+    onToggle()
+  }, [onToggle])
+
+  const rawFiles = useMemo(() => folderFiles.map(f => f.file || f), [folderFiles])
+  const firstFile = rawFiles[0]
+  const formattedDate = useMemo(() => new Date(firstFile.uploaded_at).toLocaleDateString(), [firstFile.uploaded_at])
+  const formattedTime = useMemo(() => new Date(firstFile.uploaded_at).toLocaleTimeString(), [firstFile.uploaded_at])
+  const folderStatus = useMemo(() => getFolderStatus(rawFiles), [rawFiles])
+
+  const canApprove = folderStatus.status === 'team_leader_approved'
+  const canReject = folderStatus.status !== 'final_approved' && folderStatus.status !== 'rejected'
+
+  return (
+    <tr
+      ref={rowRef}
+      className={`file-row folder-row${isHighlighted ? ' highlighted-row' : ''}`}
+      onClick={handleClick}
+      style={{
+        cursor: 'pointer',
+        backgroundColor: isHighlighted ? '#eff6ff' : isExpanded ? '#f9fafb' : '#ffffff',
+        fontWeight: '600',
+        outline: isHighlighted ? '2px solid #3b82f6' : 'none',
+        outlineOffset: '-2px',
+      }}
+    >
+      <td>
+        <div className="tl-tree-container">
+          {parentIsLastArr.map((isLastParent, i) => (
+            <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+          ))}
+          {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+          <div className="file-cell" style={{ flex: 1 }}>
+            <div className="file-icon" style={{ width: '34px', height: '34px', position: 'relative', zIndex: 2 }}>
+              <FileIcon fileType="folder" isFolder={true} altText={`Folder: ${folderName}`} size="medium" style={{ position: 'relative', zIndex: 2 }} />
+            </div>
+            <div className="file-details">
+              <span className="file-name">{folderName}</span>
+            </div>
+          </div>
+        </div>
+      </td>
+      <td><div className="user-cell"><span className="user-name">{firstFile.user_fullname || firstFile.username}</span></div></td>
+      <td>
+        <div className="datetime-cell">
+          <div className="date">{formattedDate}</div>
+          <div className="time">{formattedTime}</div>
+        </div>
+      </td>
+      <td><span className="team-badge">{firstFile.user_team}</span></td>
+      {!isReference && <td><span className={`status-badge status-${folderStatus.cls}`}>{folderStatus.label}</span></td>}
+      {isReference && (
+        <td>
+          <span className="status-badge" style={{ border: '1px solid #6b7280', color: '#6b7280' }}>
+            Reference Task
+          </span>
+        </td>
+      )}
+      <td>
+        <div className="action-dropdown-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <button
+            ref={btnRef}
+            className="action-dots-btn"
+            onClick={(e) => { e.stopPropagation(); setDropdownOpen(prev => !prev) }}
+            title="Actions"
+          >
+            ⋮
+          </button>
+          {dropdownOpen && (
+            <div ref={dropdownRef} className="action-dropdown-menu" style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, zIndex: 9999 }}>
+              {(canApprove || canReject) && (
+                <button
+                  className="dropdown-item dropdown-approve-reject"
+                  onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onApproveFolder(folderName, rawFiles) }}
+                >
+                  <svg className="dropdown-svg-icon" width="15" height="15" viewBox="0 0 20 20" fill="none">
+                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
+                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
+                    <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span className="dropdown-approve-text">Approve</span>
+                  <span className="dropdown-slash"> / </span>
+                  <span className="dropdown-reject-text">Reject</span>
+                  <span className="dropdown-folder-text"> Folder</span>
+                </button>
+              )}
+              <button
+                className="dropdown-item dropdown-open"
+                onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onOpenFolderPath(rawFiles[0]) }}
+              >
+                <span className="dropdown-icon">📂</span> Open Folder Path
+              </button>
+              <div className="dropdown-divider" />
+              <button
+                className="dropdown-item dropdown-delete"
+                onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onDelete(folderName, rawFiles) }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{color:'#ef4444',flexShrink:0}}>
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg> Delete
               </button>
             </div>
           )}
@@ -200,11 +347,16 @@ const FileRow = memo(({
   onOpenModal,
   onDelete,
   onOpenFilePath,
-  isNested = false
+  isNested = false,
+  isLast = false,
+  parentIsLastArr = [],
+  isReference = false,
+  isHighlighted = false,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
   const btnRef = useRef(null)
+  const rowRef = useRef(null)
   const dropdownPos = useDropdownPosition(btnRef, dropdownOpen)
 
   useEffect(() => {
@@ -218,76 +370,84 @@ const FileRow = memo(({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Scroll into view and auto-open modal when highlighted from notification
+  useEffect(() => {
+    if (isHighlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Small delay to let the scroll settle before opening modal
+      const timer = setTimeout(() => onOpenModal(file), 400)
+      return () => clearTimeout(timer)
+    }
+  }, [isHighlighted]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleRowClick = useCallback(() => {
     onOpenModal(file)
   }, [file, onOpenModal])
 
-  // Extract file extension from filename or file_type
-  const getFileExtension = useCallback((filename, fileType) => {
-    if (filename) {
-      const parts = filename.split('.')
-      if (parts.length > 1) {
-        return parts[parts.length - 1].toLowerCase()
-      }
-    }
-    if (fileType) {
-      return fileType.replace(/^\./, '').toLowerCase()
-    }
-    return ''
-  }, [])
-
-  const fileExtension = getFileExtension(file.original_name, file.file_type)
-
-  // Memoize formatted dates to avoid recalculating on every render
+  const fileStatus = mapFileStatus(file.status)
+  const statusLabel = getStatusDisplayName(file.status)
   const formattedDate = useMemo(() => new Date(file.uploaded_at).toLocaleDateString(), [file.uploaded_at])
   const formattedTime = useMemo(() => new Date(file.uploaded_at).toLocaleTimeString(), [file.uploaded_at])
-  const formattedFileSize = useMemo(() => formatFileSize(file.file_size), [file.file_size, formatFileSize])
-
-  // Display name with path for nested files
-  let displayName = file.original_name
-  if (isNested && file.relative_path && file.folder_name) {
-    const pathAfterFolder = file.relative_path.replace(`${file.folder_name}/`, '')
-    displayName = pathAfterFolder
-  }
 
   return (
-    <tr 
-      className="file-row" 
+    <tr
+      ref={rowRef}
+      className={`file-row${isHighlighted ? ' highlighted-row' : ''}`}
       onClick={handleRowClick}
-      style={isNested ? { paddingLeft: '60px', backgroundColor: '#fafafa' } : {}}
+      style={{
+        cursor: 'pointer',
+        backgroundColor: isHighlighted ? '#eff6ff' : undefined,
+        outline: isHighlighted ? '2px solid #3b82f6' : 'none',
+        outlineOffset: '-2px',
+      }}
     >
       <td>
-        <div className="file-cell" style={isNested ? { paddingLeft: '40px' } : {}}>
-          <div className="file-icon">
-            <FileIcon
-              file={file}
-              size="medium"
-            />
+        {isNested ? (
+          <div className="tl-tree-container">
+            {parentIsLastArr.map((isLastParent, i) => (
+              <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+            ))}
+            <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />
+            <div className="file-cell" style={{ flex: 1 }}>
+              <div className="file-icon">
+                <FileIcon fileType={file.original_name} altText={`File: ${file.original_name}`} size="medium" />
+              </div>
+              <div className="file-details">
+                <span className="file-name" title={file.original_name}>{file.original_name}</span>
+                <span className="file-size">{formatFileSize(file.file_size)}</span>
+              </div>
+            </div>
           </div>
-          <div className="file-details">
-            <span className="file-name">{displayName}</span>
+        ) : (
+          <div className="file-cell">
+            <div className="file-icon">
+              <FileIcon fileType={file.original_name} altText={`File: ${file.original_name}`} size="medium" />
+            </div>
+            <div className="file-details">
+              <span className="file-name" title={file.original_name}>{file.original_name}</span>
+              <span className="file-size">{formatFileSize(file.file_size)}</span>
+            </div>
           </div>
-        </div>
+        )}
       </td>
-      <td>
-        <div className="user-cell">
-          <span className="user-name">{file.username}</span>
-        </div>
-      </td>
+      <td><div className="user-cell"><span className="user-name">{file.user_fullname || file.username}</span></div></td>
       <td>
         <div className="datetime-cell">
           <div className="date">{formattedDate}</div>
           <div className="time">{formattedTime}</div>
         </div>
       </td>
+      <td><span className="team-badge">{file.user_team}</span></td>
+      {!isReference && <td><span className={`status-badge status-${fileStatus}`}>{statusLabel}</span></td>}
+      {isReference && (
+        <td>
+          <span className="status-badge" style={{ border: '1px solid #6b7280', color: '#6b7280' }}>
+            Reference Task
+          </span>
+        </td>
+      )}
       <td>
-        <TeamBadge team={file.user_team} size="sm" />
-      </td>
-      <td>
-        <StatusBadge status={file.status} size="sm" />
-      </td>
-      <td>
-        <div className="action-dropdown-wrapper">
+        <div className="action-dropdown-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <button
             ref={btnRef}
             className="action-dots-btn"
@@ -309,7 +469,9 @@ const FileRow = memo(({
                 className="dropdown-item dropdown-delete"
                 onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onDelete(file) }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{color:'#ef4444',flexShrink:0}}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> Delete
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{color:'#ef4444',flexShrink:0}}>
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg> Delete
               </button>
             </div>
           )}
@@ -319,19 +481,16 @@ const FileRow = memo(({
   )
 })
 
-
-
-const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
+const FileApproval = ({ clearMessages, error, success, setError, setSuccess, highlightedFileId, onClearFileHighlight }) => {
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
 
-  // State management
   const [files, setFiles] = useState([])
   const [fileSearchQuery, setFileSearchQuery] = useState('')
   const [fileSearchInput, setFileSearchInput] = useState('')
   const [fileFilter, setFileFilter] = useState('all')
   const [fileSortBy, setFileSortBy] = useState('date-desc')
-  const [viewMode, setViewMode] = useState('all') // 'all' | 'files' | 'folders' | 'by-date'
+  const [viewMode, setViewMode] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [filesPerPage] = useState(7)
   const [selectedFile, setSelectedFile] = useState(null)
@@ -344,44 +503,35 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [isOpeningFile, setIsOpeningFile] = useState(false)
   const [expandedFolders, setExpandedFolders] = useState({})
   const [folderToDelete, setFolderToDelete] = useState(null)
-  const [folderReviewModal, setFolderReviewModal] = useState(null) // { folderName, folderFiles, action: 'approve'|'reject' }
+  const [folderReviewModal, setFolderReviewModal] = useState(null)
   const [folderReviewComment, setFolderReviewComment] = useState('')
   const [deleteAlert, setDeleteAlert] = useState(null)
+  const [activeView, setActiveView] = useState('approval') // 'approval' | 'reference'
 
-  // Refs
   const fetchAbortController = useRef(null)
 
   // Auto-clear messages
   useEffect(() => {
     if (error || success) {
-      const timer = setTimeout(() => {
-        clearMessages()
-      }, 3000)
+      const timer = setTimeout(clearMessages, 3000)
       return () => clearTimeout(timer)
     }
   }, [error, success, clearMessages])
 
   const fetchFiles = useCallback(async () => {
-    if (fetchAbortController.current) {
-      fetchAbortController.current.abort()
-    }
-
+    if (fetchAbortController.current) fetchAbortController.current.abort()
     fetchAbortController.current = new AbortController()
     setIsLoading(true)
-
     try {
-      const data = await apiFetch(`${API_BASE}/files/all`, {
-        signal: fetchAbortController.current.signal
-      })
-
+      const data = await apiFetch(`${API_BASE}/files/all`, { signal: fetchAbortController.current.signal })
       if (data.success) {
         setFiles(data.files)
       } else {
         setError('Failed to fetch files')
       }
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error('Error fetching files:', error)
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Error fetching files:', err)
         setError('Failed to connect to server')
       }
     } finally {
@@ -390,15 +540,45 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   }, [setError])
 
   useEffect(() => {
-    if (isConnected) {
-      fetchFiles()
-    }
-    return () => {
-      if (fetchAbortController.current) {
-        fetchAbortController.current.abort()
-      }
-    }
+    if (isConnected) fetchFiles()
+    return () => { if (fetchAbortController.current) fetchAbortController.current.abort() }
   }, [isConnected, fetchFiles])
+
+  // When a highlighted file arrives from a notification, navigate to it
+  useEffect(() => {
+    if (!highlightedFileId || isLoading || files.length === 0) return
+
+    const targetFile = files.find(f => f.id === highlightedFileId || String(f.id) === String(highlightedFileId))
+    if (!targetFile) return
+
+    // Switch to the correct view
+    const isAttachment = targetFile.source_type === 'assignment_attachment'
+    setActiveView(isAttachment ? 'reference' : 'approval')
+
+    // Remove search/filter so the file is visible
+    setFileFilter('all')
+    setFileSearchInput('')
+    setFileSearchQuery('')
+
+    // If in a folder, expand it
+    if (targetFile.folder_name) {
+      const folderKey = `${targetFile.folder_name}||${targetFile.user_id || targetFile.username || ''}`
+      setExpandedFolders(prev => ({ ...prev, [folderKey]: true }))
+    }
+
+    // Navigate to the correct page — find item index in paginationItems after filter reset
+    // We'll handle it by resetting to page 1 and letting the FileRow highlight do the scroll
+    setCurrentPage(1)
+  }, [highlightedFileId, isLoading, files])
+
+  // Clear highlight after a short delay so the animation plays once
+  useEffect(() => {
+    if (!highlightedFileId) return
+    const timer = setTimeout(() => {
+      onClearFileHighlight?.()
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [highlightedFileId, onClearFileHighlight])
 
   useEffect(() => {
     const timer = setTimeout(() => setFileSearchQuery(fileSearchInput), 300)
@@ -409,67 +589,49 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     setCurrentPage(1)
   }, [fileSearchQuery, fileFilter, fileSortBy, viewMode])
 
-  // Group files by folder BEFORE filtering/sorting
   const groupFilesByFolder = useCallback((files) => {
     const folders = {}
     const individualFiles = []
-
     files.forEach(file => {
-      // Only group if folder_name exists and is not empty
       if (file.folder_name && file.folder_name.trim() !== '') {
-        // Key by folder_name + user_id so different users' same-named folders stay separate
         const key = `${file.folder_name}||${file.user_id || file.username || ''}`
-        if (!folders[key]) {
-          folders[key] = []
-        }
+        if (!folders[key]) folders[key] = []
         folders[key].push(file)
       } else {
         individualFiles.push(file)
       }
     })
-
     return { folders, individualFiles }
   }, [])
 
-  const statusCounts = useMemo(() => {
-    return {
-      pendingTeamLeader: files.filter(f => f.status === 'uploaded' || f.status === 'submitted').length,
-      pendingAdmin: files.filter(f => f.status === 'team_leader_approved').length,
-      approved: files.filter(f => f.status === 'final_approved' || f.status === 'approved').length,
-      rejected: files.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin' || f.status === 'rejected' || f.status === 'final_rejection').length
-    }
-  }, [files])
+  const statusCounts = useMemo(() => ({
+    pendingTeamLeader: files.filter(f => f.status === 'uploaded' || f.status === 'revision').length,
+    pendingAdmin: files.filter(f => f.status === 'team_leader_approved').length,
+    approved: files.filter(f => f.status === 'final_approved').length,
+    rejected: files.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
+  }), [files])
 
-  // Filter and sort files
   const filteredFiles = useMemo(() => {
-    let filtered = files
+    // Split by view: approval = member submissions, reference = TL attachments
+    const sourceFiles = activeView === 'reference'
+      ? files.filter(f => f.source_type === 'assignment_attachment')
+      : files.filter(f => f.source_type !== 'assignment_attachment')
+
+    let filtered = sourceFiles
 
     if (fileFilter !== 'all') {
       filtered = filtered.filter(file => {
-        const s = file.status?.toLowerCase();
         switch (fileFilter) {
-          case 'pending-team-leader':
-            return s === 'uploaded' || s === 'submitted';
-          case 'pending-admin':
-            return s === 'team_leader_approved';
-          case 'approved':
-            return s === 'final_approved' || s === 'approved';
-          case 'rejected':
-            return s === 'rejected_by_team_leader' || s === 'rejected_by_admin' || s === 'rejected' || s === 'final_rejection';
-          default:
-            return false;
+          case 'pending-team-leader': return file.status === 'uploaded'
+          case 'pending-admin':       return file.status === 'team_leader_approved'
+          case 'approved':            return file.status === 'final_approved'
+          case 'rejected':            return file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin'
+          default: return false
         }
       })
-    } else {
-      // For 'all' filter, exclude 'Task Reference' files from the approval queue view
-      // since they are for reference only and don't need approval.
-      filtered = filtered.filter(file => {
-        const s = file.status?.toLowerCase();
-        return s !== 'task reference' && s !== 'task_reference';
-      });
     }
 
-    if (fileSearchQuery && fileSearchQuery.trim() !== '') {
+    if (fileSearchQuery.trim()) {
       const q = fileSearchQuery.toLowerCase()
       filtered = filtered.filter(file =>
         file.original_name.toLowerCase().includes(q) ||
@@ -481,30 +643,19 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
     return [...filtered].sort((a, b) => {
       switch (fileSortBy) {
-        case 'date-desc':
-          return new Date(b.uploaded_at) - new Date(a.uploaded_at)
-        case 'date-asc':
-          return new Date(a.uploaded_at) - new Date(b.uploaded_at)
-        case 'filename-asc':
-          return a.original_name.localeCompare(b.original_name)
-        case 'filename-desc':
-          return b.original_name.localeCompare(a.original_name)
-        case 'user-asc':
-          return a.username.localeCompare(b.username)
-        case 'user-desc':
-          return b.username.localeCompare(a.username)
-        default:
-          return 0
+        case 'date-desc':     return new Date(b.uploaded_at) - new Date(a.uploaded_at)
+        case 'date-asc':      return new Date(a.uploaded_at) - new Date(b.uploaded_at)
+        case 'filename-asc':  return a.original_name.localeCompare(b.original_name)
+        case 'filename-desc': return b.original_name.localeCompare(a.original_name)
+        case 'user-asc':      return a.username.localeCompare(b.username)
+        case 'user-desc':     return b.username.localeCompare(a.username)
+        default: return 0
       }
     })
-  }, [files, fileSearchQuery, fileFilter, fileSortBy])
+  }, [files, fileSearchQuery, fileFilter, fileSortBy, activeView])
 
-  // Group filtered files into folders and individual files
-  const groupedData = useMemo(() => {
-    return groupFilesByFolder(filteredFiles)
-  }, [filteredFiles, groupFilesByFolder])
+  const groupedData = useMemo(() => groupFilesByFolder(filteredFiles), [filteredFiles, groupFilesByFolder])
 
-  // Helper: get a date-group label for an item's date
   const getDateLabel = useCallback((dateStr) => {
     const date = new Date(dateStr)
     const now = new Date()
@@ -515,16 +666,13 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     if (diffDays === 1) return 'Yesterday'
     if (diffDays <= 7) return 'This Week'
     if (diffDays <= 30) return 'This Month'
-    // Older: show Month Year
     return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
   }, [])
 
-  // Create items array for pagination (folders + individual files)
   const paginationItems = useMemo(() => {
     const items = []
 
     if (viewMode === 'by-date') {
-      // Merge all items (folders + files) into a flat list sorted by date desc
       const allItems = []
       Object.keys(groupedData.folders).forEach(folderKey => {
         const folderName = folderKey.includes('||') ? folderKey.split('||')[0] : folderKey
@@ -536,7 +684,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       })
       allItems.sort((a, b) => b._date - a._date)
 
-      // Insert date-header rows before each new group
       let lastLabel = null
       allItems.forEach(item => {
         const label = getDateLabel(item._date)
@@ -548,15 +695,13 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       })
       return items
     }
-    
-    // Build a flat mixed list of folders + files, then sort together
+
     const allItems = []
 
     if (viewMode !== 'files') {
       Object.keys(groupedData.folders).forEach(folderKey => {
         const folderName = folderKey.includes('||') ? folderKey.split('||')[0] : folderKey
         const files = groupedData.folders[folderKey]
-        // Use the most recent file date as the folder's sort date
         const latestDate = Math.max(...files.map(f => new Date(f.uploaded_at).getTime()))
         allItems.push({ type: 'folder', folderKey, name: folderName, files, _date: latestDate, _name: folderName, _user: files[0]?.username || '' })
       })
@@ -568,15 +713,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       })
     }
 
-    // Sort the mixed list using the same fileSortBy setting
     allItems.sort((a, b) => {
       switch (fileSortBy) {
-        case 'date-desc': return b._date - a._date
-        case 'date-asc':  return a._date - b._date
+        case 'date-desc':     return b._date - a._date
+        case 'date-asc':      return a._date - b._date
         case 'filename-asc':  return a._name.localeCompare(b._name)
         case 'filename-desc': return b._name.localeCompare(a._name)
-        case 'user-asc':  return a._user.localeCompare(b._user)
-        case 'user-desc': return b._user.localeCompare(a._user)
+        case 'user-asc':      return a._user.localeCompare(b._user)
+        case 'user-desc':     return b._user.localeCompare(a._user)
         default: return b._date - a._date
       }
     })
@@ -584,16 +728,26 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return allItems
   }, [groupedData, viewMode, fileSortBy, getDateLabel])
 
-  // Paginate items
+  // When highlighted file is set, jump to the correct page in paginationItems
+  useEffect(() => {
+    if (!highlightedFileId || paginationItems.length === 0) return
+    const idx = paginationItems.findIndex(item => {
+      if (item.type === 'file') return String(item.file.id) === String(highlightedFileId)
+      if (item.type === 'folder') return item.files.some(f => String(f.id) === String(highlightedFileId))
+      return false
+    })
+    if (idx >= 0) {
+      const targetPage = Math.floor(idx / filesPerPage) + 1
+      setCurrentPage(targetPage)
+    }
+  }, [highlightedFileId, paginationItems, filesPerPage])
+
   const currentPageItems = useMemo(() => {
-    const startIndex = (currentPage - 1) * filesPerPage
-    const endIndex = startIndex + filesPerPage
-    return paginationItems.slice(startIndex, endIndex)
+    const start = (currentPage - 1) * filesPerPage
+    return paginationItems.slice(start, start + filesPerPage)
   }, [paginationItems, currentPage, filesPerPage])
 
-  const totalPages = useMemo(() => {
-    return Math.ceil(paginationItems.length / filesPerPage)
-  }, [paginationItems.length, filesPerPage])
+  const totalPages = useMemo(() => Math.ceil(paginationItems.length / filesPerPage), [paginationItems.length, filesPerPage])
 
   const formatFileSize = useCallback((bytes) => {
     if (bytes === 0) return '0 Bytes'
@@ -603,43 +757,27 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }, [])
 
-  const selectedFileFormattedSize = useMemo(() => {
-    return selectedFile ? formatFileSize(selectedFile.file_size) : ''
-  }, [selectedFile, formatFileSize])
-
-  const selectedFileFormattedDate = useMemo(() => {
-    return selectedFile ? new Date(selectedFile.uploaded_at).toLocaleString() : ''
-  }, [selectedFile])
-
   const mapFileStatus = useCallback((dbStatus) => {
     switch (dbStatus) {
       case 'uploaded':
-      case 'team_leader_approved':
-        return 'pending'
-      case 'final_approved':
-        return 'approved'
+      case 'revision':
+      case 'team_leader_approved': return 'pending'
+      case 'final_approved':       return 'approved'
       case 'rejected_by_team_leader':
-      case 'rejected_by_admin':
-        return 'rejected'
-      default:
-        return 'pending'
+      case 'rejected_by_admin':    return 'rejected'
+      default: return 'pending'
     }
   }, [])
 
   const getStatusDisplayName = useCallback((dbStatus) => {
     switch (dbStatus) {
-      case 'uploaded':
-        return 'Pending Team Leader'
-      case 'team_leader_approved':
-        return 'Pending Admin'
-      case 'final_approved':
-        return 'Approved'
-      case 'rejected_by_team_leader':
-        return 'Rejected by Team Leader'
-      case 'rejected_by_admin':
-        return 'Rejected by Admin'
-      default:
-        return dbStatus.charAt(0).toUpperCase() + dbStatus.slice(1)
+      case 'uploaded':              return 'Pending Team Leader'
+      case 'revision':              return 'Revision (New Submission)'
+      case 'team_leader_approved':  return 'Pending Admin'
+      case 'final_approved':        return 'Approved'
+      case 'rejected_by_team_leader': return 'Rejected by Team Leader'
+      case 'rejected_by_admin':     return 'Rejected by Admin'
+      default: return dbStatus.charAt(0).toUpperCase() + dbStatus.slice(1)
     }
   }, [])
 
@@ -682,14 +820,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const deleteFile = useCallback(async () => {
     if (!fileToDelete && !folderToDelete) return
-
     setIsLoading(true)
     try {
       if (folderToDelete) {
         const isAttachmentFolder = folderToDelete.folderFiles.some(f => f.source_type === 'assignment_attachment')
 
         if (isAttachmentFolder) {
-          // For TL attachment folders: delete from assignment_attachments via dedicated endpoint
           try {
             await apiFetch(`${API_BASE}/files/folder/delete-attachments`, {
               method: 'POST',
@@ -705,14 +841,11 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           } catch (err) {
             console.warn('Attachment folder delete error:', err)
           }
-          setFiles(prevFiles =>
-            prevFiles.filter(file => !folderToDelete.folderFiles.some(f => f.id === file.id))
-          )
+          setFiles(prev => prev.filter(file => !folderToDelete.folderFiles.some(f => f.id === file.id)))
           setShowDeleteModal(false)
           setFolderToDelete(null)
           setDeleteAlert(`Folder "${folderToDelete.folderName}" deleted successfully`)
         } else {
-          // Regular user folder: delete each file record from files table
           const deletePromises = folderToDelete.folderFiles.map(file =>
             apiFetch(`${API_BASE}/files/${file.id}`, {
               method: 'DELETE',
@@ -726,9 +859,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           )
 
           const results = await Promise.all(deletePromises)
-          const allSuccess = results.every(r => r.success)
-
-          if (allSuccess) {
+          if (results.every(r => r.success)) {
             try {
               await apiFetch(`${API_BASE}/files/folder/delete`, {
                 method: 'POST',
@@ -741,13 +872,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   team: authUser.team
                 })
               })
-            } catch (folderError) {
-              console.warn('Error deleting folder directory:', folderError)
+            } catch (err) {
+              console.warn('Error deleting folder directory:', err)
             }
-
-            setFiles(prevFiles =>
-              prevFiles.filter(file => !folderToDelete.folderFiles.some(f => f.id === file.id))
-            )
+            setFiles(prev => prev.filter(file => !folderToDelete.folderFiles.some(f => f.id === file.id)))
             setShowDeleteModal(false)
             setFolderToDelete(null)
             setDeleteAlert(`Folder "${folderToDelete.folderName}" with ${folderToDelete.folderFiles.length} file(s) deleted successfully`)
@@ -756,19 +884,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           }
         }
       } else {
-        try {
-          await apiFetch(`${API_BASE}/files/${fileToDelete.id}/delete-file`, {
-            method: 'POST',
-            body: JSON.stringify({
-              adminId: authUser.id,
-              adminUsername: authUser.username,
-              adminRole: authUser.role
-            })
-          })
-        } catch (fileDeleteError) {
-          console.warn('Physical file deletion failed:', fileDeleteError)
-        }
-
         const data = await apiFetch(`${API_BASE}/files/${fileToDelete.id}`, {
           method: 'DELETE',
           body: JSON.stringify({
@@ -778,9 +893,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             team: authUser.team
           })
         })
-
         if (data.success) {
-          setFiles(prevFiles => prevFiles.filter(file => file.id !== fileToDelete.id))
+          setFiles(prev => prev.filter(file => file.id !== fileToDelete.id))
           setShowDeleteModal(false)
           setFileToDelete(null)
           setDeleteAlert('File deleted successfully')
@@ -788,23 +902,27 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           setError(data.message || 'Failed to delete file')
         }
       }
-    } catch (error) {
-      console.error('Error deleting:', error)
-      setError(error.message || 'Failed to delete')
+    } catch (err) {
+      console.error('Error deleting:', err)
+      setError(err.message || 'Failed to delete')
     } finally {
       setIsLoading(false)
     }
-  }, [fileToDelete, folderToDelete, authUser, setError, setSuccess])
+  }, [fileToDelete, folderToDelete, authUser, setError])
 
   const openFilePath = useCallback(async (file) => {
     if (!file) return
     setIsOpeningFile(true)
     try {
-      const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path`)
+      const isAttachment = file.source_type === 'assignment_attachment'
+      const params = new URLSearchParams()
+      if (isAttachment) params.set('type', 'attachment')
+      if (file.folder_name) params.set('folderName', file.folder_name)
+      const query = params.toString() ? `?${params.toString()}` : ''
+      const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path${query}`)
       if (!pathData.success) throw new Error('Failed to get file path')
-      const filePath = pathData.filePath
       if (window.electron && typeof window.electron.openFolderInExplorer === 'function') {
-        const result = await window.electron.openFolderInExplorer(filePath)
+        const result = await window.electron.openFolderInExplorer(pathData.filePath)
         if (!result.success) throw new Error(result.error || 'Failed to open folder path')
       } else {
         setError('Folder path opening not available in browser mode')
@@ -821,14 +939,29 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     if (!file) return
     setIsOpeningFile(true)
     try {
-      const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path`)
+      const isAttachment = file.source_type === 'assignment_attachment'
+      const params = new URLSearchParams()
+      if (isAttachment) params.set('type', 'attachment')
+      const query = params.toString() ? `?${params.toString()}` : ''
+      const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path${query}`)
       if (!pathData.success) throw new Error('Failed to get file path')
-      const filePath = pathData.filePath
       if (window.electron && typeof window.electron.openFileInApp === 'function') {
-        const result = await window.electron.openFileInApp(filePath)
+        // Open the file with its default application
+        const result = await window.electron.openFileInApp(pathData.filePath)
         if (!result.success) throw new Error(result.error || 'Failed to open file')
       } else {
-        setError('File opening not available')
+        // Web fallback: stream the file in a new tab
+        const ext = (pathData.filePath.split('.').pop() || '').toLowerCase()
+        const browserViewable = ['pdf','png','jpg','jpeg','gif','svg','webp','txt','html','css','js','json','xml','mp4','mp3']
+        if (browserViewable.includes(ext)) {
+          window.open(`/api/files/${file.id}/stream`, '_blank', 'noopener,noreferrer')
+        } else {
+          const a = Object.assign(document.createElement('a'), {
+            href: `/api/files/${file.id}/stream`,
+            download: file.original_name || 'file',
+          })
+          a.click()
+        }
       }
     } catch (err) {
       console.error('Error opening file:', err)
@@ -859,7 +992,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           console.warn('Could not get default path', err)
         }
         const result = await window.electron.openDirectoryDialog(options)
-        if (!result || result.canceled || !result.filePaths || result.filePaths.length === 0) {
+        if (!result || result.canceled || !result.filePaths?.length) {
           setIsLoading(false)
           return
         }
@@ -868,7 +1001,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         throw new Error('File system access not available')
       }
 
-      // Single API call: copy the whole folder structure to NAS and approve all files at once
       const data = await apiFetch(`${API_BASE}/files/folder/move-to-nas`, {
         method: 'POST',
         body: JSON.stringify({
@@ -885,11 +1017,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       })
       if (!data.success) throw new Error(data.message || 'Failed to move folder to NAS')
 
-      setFiles(prevFiles =>
-        prevFiles.map(f =>
-          folderReviewModal.folderFiles.some(ff => ff.id === f.id)
-            ? { ...f, status: 'final_approved' }
-            : f
+      setFiles(prev =>
+        prev.map(f =>
+          folderReviewModal.folderFiles.some(ff => ff.id === f.id) ? { ...f, status: 'final_approved' } : f
         )
       )
       const approvedFolderName = folderReviewModal.folderName
@@ -909,9 +1039,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     if (!folderReviewModal) return
     setIsLoading(true)
     try {
-      for (const file of folderReviewModal.folderFiles) {
+      await Promise.all(folderReviewModal.folderFiles.map(async (file) => {
         try {
-          const data = await apiFetch(`${API_BASE}/files/${file.id}/admin-review`, {
+          await apiFetch(`${API_BASE}/files/${file.id}/admin-review`, {
             method: 'POST',
             body: JSON.stringify({
               action: 'reject',
@@ -922,28 +1052,20 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
               team: authUser.team
             })
           })
-          if (data.success) {
-            await apiFetch(`${API_BASE}/files/${file.id}/delete-file`, {
-              method: 'POST',
-              body: JSON.stringify({ adminId: authUser.id, adminUsername: authUser.username, adminRole: authUser.role })
-            }).catch(() => {})
-          }
         } catch (err) {
           console.warn(`Failed to reject file ${file.id}:`, err)
         }
-      }
+      }))
 
-      setFiles(prevFiles =>
-        prevFiles.map(f =>
-          folderReviewModal.folderFiles.some(ff => ff.id === f.id)
-            ? { ...f, status: 'rejected_by_admin' }
-            : f
+      setFiles(prev =>
+        prev.map(f =>
+          folderReviewModal.folderFiles.some(ff => ff.id === f.id) ? { ...f, status: 'rejected_by_admin' } : f
         )
       )
       const rejectedFolderName = folderReviewModal.folderName
       setFolderReviewModal(null)
       setFolderReviewComment('')
-      setSuccess(`Folder "${rejectedFolderName}" rejected successfully`)
+      setError(`Folder "${rejectedFolderName}" rejected successfully`)
       fetchFiles()
     } catch (err) {
       console.error('Folder rejection error:', err)
@@ -951,11 +1073,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     } finally {
       setIsLoading(false)
     }
-  }, [folderReviewModal, folderReviewComment, authUser, setError, setSuccess, fetchFiles])
+  }, [folderReviewModal, folderReviewComment, authUser, setError, fetchFiles])
 
   const approveFile = useCallback(async () => {
     if (!selectedFile) return
-
     setIsLoading(true)
     try {
       let approvedOnServer = false
@@ -972,7 +1093,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         }
 
         const result = await window.electron.openDirectoryDialog(options)
-        if (!result || result.canceled || !result.filePaths || result.filePaths.length === 0) {
+        if (!result || result.canceled || !result.filePaths?.length) {
           setIsLoading(false)
           return
         }
@@ -981,15 +1102,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         const moveData = await apiFetch(`${API_BASE}/files/${selectedFile.id}/move-to-projects`, {
           method: 'POST',
           body: JSON.stringify({
-            // selectedPath is the base NAS directory chosen by the admin.
-            // If this file belongs to a folder upload, the server will automatically
-            // create a sub-folder (file.folder_name) inside selectedPath.
             destinationPath: selectedPath,
             adminId: authUser.id,
             adminUsername: authUser.username,
             adminRole: authUser.role,
             team: authUser.team,
-            deleteFromUploads: true
+            deleteFromUploads: false  // Keep source file — user files must remain visible after approval
           })
         })
         if (!moveData.success) throw new Error(moveData.message || 'Failed to move file')
@@ -1012,12 +1130,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       }
 
       if (approvedOnServer) {
-        setFiles(prevFiles =>
-          prevFiles.map(f =>
-            f.id === selectedFile.id ? { ...f, status: 'final_approved' } : f
-          )
-        )
-
+        setFiles(prev => prev.map(f => f.id === selectedFile.id ? { ...f, status: 'final_approved' } : f))
         closeFileModal()
         setSuccess('File approved and moved successfully')
         fetchFiles()
@@ -1032,7 +1145,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const confirmRejectFile = useCallback(async () => {
     if (!fileToReject) return
-
     setIsLoading(true)
     try {
       const data = await apiFetch(`${API_BASE}/files/${fileToReject.id}/admin-review`, {
@@ -1048,39 +1160,87 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       })
 
       if (data.success) {
-        await apiFetch(`${API_BASE}/files/${fileToReject.id}/delete-file`, {
-          method: 'POST',
-          body: JSON.stringify({
-            adminId: authUser.id,
-            adminUsername: authUser.username,
-            adminRole: authUser.role
-          })
-        }).catch(() => { })
-
-        setFiles(prevFiles =>
-          prevFiles.map(f =>
-            f.id === fileToReject.id ? { ...f, status: 'rejected_by_admin' } : f
-          )
-        )
-
+        setFiles(prev => prev.map(f => f.id === fileToReject.id ? { ...f, status: 'rejected_by_admin' } : f))
         closeFileModal()
         closeRejectModal()
-        setSuccess('File rejected successfully')
+        setError('File rejected successfully')
         fetchFiles()
       } else {
         setError(data.message || 'Failed to reject file')
       }
-    } catch (error) {
-      console.error('Error rejecting file:', error)
+    } catch (err) {
+      console.error('Error rejecting file:', err)
       setError('Failed to reject file')
     } finally {
       setIsLoading(false)
     }
-  }, [fileToReject, authUser, setError, setSuccess, closeFileModal, closeRejectModal, fetchFiles])
+  }, [fileToReject, authUser, setError, closeFileModal, closeRejectModal, fetchFiles])
 
-  // Render file rows with proper folder grouping
   const renderFileRows = useMemo(() => {
     const rows = []
+
+    const renderRecursiveItems = (files, level = 1, parentKey = '', parentIsLastArr = []) => {
+      const { subfolders, rootFiles } = recursiveGroupByPath(files);
+      const items = [];
+
+      const subfolderEntries = Object.entries(subfolders);
+      const totalSubfolders = subfolderEntries.length;
+      const totalRootFiles = rootFiles.length;
+
+      subfolderEntries.forEach(([subfolderName, folderFiles], index) => {
+        const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
+        const currentKey = parentKey ? `${parentKey}__${subfolderName}` : subfolderName;
+        const isSubFolderExpanded = expandedFolders[currentKey];
+        const folderHasHighlight = highlightedFileId && folderFiles.some(f => {
+          const file = f.file || f
+          return String(file.id) === String(highlightedFileId)
+        })
+
+        items.push(
+          <React.Fragment key={`folder-${currentKey}`}>
+            <SubFolderRow
+              folderName={subfolderName}
+              folderFiles={folderFiles}
+              isExpanded={isSubFolderExpanded}
+              onToggle={() => toggleFolder(currentKey)}
+              onDelete={openFolderDeleteModal}
+              onApproveFolder={(name, files) => openFolderReviewModal(name, files, 'approve')}
+              onOpenFolderPath={openFilePath}
+              isLast={isLast}
+              level={level}
+              parentIsLastArr={parentIsLastArr}
+              isReference={activeView === 'reference'}
+              isHighlighted={!!folderHasHighlight}
+            />
+            {isSubFolderExpanded && renderRecursiveItems(folderFiles, level + 1, currentKey, [...parentIsLastArr, isLast])}
+          </React.Fragment>
+        );
+      });
+
+      rootFiles.forEach((item, index) => {
+        const isLast = index === totalRootFiles - 1;
+        const file = item.file || item;
+        items.push(
+          <FileRow
+            key={file.id}
+            file={file}
+            formatFileSize={formatFileSize}
+            mapFileStatus={mapFileStatus}
+            getStatusDisplayName={getStatusDisplayName}
+            onOpenModal={openFileModal}
+            onDelete={openDeleteModal}
+            onOpenFilePath={openFile}
+            isNested={true}
+            isLast={isLast}
+            parentIsLastArr={parentIsLastArr}
+            isReference={activeView === 'reference'}
+            isHighlighted={String(file.id) === String(highlightedFileId)}
+          />
+        );
+      });
+
+      return items;
+    };
 
     currentPageItems.forEach(item => {
       if (item.type === 'date-header') {
@@ -1095,10 +1255,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           </tr>
         )
       } else if (item.type === 'folder') {
-        // Use folderKey for state tracking, item.name is the clean display name
         const folderKey = item.folderKey || item.name
         const isExpanded = expandedFolders[folderKey]
-        
+        const folderHasHighlight = highlightedFileId && item.files.some(f => String(f.id) === String(highlightedFileId))
+
         rows.push(
           <FolderRow
             key={`folder-${folderKey}`}
@@ -1108,28 +1268,24 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             onToggle={() => toggleFolder(folderKey)}
             onDelete={openFolderDeleteModal}
             onApproveFolder={(name, files) => openFolderReviewModal(name, files, 'approve')}
-            onRejectFolder={(name, files) => openFolderReviewModal(name, files, 'reject')}
             onOpenFolderPath={openFilePath}
-            formatFileSize={formatFileSize}
+            isReference={activeView === 'reference'}
+            isHighlighted={!!folderHasHighlight}
           />
         )
 
         if (isExpanded) {
-          item.files.forEach(file => {
-            rows.push(
-              <FileRow
-                key={file.id}
-                file={file}
-                formatFileSize={formatFileSize}
-                mapFileStatus={mapFileStatus}
-                getStatusDisplayName={getStatusDisplayName}
-                onOpenModal={openFileModal}
-                onDelete={openDeleteModal}
-                onOpenFilePath={openFilePath}
-                isNested={true}
-              />
-            )
-          })
+          const mappedFilesForRecursion = item.files.map(file => {
+            const path = (file.relative_path || file.webkitRelativePath || '').replace(/\\/g, '/');
+            const parts = path.split('/').filter(Boolean);
+            let remainingPath = path;
+            if (parts.length > 0 && parts[0].trim() === item.name) {
+              remainingPath = parts.slice(1).join('/');
+            }
+            return { file, _temp_path: remainingPath };
+          });
+
+          rows.push(...renderRecursiveItems(mappedFilesForRecursion, 1, folderKey, []));
         }
       } else {
         rows.push(
@@ -1141,15 +1297,17 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             getStatusDisplayName={getStatusDisplayName}
             onOpenModal={openFileModal}
             onDelete={openDeleteModal}
-            onOpenFilePath={openFilePath}
+            onOpenFilePath={openFile}
             isNested={false}
+            isReference={activeView === 'reference'}
+            isHighlighted={String(item.file.id) === String(highlightedFileId)}
           />
         )
       }
     })
 
     return rows
-  }, [currentPageItems, expandedFolders, toggleFolder, openFolderDeleteModal, openFolderReviewModal, openFilePath, openDeleteModal, openFileModal, formatFileSize, mapFileStatus, getStatusDisplayName])
+  }, [currentPageItems, expandedFolders, activeView, highlightedFileId, toggleFolder, openFolderDeleteModal, openFolderReviewModal, openFilePath, openDeleteModal, openFileModal, formatFileSize, mapFileStatus, getStatusDisplayName])
 
   const renderPaginationNumbers = useMemo(() => {
     const pageNumbers = []
@@ -1158,60 +1316,31 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     if (totalPages <= maxVisiblePages) {
       for (let i = 1; i <= totalPages; i++) {
         pageNumbers.push(
-          <button
-            key={i}
-            className={`pagination-btn ${i === currentPage ? 'active' : ''}`}
-            onClick={() => setCurrentPage(i)}
-          >
+          <button key={i} className={`pagination-btn ${i === currentPage ? 'active' : ''}`} onClick={() => setCurrentPage(i)}>
             {i}
           </button>
         )
       }
     } else {
       pageNumbers.push(
-        <button
-          key={1}
-          className={`pagination-btn ${1 === currentPage ? 'active' : ''}`}
-          onClick={() => setCurrentPage(1)}
-        >
-          1
-        </button>
+        <button key={1} className={`pagination-btn ${1 === currentPage ? 'active' : ''}`} onClick={() => setCurrentPage(1)}>1</button>
       )
-
-      if (currentPage > 3) {
-        pageNumbers.push(<span key="ellipsis1" className="pagination-ellipsis">...</span>)
-      }
+      if (currentPage > 3) pageNumbers.push(<span key="ellipsis1" className="pagination-ellipsis">...</span>)
 
       const startPage = Math.max(2, currentPage - 1)
       const endPage = Math.min(totalPages - 1, currentPage + 1)
-
       for (let i = startPage; i <= endPage; i++) {
         if (i !== 1 && i !== totalPages) {
           pageNumbers.push(
-            <button
-              key={i}
-              className={`pagination-btn ${i === currentPage ? 'active' : ''}`}
-              onClick={() => setCurrentPage(i)}
-            >
-              {i}
-            </button>
+            <button key={i} className={`pagination-btn ${i === currentPage ? 'active' : ''}`} onClick={() => setCurrentPage(i)}>{i}</button>
           )
         }
       }
 
-      if (currentPage < totalPages - 2) {
-        pageNumbers.push(<span key="ellipsis2" className="pagination-ellipsis">...</span>)
-      }
-
+      if (currentPage < totalPages - 2) pageNumbers.push(<span key="ellipsis2" className="pagination-ellipsis">...</span>)
       if (totalPages > 1) {
         pageNumbers.push(
-          <button
-            key={totalPages}
-            className={`pagination-btn ${totalPages === currentPage ? 'active' : ''}`}
-            onClick={() => setCurrentPage(totalPages)}
-          >
-            {totalPages}
-          </button>
+          <button key={totalPages} className={`pagination-btn ${totalPages === currentPage ? 'active' : ''}`} onClick={() => setCurrentPage(totalPages)}>{totalPages}</button>
         )
       }
     }
@@ -1219,9 +1348,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return pageNumbers
   }, [totalPages, currentPage])
 
-  if (!isConnected) {
-    return <SkeletonLoader type="table" />
-  }
+  if (!isConnected) return <SkeletonLoader type="table" />
 
   return (
     <div className={`file-approval-section ${isOpeningFile ? 'file-opening-cursor' : ''}`}>
@@ -1229,11 +1356,41 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       {success && <AlertMessage type="success" message={success} onClose={clearMessages} />}
       {deleteAlert && <AlertMessage type="error" message={deleteAlert} onClose={() => setDeleteAlert(null)} />}
 
-      <div className="file-status-cards">
-        <StatusCard icon="TL" label="Pending Team Leader" count={statusCounts.pendingTeamLeader} className="pending" />
-        <StatusCard icon="AD" label="Pending Admin" count={statusCounts.pendingAdmin} className="pending-admin" />
-        <StatusCard icon="AP" label="Approved Files" count={statusCounts.approved} className="approved" />
-        <StatusCard icon="RE" label="Rejected Files" count={statusCounts.rejected} className="rejected" />
+      <div style={{ marginBottom: '0.5rem', marginTop: '-1rem' }}>
+        <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>File Approval</h2>
+        <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Review and approve member file submissions</p>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'inline-flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#f9fafb' }}>
+          <button
+            onClick={() => { setActiveView('approval'); setCurrentPage(1) }}
+            style={{
+              padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
+              background: activeView === 'approval' ? 'white' : 'transparent',
+              color: activeView === 'approval' ? '#111827' : '#6b7280',
+              boxShadow: activeView === 'approval' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+              borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
+            }}
+          >File Approval</button>
+          <button
+            onClick={() => { setActiveView('reference'); setCurrentPage(1) }}
+            style={{
+              padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
+              background: activeView === 'reference' ? 'white' : 'transparent',
+              color: activeView === 'reference' ? '#111827' : '#6b7280',
+              boxShadow: activeView === 'reference' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+              borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
+            }}
+          >Reference Files</button>
+        </div>
+
+        <div className="file-status-cards" style={{ marginBottom: 0 }}>
+          <StatusCard icon="TL" label="Pending Team Leader" count={statusCounts.pendingTeamLeader} className="pending" />
+          <StatusCard icon="AD" label="Pending Admin" count={statusCounts.pendingAdmin} className="pending-admin" />
+          <StatusCard icon="AP" label="Approved Files" count={statusCounts.approved} className="approved" />
+          <StatusCard icon="RE" label="Rejected Files" count={statusCounts.rejected} className="rejected" />
+        </div>
       </div>
 
       <div className="file-controls">
@@ -1264,7 +1421,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
-
           <select value={fileSortBy} onChange={(e) => setFileSortBy(e.target.value)} className="form-select">
             <option value="date-desc">Latest First</option>
             <option value="date-asc">Oldest First</option>
@@ -1273,12 +1429,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             <option value="user-asc">User A-Z</option>
             <option value="user-desc">User Z-A</option>
           </select>
-
           <select value={viewMode} onChange={(e) => setViewMode(e.target.value)} className="form-select">
             <option value="all">All Items</option>
             <option value="files">Files Only</option>
             <option value="folders">Folders Only</option>
-
           </select>
         </div>
       </div>
@@ -1292,7 +1446,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 <th>Submitted By</th>
                 <th>Date & Time</th>
                 <th>Team</th>
-                <th>Status</th>
+                {activeView === 'approval' && <th>Status</th>}
                 <th>Actions</th>
               </tr>
             </thead>
@@ -1322,13 +1476,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             </div>
             {totalPages > 1 && (
               <div className="pagination-controls">
-                <button className="pagination-btn" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>
-                  ‹
-                </button>
+                <button className="pagination-btn" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>‹</button>
                 {renderPaginationNumbers}
-                <button className="pagination-btn" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>
-                  ›
-                </button>
+                <button className="pagination-btn" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>›</button>
               </div>
             )}
           </div>
@@ -1353,12 +1503,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         isOpen={showDeleteModal && (fileToDelete || folderToDelete)}
         onClose={() => { setShowDeleteModal(false); setFileToDelete(null); setFolderToDelete(null) }}
         onConfirm={deleteFile}
-        title={folderToDelete ? "Delete Folder" : "Delete File"}
-        message={folderToDelete 
+        title={folderToDelete ? 'Delete Folder' : 'Delete File'}
+        message={folderToDelete
           ? `Are you sure you want to delete the folder "${folderToDelete.folderName}" with all ${folderToDelete.folderFiles.length} file(s)?`
-          : "Are you sure you want to delete this file?"
+          : 'Are you sure you want to delete this file?'
         }
-        confirmText={folderToDelete ? "Delete Folder" : "Delete File"}
+        confirmText={folderToDelete ? 'Delete Folder' : 'Delete File'}
         variant="danger"
         isLoading={isLoading}
         itemInfo={fileToDelete ? {
@@ -1370,9 +1520,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         } : null}
       >
         <p className="warning-text">
-          {folderToDelete 
+          {folderToDelete
             ? `This will permanently delete the folder and all ${folderToDelete.folderFiles.length} file(s) inside it. This action cannot be undone.`
-            : "This action cannot be undone. The file and all its associated data will be permanently removed."
+            : 'This action cannot be undone. The file and all its associated data will be permanently removed.'
           }
         </p>
       </ConfirmationModal>
@@ -1396,7 +1546,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         </p>
       </ConfirmationModal>
 
-      {/* Folder Review Modal */}
       {folderReviewModal && (
         <div className="file-details-modal-component">
           <div className="modal-overlay" onClick={() => { if (!isLoading) { setFolderReviewModal(null); setFolderReviewComment('') } }}>
@@ -1419,9 +1568,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                     </div>
                     <div className="detail-item">
                       <span className="detail-label">TEAM:</span>
-                      <span className="detail-value">
-                        <TeamBadge team={folderReviewModal.folderFiles[0]?.user_team} size="sm" />
-                      </span>
+                      <span className="detail-value team-badge-inline">{folderReviewModal.folderFiles[0]?.user_team || 'N/A'}</span>
                     </div>
                     <div className="detail-item">
                       <span className="detail-label">UPLOAD DATE:</span>
@@ -1437,9 +1584,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                     </div>
                     <div className="detail-item">
                       <span className="detail-label">STATUS:</span>
-                      <span className="detail-value">
-                        <StatusBadge status="team_leader_approved" size="sm" />
-                      </span>
+                      <span className="detail-value status-badge status-pending">Pending Admin</span>
                     </div>
                   </div>
                 </div>
@@ -1469,6 +1614,4 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   )
 }
 
-export default withErrorBoundary(FileApproval, {
-  componentName: 'File Approval'
-})
+export default withErrorBoundary(FileApproval, { componentName: 'File Approval' })

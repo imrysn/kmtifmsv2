@@ -207,8 +207,26 @@ class AppUpdater {
       this.stateManager.state.updateDownloaded = true;
       this.stateManager.saveState();
 
-      // REMOVED: updaterWindow.updateStatus - using toast with action button
-      // Toast will show with Install & Restart button
+      // Show native dialog for update installation
+      const { dialog } = require('electron');
+      const win = (this.mainWindow && !this.mainWindow.isDestroyed()) ? this.mainWindow : null;
+      dialog.showMessageBox(win, {
+        type: 'info',
+        title: 'Update Ready',
+        message: 'A new version of the app has been downloaded and is ready to install.',
+        detail: 'Would you like to install the update now and restart the app, or update later?',
+        buttons: ['Update Now', 'Update Later'],
+        defaultId: 0,
+        cancelId: 1
+      }).then((result) => {
+        if (result.response === 0) {
+          // User clicked 'Update Now'
+          this.quitAndInstall();
+        }
+        // If 'Update Later', do nothing. autoInstallOnAppQuit is true, so it will install on normal exit.
+      }).catch(err => console.error('Dialog error:', err));
+
+      // Keep toast notification just in case frontend still listens for it
       this.notifyRenderer('downloaded', {
         version: info.version,
         releaseDate: info.releaseDate
@@ -281,10 +299,16 @@ class AppUpdater {
   }
 
   startPeriodicUpdateCheck() {
-    // Auto-update disabled — GitHub releases are not in sync with current version.
-    // Remove this block and configure a proper publish/release pipeline before re-enabling.
-    console.log('⏭️  Auto-updater disabled (version mismatch prevention)');
-    return;
+    console.log('🔄 Starting periodic update checks');
+    // Check immediately on startup (after a short delay to let app load)
+    setTimeout(() => {
+      this.checkForUpdates();
+    }, 5000);
+    
+    // Then check every interval
+    this.updateCheckInterval = setInterval(() => {
+      this.checkForUpdates();
+    }, UPDATE_CHECK_INTERVAL);
   }
 
   stopPeriodicUpdateCheck() {

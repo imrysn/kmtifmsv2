@@ -18,6 +18,7 @@ export function useSmartNavigation({
     items = [],
     highlightedItemId,
     highlightedFileId,
+    highlightedFileStatus,
     notificationContext,
     onClearHighlight,
     onClearFileHighlight,
@@ -26,7 +27,9 @@ export function useSmartNavigation({
     setVisibleReplies,
     showCommentsModal,
     selectedItem,
-    comments = []
+    comments = [],
+    setHighlightUsername, // Handle user-based comment highlighting
+    setHighlightCommentId // Handle exact comment highlighting
 }) {
     const shouldExpandRepliesRef = useRef(false);
     const pendingContextRef = useRef(null);
@@ -63,11 +66,19 @@ export function useSmartNavigation({
             shouldExpandRepliesRef.current = true;
         }
 
+        if (setHighlightCommentId && ctx.commentId) {
+            setHighlightCommentId(ctx.commentId);
+            setTimeout(() => setHighlightCommentId(null), 4000);
+        } else if (setHighlightUsername && ctx.highlightUser) {
+            setHighlightUsername(ctx.highlightUser);
+            setTimeout(() => setHighlightUsername(null), 4000);
+        }
+
         if (openCommentsModal) {
             openCommentsModal(item);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [items, openCommentsModal]);
+    }, [items, openCommentsModal, setHighlightUsername, setHighlightCommentId]);
 
     // EFFECT 2: Auto-expand replies when modal + comments are ready
     useEffect(() => {
@@ -103,45 +114,92 @@ export function useSmartNavigation({
     }, [showCommentsModal, selectedItem, comments, setVisibleReplies]);
 
     // EFFECT 3: Highlight item (scroll to assignment card)
+    // Uses a retry loop so the scroll works even when the tab has just switched
+    // and the DOM hasn't finished rendering the target card yet.
     useEffect(() => {
         if (!highlightedItemId || items.length === 0) return;
 
-        const element = document.getElementById(`${idPrefix}-${highlightedItemId}`);
-        if (!element) return;
+        let attempts = 0;
+        const MAX_ATTEMPTS = 30;  // 30 × 100ms = 3 seconds max wait
+        const INTERVAL_MS  = 100;
+        let timer;
 
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.classList.add(`${prefix}-assignment-highlighted`);
+        const tryHighlight = () => {
+            const element = document.getElementById(`${idPrefix}-${highlightedItemId}`);
 
-        const timer = setTimeout(() => {
-            element.classList.remove(`${prefix}-assignment-highlighted`);
-            if (onClearHighlight) onClearHighlight();
-        }, 1500);
+            if (!element) {
+                if (++attempts < MAX_ATTEMPTS) {
+                    timer = setTimeout(tryHighlight, INTERVAL_MS);
+                }
+                return;
+            }
+
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.classList.add(`${prefix}-assignment-highlighted`);
+
+            const clearTimer = setTimeout(() => {
+                element.classList.remove(`${prefix}-assignment-highlighted`);
+                if (onClearHighlight) onClearHighlight();
+            }, 3000);
+
+            // Replace cleanup timer reference so the return below cancels it too
+            timer = clearTimer;
+        };
+
+        // Small initial delay so a simultaneous tab-switch re-render can settle first
+        timer = setTimeout(tryHighlight, 80);
 
         return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [highlightedItemId, items]);
 
     // EFFECT 4: Highlight file within item
+    // Uses a retry loop instead of a fixed delay so it works regardless of how long
+    // folder expansion + DOM paint takes (slow machines, large lists, etc.)
     useEffect(() => {
         if (!highlightedFileId || items.length === 0) return;
 
-        const delay = highlightedItemId ? 600 : 200;
-        const timer = setTimeout(() => {
+        let attempts = 0;
+        const MAX_ATTEMPTS = 30;   // 30 × 100ms = 3 seconds max wait
+        const INTERVAL_MS  = 100;
+
+        const tryHighlight = () => {
             const el = document.querySelector(`[data-file-id="${highlightedFileId}"]`);
-            if (!el) return;
+
+            if (!el) {
+                if (++attempts < MAX_ATTEMPTS) {
+                    timer = setTimeout(tryHighlight, INTERVAL_MS);
+                }
+                return;
+            }
 
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add(`${prefix}-assignment-file-highlighted`);
+
+            const isRejected = highlightedFileStatus &&
+                (highlightedFileStatus === 'rejected_by_team_leader' ||
+                 highlightedFileStatus === 'rejected_by_admin');
+            const isRevision = highlightedFileStatus &&
+                (highlightedFileStatus === 'revision' ||
+                 highlightedFileStatus === 'for_editing' ||
+                 highlightedFileStatus === 'under_revision');
+            const highlightClass = isRejected
+                ? `${prefix}-assignment-file-highlighted-rejected`
+                : isRevision
+                    ? `${prefix}-assignment-file-highlighted-revision`
+                    : `${prefix}-assignment-file-highlighted`;
+
+            el.classList.add(highlightClass);
 
             setTimeout(() => {
-                el.classList.remove(`${prefix}-assignment-file-highlighted`);
+                el.classList.remove(highlightClass);
                 if (onClearFileHighlight) onClearFileHighlight();
-            }, 1500);
-        }, delay);
+            }, 3000);
+        };
 
+        let timer = setTimeout(tryHighlight, 80); // small initial delay so folder expand fires first
         return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [highlightedFileId, highlightedItemId, items]);
+    }, [highlightedFileId, highlightedItemId, highlightedFileStatus, items]);
 
     return { shouldExpandRepliesRef };
 }

@@ -1,14 +1,334 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import ReactDOM from 'react-dom'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentsTab.css'
 import './modals/css/AssignmentDetailsModal.css'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
-import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal, FileViewersButton, PremiumTaskCard, PremiumModal, RoleBadge, StatusBadge, TeamBadge } from '../shared'
+import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal, FileViewersButton, Avatar } from '../shared'
 import { useSmartNavigation } from '../shared/SmartNavigation'
 import '../shared/SmartNavigation/SmartNavigation.css'
 import SuccessModal from '../user/SuccessModal'
-import { formatDate, formatDateTime, formatFileSize, groupFilesByFolder, getInitials } from '../../utils/ui-helpers';
-import { openFile, downloadFile, downloadFolder } from '../../utils/file-actions';
+
+import { recursiveGroupByPath } from '@utils/folderUtils'
+import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtils'
+
+const useDropdownPosition = (btnRef, menuRef, isOpen) => {
+  const [pos, setPos] = useState({ top: 0, left: 0, up: false, ready: false })
+
+  useEffect(() => {
+    if (!isOpen || !btnRef.current) return
+    const btn = btnRef.current.getBoundingClientRect()
+    const menuHeight = menuRef.current?.offsetHeight || 180
+    const spaceBelow = window.innerHeight - btn.bottom
+    const up = spaceBelow < menuHeight + 8
+    setPos({
+      top: up ? btn.top - menuHeight - 4 : btn.bottom + 4,
+      left: Math.min(btn.right - 190, window.innerWidth - 200),
+      up,
+      ready: true
+    })
+  }, [isOpen])
+
+  useEffect(() => { if (!isOpen) setPos(p => ({ ...p, ready: false })) }, [isOpen])
+
+  return pos
+}
+
+const FolderPathErrorModal = ({ isOpen, onClose, message, storageLabel }) => {
+  if (!isOpen) return null
+  return ReactDOM.createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: '#fff', borderRadius: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', width: '380px', maxWidth: '95vw', overflow: 'hidden' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', padding: '20px 22px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              <line x1="12" y1="10" x2="12" y2="14"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontWeight: '700', fontSize: '16px', color: '#fff', lineHeight: 1.2 }}>Folder No Longer Available</div>
+            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', marginTop: '3px' }}>kmti-file-management</div>
+          </div>
+        </div>
+        <div style={{ padding: '22px' }}>
+          <div style={{ background: '#fff9f0', border: '1px solid #fed7aa', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '16px' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '1px' }}>
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <p style={{ margin: 0, fontSize: '14px', color: '#7c2d12', lineHeight: 1.5 }}>
+              {message || 'Unable to open folder path. This task is already done — the reference folder has been deleted from the NAS.'}
+            </p>
+          </div>
+          {storageLabel && (
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+              </svg>
+              <span style={{ fontSize: '13px', color: '#374151', fontWeight: '500' }}>{storageLabel}</span>
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '0 22px 20px', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{ padding: '10px 28px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', fontSize: '14px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(234,88,12,0.35)' }}
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownloadFolder, setFolderReviewModal, setFolderReviewComment, setToast }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [folderErrorModal, setFolderErrorModal] = useState({ isOpen: false, message: '', storageLabel: '' })
+  const btnRef = useRef(null)
+  const menuRef = useRef(null)
+  const pos = useDropdownPosition(btnRef, menuRef, isOpen)
+  const isReference = !setFolderReviewModal // reference folders have no review action
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClose = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target) && !btnRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClose)
+    return () => document.removeEventListener('mousedown', handleClose)
+  }, [isOpen])
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        className="tl-assignment-menu-btn"
+        style={{ fontSize: '13px', padding: '2px 6px', letterSpacing: '1px' }}
+        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen) }}
+        title="More options"
+      >
+        •••
+      </button>
+      {isOpen && ReactDOM.createPortal(
+        <div 
+          ref={menuRef}
+          className="tl-assignment-menu-dropdown" 
+          style={{ 
+            position: 'fixed', 
+            top: pos.top, 
+            left: pos.left, 
+            visibility: pos.ready ? 'visible' : 'hidden',
+            width: 'fit-content',
+            minWidth: 'unset',
+            maxWidth: 'fit-content',
+            zIndex: 99999, 
+            whiteSpace: 'normal',
+            background: 'white',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            transformOrigin: pos.up ? 'bottom right' : 'top right',
+            animation: 'dropdownFadeIn 0.15s ease-out',
+            padding: '4px'
+          }}
+        >
+          <button
+            className="tl-assignment-menu-item"
+            style={{ fontWeight: '600' }}
+            onClick={async (e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              if (!window.electron || !window.electron.openFolderInExplorer) {
+                setFolderErrorModal({ isOpen: true, message: 'Open Folder Path is only available in the desktop app.', storageLabel: 'NAS Storage · Reference File' })
+                return
+              }
+              const firstFile = folderFiles[0]
+              const type = isReference ? 'attachment' : 'file'
+              try {
+                const data = await apiFetch(`/api/files/${firstFile.id}/path?type=${type}`)
+                if (data.success && data.filePath) {
+                  const result = await window.electron.openFolderInExplorer(data.filePath)
+                  if (!result.success) {
+                    setFolderErrorModal({ isOpen: true, message: 'Could not open folder: ' + (result.error || 'Unknown error'), storageLabel: 'NAS Storage · Reference File' })
+                  } else {
+                    if (setToast) setToast({ isOpen: true, title: 'Opening Folder', message: `Opening path for ${folderName}...`, type: 'success' });
+                  }
+                } else {
+                  setFolderErrorModal({ isOpen: true, message: 'Unable to open folder path. This task is already done — the reference folder has been deleted from the NAS.', storageLabel: 'NAS Storage · Reference File' })
+                }
+              } catch (err) {
+                setFolderErrorModal({ isOpen: true, message: 'Unable to open folder path. This task is already done — the reference folder has been deleted from the NAS.', storageLabel: 'NAS Storage · Reference File' })
+              }
+            }}
+          >
+            📂 Open Folder Path
+          </button>
+          <button
+            className="tl-assignment-menu-item"
+            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}
+            onClick={async (e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              await handleDownloadFolder(folderFiles, folderName)
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download Folder
+          </button>
+          {!isReference && (
+            <button
+              className="tl-assignment-menu-item"
+              style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsOpen(false)
+                setFolderReviewComment('')
+                setFolderReviewModal({ folderName, folderFiles, assignmentId: assignment.id })
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
+                <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
+                <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span style={{ color: '#16a34a' }}>Approve</span>
+              <span style={{ color: '#9ca3af' }}> / </span>
+              <span style={{ color: '#dc2626' }}>Reject Folder</span>
+            </button>
+          )}
+        </div>,
+        document.body
+      )}
+      <FolderPathErrorModal
+        isOpen={folderErrorModal.isOpen}
+        onClose={() => setFolderErrorModal({ isOpen: false, message: '', storageLabel: '' })}
+        message={folderErrorModal.message}
+        storageLabel={folderErrorModal.storageLabel}
+      />
+    </>
+  )
+}
+
+const FileActionDropdown = ({ assignment, submission, isReference, handleDownloadFile, setToast }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [fileErrorModal, setFileErrorModal] = useState({ isOpen: false, message: '', storageLabel: '' })
+  const btnRef = useRef(null)
+  const menuRef = useRef(null)
+  const pos = useDropdownPosition(btnRef, menuRef, isOpen)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClose = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target) && !btnRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClose)
+    return () => document.removeEventListener('mousedown', handleClose)
+  }, [isOpen])
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        className="tl-assignment-menu-btn"
+        style={{ fontSize: '13px', padding: '2px 6px', letterSpacing: '1px' }}
+        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen) }}
+        title="More options"
+      >
+        •••
+      </button>
+      {isOpen && ReactDOM.createPortal(
+        <div 
+          ref={menuRef}
+          className="tl-assignment-menu-dropdown" 
+          style={{ 
+            position: 'fixed', 
+            top: pos.top, 
+            left: pos.left, 
+            visibility: pos.ready ? 'visible' : 'hidden',
+            width: 'fit-content',
+            minWidth: 'unset',
+            maxWidth: 'fit-content',
+            zIndex: 99999, 
+            whiteSpace: 'normal',
+            background: 'white',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            transformOrigin: pos.up ? 'bottom right' : 'top right',
+            animation: 'dropdownFadeIn 0.15s ease-out',
+            padding: '4px'
+          }}
+        >
+          <button
+            className="tl-assignment-menu-item"
+            style={{ fontWeight: '600' }}
+            onClick={async (e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              if (!window.electron || !window.electron.openFolderInExplorer) {
+                setFileErrorModal({ isOpen: true, message: 'Open File Path is only available in the desktop app.', storageLabel: 'NAS Storage · File' })
+                return
+              }
+              const type = isReference ? 'attachment' : 'file'
+              try {
+                const data = await apiFetch(`/api/files/${submission.id}/path?type=${type}`)
+                if (data.success && data.filePath) {
+                  const result = await window.electron.openFolderInExplorer(data.filePath)
+                  if (!result.success) {
+                    setFileErrorModal({ isOpen: true, message: 'Could not open file path: ' + (result.error || 'Unknown error'), storageLabel: 'NAS Storage · File' })
+                  } else {
+                    if (setToast) setToast({ isOpen: true, title: 'Opening File Path', message: `Opening path for ${submission.original_name || submission.file_name}...`, type: 'success' });
+                  }
+                } else {
+                  setFileErrorModal({ isOpen: true, message: 'Unable to open file path.', storageLabel: 'NAS Storage · File' })
+                }
+              } catch (err) {
+                setFileErrorModal({ isOpen: true, message: 'Unable to open file path.', storageLabel: 'NAS Storage · File' })
+              }
+            }}
+          >
+            📁 Open File Path
+          </button>
+          <button
+            className="tl-assignment-menu-item"
+            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}
+            onClick={async (e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              await (isReference ? handleDownloadFile(submission.id, submission.original_name, true) : handleDownloadFile(submission.id, submission.original_name || submission.file_name))
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download File
+          </button>
+        </div>,
+        document.body
+      )}
+      <FolderPathErrorModal
+        isOpen={fileErrorModal.isOpen}
+        onClose={() => setFileErrorModal({ isOpen: false, message: '', storageLabel: '' })}
+        message={fileErrorModal.message}
+        storageLabel={fileErrorModal.storageLabel}
+      />
+    </>
+  )
+}
 
 const AssignmentsTab = ({
   isLoadingAssignments,
@@ -23,15 +343,19 @@ const AssignmentsTab = ({
   highlightedAssignmentId,
   onClearHighlight,
   highlightedFileId,
+  highlightedFileStatus,
   onClearFileHighlight,
   markAssignmentAsDone,
+  undoMarkAsDone,
   handleEditAssignment,
-  onRefreshAssignments
+  onRefreshAssignments,
+  teamMembers
 }) => {
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedMembers, setSelectedMembers] = useState([])
 
   // Shared modal state - simplified to work like admin/user
+  const [searchQuery, setSearchQuery] = useState('')
   const [showCommentsModal, setShowCommentsModal] = useState(false)
   const [selectedAssignment, setSelectedAssignment] = useState(null)
   const [comments, setComments] = useState([])
@@ -45,9 +369,40 @@ const AssignmentsTab = ({
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [assignmentToDelete, setAssignmentToDelete] = useState(null)
   const [expandedAttachments, setExpandedAttachments] = useState({})
+  const [expandedSubmissions, setExpandedSubmissions] = useState({})
   const [commentCounts, setCommentCounts] = useState({}) // Track comment counts per assignment
+  const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
+  const [fileToOpen, setFileToOpen] = useState(null)
   const [openedFileIds, setOpenedFileIds] = useState(new Set())
   const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
+  // Map of fileId -> viewer count for instant update
+  const [viewerCounts, setViewerCounts] = useState({})
+  const [isPostingComment, setIsPostingComment] = useState(false)
+  const [isPostingReply, setIsPostingReply] = useState(false)
+  const [highlightCommentBy, setHighlightCommentBy] = useState(null)
+  const [highlightTargetCommentId, setHighlightTargetCommentId] = useState(null)
+
+  // Warm up the server's path cache when a folder is expanded
+  const prefetchFolderFiles = (files, type = 'file') => {
+    if (!files || files.length === 0) return
+    
+    // Use bulk prefetch to resolve all paths in one parallel request
+    const fileIds = files.map(f => f.id).filter(Boolean);
+    if (fileIds.length === 0) return;
+
+    apiFetch('/api/files/bulk-path', {
+      method: 'POST',
+      body: JSON.stringify({ fileIds, type })
+    }).catch(() => {}); // Ignore prefetch errors
+  }
+
+  // openedFileIds is scoped per-assignment: key = `${assignmentId}:${fileId}`
+  // This prevents a file viewed in task A from showing as Viewed in task B.
+  const makeViewedKey = (assignmentId, fileId) => `${assignmentId}:${fileId}`
+  const isFileViewed = (assignmentId, fileId) => openedFileIds.has(makeViewedKey(assignmentId, fileId))
+  const markFileViewed = (assignmentId, fileId) => {
+    setOpenedFileIds(prev => new Set([...prev, makeViewedKey(assignmentId, fileId)]))
+  }
 
   // Load from persistent storage on mount
   useEffect(() => {
@@ -55,10 +410,17 @@ const AssignmentsTab = ({
       try {
         let stored = null
         if (window.electron?.appStorage) {
-          stored = await window.electron.appStorage.get('kmti_opened_files_teamleader')
+          stored = await window.electron.appStorage.get('kmti_opened_files_tl_v2')
         }
-        if (!stored) stored = localStorage.getItem('kmti_opened_files_teamleader')
-        if (stored) setOpenedFileIds(new Set(JSON.parse(stored)))
+        if (!stored) stored = localStorage.getItem('kmti_opened_files_tl_v2')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          // Only load keys in the new "assignmentId:fileId" scoped format.
+          // Old bare numeric IDs from the previous format are discarded so
+          // re-uploaded files in new tasks never inherit a stale Viewed badge.
+          const scoped = parsed.filter(k => String(k).includes(':'))
+          setOpenedFileIds(new Set(scoped))
+        }
       } catch {}
       setOpenedFilesStorageReady(true)
     })()
@@ -69,15 +431,67 @@ const AssignmentsTab = ({
     if (!openedFilesStorageReady) return
     const data = JSON.stringify([...openedFileIds])
     if (window.electron?.appStorage) {
-      window.electron.appStorage.set('kmti_opened_files_teamleader', data)
+      window.electron.appStorage.set('kmti_opened_files_tl_v2', data)
     }
-    try { localStorage.setItem('kmti_opened_files_teamleader', data) } catch {}
+    try { localStorage.setItem('kmti_opened_files_tl_v2', data) } catch {}
   }, [openedFileIds, openedFilesStorageReady])
   const [expandedAssignmentFolders, setExpandedAssignmentFolders] = useState({}) // Track which folders are expanded in assignments
   const [openFolderMenuId, setOpenFolderMenuId] = useState(null) // Track which folder's 3-dot menu is open
   const [folderReviewModal, setFolderReviewModal] = useState(null) // { folderName, folderFiles, assignmentId }
   const [folderReviewComment, setFolderReviewComment] = useState('')
   const [isFolderProcessing, setIsFolderProcessing] = useState(false)
+
+  const [assignCheckerModal, setAssignCheckerModal] = useState(null) // { assignment }
+  const [selectedCheckerIds, setSelectedCheckerIds] = useState(new Set())
+  const [isAssigningChecker, setIsAssigningChecker] = useState(false)
+
+  // Tab toggle: 'tasks' = active tasks, 'done' = completed tasks
+  const [activeTaskTab, setActiveTaskTab] = useState('tasks')
+
+  // Team filter toggle: 'all' | 'KUSAKABE' | 'IT Dept'
+  const [teamFilter, setTeamFilter] = useState('all')
+
+  // Auto-switch to 'done' tab and correct team filter when navigating to a task
+  useEffect(() => {
+    if (!highlightedAssignmentId || assignments.length === 0) return
+    const target = assignments.find(a => a.id === highlightedAssignmentId || String(a.id) === String(highlightedAssignmentId))
+    if (target) {
+      if (target.status === 'completed') {
+        setActiveTaskTab('done')
+      }
+      if (target.team) {
+        setTeamFilter(target.team)
+      }
+    }
+  }, [highlightedAssignmentId, assignments])
+
+  // Loading state for Mark as Done
+  const [markingDoneId, setMarkingDoneId] = useState(null)
+
+  // Confirmation modal state for Mark as Done
+  const [markDoneConfirmModal, setMarkDoneConfirmModal] = useState({ isOpen: false, assignmentId: null, title: '' })
+
+  const handleMarkAsDone = async (assignmentId, title) => {
+    setMarkingDoneId(assignmentId)
+    try {
+      await markAssignmentAsDone(assignmentId, title)
+    } finally {
+      setMarkingDoneId(null)
+    }
+  }
+
+  // Undo Mark as Done
+  const [undoConfirmModal, setUndoConfirmModal] = useState({ isOpen: false, assignmentId: null, title: '' })
+  const [undoingDoneId, setUndoingDoneId] = useState(null)
+
+  const handleUndoMarkAsDone = (assignmentId, title) => {
+    setUndoingDoneId(assignmentId)
+    // Fire API call in the background — don't block on it since the
+    // optimistic update already updated the UI instantly.
+    // Dismiss the loading overlay after a short visual-feedback window.
+    undoMarkAsDone(assignmentId, title)
+    setTimeout(() => setUndoingDoneId(null), 700)
+  }
 
   // Remove attachment confirmation modal
   const [removeAttachmentModal, setRemoveAttachmentModal] = useState({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })
@@ -90,7 +504,88 @@ const AssignmentsTab = ({
     setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500)
   }
 
-  // Helpers moved to shared/utils/ui-helpers.js and file-actions.js
+  const recordView = async (fileId, isAttachment = false) => {
+    if (!user || !fileId) return
+    try {
+      await apiFetch(`/api/files/${fileId}/view?type=${isAttachment ? 'attachment' : 'submission'}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: user.id,
+          username: user.username,
+          fullName: user.fullName,
+          role: user.role || 'TEAM_LEADER'
+        })
+      })
+      // Fetch the real updated count so the badge matches the popover list
+      const data = await apiFetch(`/api/files/${fileId}/views?type=${isAttachment ? 'attachment' : 'submission'}`)
+      if (data.success) {
+        setViewerCounts(prev => ({ ...prev, [fileId]: (data.viewers || []).length }))
+      }
+    } catch {}
+  }
+
+  const handleDownloadFile = async (fileId, fileName) => {
+    const fileUrl = `${API_BASE_URL}/api/files/${fileId}/download`
+    if (window.electron && window.electron.downloadFile) {
+      const result = await window.electron.downloadFile(fileUrl, fileName)
+      if (result && !result.success && !result.canceled) {
+        alert('Download failed: ' + (result.error || 'Unknown error'))
+      } else if (result && result.success) {
+        triggerDownloadToast(fileName)
+      }
+    } else {
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      triggerDownloadToast(fileName)
+    }
+  }
+
+  const handleDownloadFolder = async (folderFiles, folderName) => {
+    if (!window.electron || !window.electron.downloadFolder) {
+      // Fallback for non-Electron (browser): use old zip approach
+      const fileIds = folderFiles.map(f => f.id).join(',')
+      const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.download = `${folderName}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      return
+    }
+
+    try {
+      // Resolve physical paths for all files in one batched server call
+      const fileIds = folderFiles.map(f => f.id).filter(Boolean)
+      const data = await apiFetch('/api/files/bulk-path', {
+        method: 'POST',
+        body: JSON.stringify({ fileIds, type: 'file' })
+      })
+
+      const fileInfoList = (data.results || []).map((r, i) => {
+        const file = folderFiles.find(f => f.id === r.id) || folderFiles[i] || {}
+        return {
+          srcPath: r.success ? r.path : null,
+          name: file.original_name || r.originalName,
+          relativePath: file.relative_path || null
+        }
+      })
+
+      const result = await window.electron.downloadFolder(folderName, fileInfoList)
+      if (result && result.success) {
+        triggerDownloadToast(folderName)
+      } else if (result && !result.success) {
+        alert('Download failed: ' + (result.error || 'Unknown error'))
+      }
+    } catch (err) {
+      alert('Download failed: ' + err.message)
+    }
+  }
+
 
   // Remove entire folder via dedicated folder-delete endpoint
   const handleRemoveAttachmentFolder = async (assignmentId, folderFiles) => {
@@ -169,20 +664,13 @@ const AssignmentsTab = ({
   const fetchComments = async (assignmentId) => {
     setLoadingComments(true)
     try {
-      console.log(`🔍 Fetching comments for assignment ${assignmentId}`)
       const data = await apiFetch(`/api/assignments/${assignmentId}/comments`)
-
-      console.log(`💬 Comments response for ${assignmentId}:`, data)
-
       if (data.success) {
-        console.log(`✅ Setting ${data.comments?.length || 0} comments for assignment ${assignmentId}`)
         setComments(data.comments || [])
       } else {
-        console.log(`❌ Failed to fetch comments for assignment ${assignmentId}`)
         setComments([])
       }
-    } catch (error) {
-      console.error('Error fetching comments:', error)
+    } catch {
       setComments([])
     } finally {
       setLoadingComments(false)
@@ -192,8 +680,9 @@ const AssignmentsTab = ({
   const postComment = async (e) => {
     e.preventDefault()
     const commentText = newComment.trim()
-    if (!commentText || !selectedAssignment) return
+    if (!commentText || !selectedAssignment || isPostingComment) return
 
+    setIsPostingComment(true)
     try {
       const data = await apiFetch(`/api/assignments/${selectedAssignment.id}/comments`, {
         method: 'POST',
@@ -211,14 +700,17 @@ const AssignmentsTab = ({
       }
     } catch (error) {
       console.error('Error posting comment:', error)
+    } finally {
+      setIsPostingComment(false)
     }
   }
 
   const postReply = async (e, commentId, replyTextArg, onSuccess) => {
     e.preventDefault()
     const replyTextValue = (replyTextArg ?? replyText).trim()
-    if (!replyTextValue || !selectedAssignment) return
+    if (!replyTextValue || !selectedAssignment || isPostingReply) return
 
+    setIsPostingReply(true)
     try {
       const data = await apiFetch(`/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`, {
         method: 'POST',
@@ -238,6 +730,8 @@ const AssignmentsTab = ({
       }
     } catch (error) {
       console.error('Error posting reply:', error)
+    } finally {
+      setIsPostingReply(false)
     }
   }
 
@@ -264,23 +758,26 @@ const AssignmentsTab = ({
     setVisibleReplies({})
   }
 
-  const deleteComment = async (commentId) => {
+  const deleteComment = async (assignmentId, commentId) => {
     try {
-      await apiFetch(`/api/assignments/comments/${commentId}`, { method: 'DELETE' })
-      if (selectedAssignment) {
-        fetchComments(selectedAssignment.id)
-        fetchCommentCount(selectedAssignment.id)
-      }
+      await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, { 
+        method: 'DELETE',
+        body: JSON.stringify({ userId: user.id })
+      })
+      if (selectedAssignment) fetchComments(selectedAssignment.id)
     } catch (err) {
       console.error('Error deleting comment:', err)
     }
   }
 
-  const editComment = async (commentId, newText) => {
+  const editComment = async (assignmentId, commentId, newText) => {
     try {
-      await apiFetch(`/api/assignments/comments/${commentId}`, {
+      await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
         method: 'PUT',
-        body: JSON.stringify({ comment: newText })
+        body: JSON.stringify({ 
+          userId: user.id,
+          comment: newText 
+        })
       })
       if (selectedAssignment) fetchComments(selectedAssignment.id)
     } catch (err) {
@@ -288,23 +785,26 @@ const AssignmentsTab = ({
     }
   }
 
-  const deleteReply = async (replyId) => {
+  const deleteReply = async (assignmentId, commentId, replyId) => {
     try {
-      await apiFetch(`/api/assignments/comments/${replyId}`, { method: 'DELETE' })
-      if (selectedAssignment) {
-        fetchComments(selectedAssignment.id)
-        fetchCommentCount(selectedAssignment.id)
-      }
+      await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, { 
+        method: 'DELETE',
+        body: JSON.stringify({ userId: user.id })
+      })
+      if (selectedAssignment) fetchComments(selectedAssignment.id)
     } catch (err) {
       console.error('Error deleting reply:', err)
     }
   }
 
-  const editReply = async (replyId, newText) => {
+  const editReply = async (assignmentId, commentId, replyId, newText) => {
     try {
-      await apiFetch(`/api/assignments/comments/${replyId}`, {
+      await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
         method: 'PUT',
-        body: JSON.stringify({ comment: newText })
+        body: JSON.stringify({ 
+          userId: user.id,
+          reply: newText 
+        })
       })
       if (selectedAssignment) fetchComments(selectedAssignment.id)
     } catch (err) {
@@ -319,6 +819,7 @@ const AssignmentsTab = ({
     items: assignments,
     highlightedItemId: highlightedAssignmentId,
     highlightedFileId,
+    highlightedFileStatus,
     notificationContext: notificationCommentContext,
     onClearHighlight,
     onClearFileHighlight,
@@ -327,32 +828,83 @@ const AssignmentsTab = ({
     setVisibleReplies,
     showCommentsModal,
     selectedItem: selectedAssignment,
-    comments
+    comments,
+    setHighlightUsername: setHighlightCommentBy,
+    setHighlightCommentId: setHighlightTargetCommentId
   });
 
+  // Track which highlightedFileId we've already processed so the effect
+  // doesn't re-fire when `assignments` refreshes via SSE while the same
+  // highlightedFileId is still set.
+  const processedHighlightFileIdRef = React.useRef(null);
+  // Reset the ref whenever highlightedFileId is cleared so the next
+  // notification click for the same fileId works correctly.
+  useEffect(() => {
+    if (!highlightedFileId) processedHighlightFileIdRef.current = null;
+  }, [highlightedFileId]);
+  // Expand the submissions panel for the assignment containing highlightedFileId,
+  // then highlight the folder row (WITHOUT opening it) and scroll it into view.
+  useEffect(() => {
+    if (!highlightedFileId || assignments.length === 0) return;
+    // Already handled this fileId — don't re-run on assignments refresh
+    if (processedHighlightFileIdRef.current === highlightedFileId) return;
+    const fid = parseInt(highlightedFileId);
+    for (const assignment of assignments) {
+      const allFiles = assignment.recent_submissions || assignment.submitted_files || [];
+      const targetFile = allFiles.find(f => f.id === fid || f.file_id === fid);
+      if (targetFile) {
+        // Mark as processed BEFORE any async/timeout work
+        processedHighlightFileIdRef.current = highlightedFileId;
+        // 1. Expand the submissions section for this assignment (so the folder row is visible)
+        setExpandedSubmissions(prev => prev[assignment.id] ? prev : { ...prev, [assignment.id]: true });
+        // 2. If the file is inside a folder, highlight the folder row — do NOT open it.
+        if (targetFile.folder_name) {
+          const folderKey = `${assignment.id}__file__${targetFile.folder_name}`;
+          // 3. Poll until the folder row is in the DOM (it appears once submissions section expands)
+          let attempts = 0;
+          const MAX = 30;
+          const tryHighlightFolder = () => {
+            const folderEl = document.querySelector(`[data-folder-key=${CSS.escape(folderKey)}]`);
+            if (!folderEl) {
+              if (++attempts < MAX) setTimeout(tryHighlightFolder, 100);
+              return;
+            }
+            folderEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            folderEl.classList.add('tl-assignment-folder-highlighted');
+            setTimeout(() => folderEl.classList.remove('tl-assignment-folder-highlighted'), 3000);
+          };
+          setTimeout(tryHighlightFolder, 80);
+        }
+        break;
+      }
+    }
+  }, [highlightedFileId, assignments]);
+
   const toggleAttachments = (assignmentId) => {
-    setExpandedAttachments(prev => ({
-      ...prev,
-      [assignmentId]: !prev[assignmentId]
-    }))
+    setExpandedAttachments(prev => {
+      const newState = !prev[assignmentId];
+      if (newState) {
+        const assignment = assignments.find(a => a.id === assignmentId);
+        if (assignment && assignment.attachments) {
+          prefetchFolderFiles(assignment.attachments, 'attachment');
+        }
+      }
+      return { ...prev, [assignmentId]: newState };
+    });
   }
 
-  const openFolderInExplorer = useCallback(async (file) => {
-    if (!file) return;
-    try {
-      const pathData = await apiFetch(`/api/files/${file.id}/path`);
-      if (!pathData.success) throw new Error('Failed to get file path');
-      const filePath = pathData.filePath;
-      if (window.electron && typeof window.electron.openFolderInExplorer === 'function') {
-        const result = await window.electron.openFolderInExplorer(filePath);
-        if (!result.success) throw new Error(result.error || 'Failed to open folder path');
-      } else {
-        console.warn('Open folder path is only available in Electron app');
+  const toggleSubmissions = (assignmentId) => {
+    setExpandedSubmissions(prev => {
+      const newState = !prev[assignmentId];
+      if (newState) {
+        const assignment = assignments.find(a => a.id === assignmentId);
+        if (assignment && assignment.recent_submissions) {
+          prefetchFolderFiles(assignment.recent_submissions, 'file');
+        }
       }
-    } catch (error) {
-      console.error('Error opening folder path:', error);
-    }
-  }, []);
+      return { ...prev, [assignmentId]: newState };
+    });
+  }
 
   const formatRelativeTime = (dateString) => {
     const date = new Date(dateString)
@@ -378,35 +930,6 @@ const AssignmentsTab = ({
       hour: '2-digit',
       minute: '2-digit'
     })
-  }
-
-  const formatDaysLeft = (dateString) => {
-    if (!dateString) return ''
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = date - now
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      return `${Math.abs(diffDays)} days overdue`
-    } else if (diffDays === 0) {
-      return 'Due today'
-    } else if (diffDays === 1) {
-      return '1 day left'
-    } else {
-      return `${diffDays} days left`
-    }
-  }
-
-  const getStatusColor = (dueDate) => {
-    if (!dueDate) return '#95a5a6'
-    const date = new Date(dueDate)
-    const now = new Date()
-    const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) return '#e74c3c'
-    if (diffDays <= 2) return '#f39c12'
-    return '#27ae60'
   }
 
   const handleShowMembers = (members, e) => {
@@ -476,8 +999,15 @@ const AssignmentsTab = ({
   const groupFilesByFolder = useCallback((files) => {
     const folders = {}
     const individualFiles = []
+    if (!files || !Array.isArray(files)) return { folders, individualFiles }
 
-    files.forEach(file => {
+    const sortedFiles = [...files].sort((a, b) => {
+      const nameA = (a.original_name || a.filename || a.file_name || '').toLowerCase();
+      const nameB = (b.original_name || b.filename || b.file_name || '').toLowerCase();
+      return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    sortedFiles.forEach(file => {
       if (file.folder_name) {
         // File is part of a folder
         if (!folders[file.folder_name]) {
@@ -490,7 +1020,12 @@ const AssignmentsTab = ({
       }
     })
 
-    return { folders, individualFiles }
+    const sortedFolders = {}
+    Object.keys(folders).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).forEach(key => {
+      sortedFolders[key] = folders[key];
+    });
+
+    return { folders: sortedFolders, individualFiles }
   }, [])
 
   const formatFileSize = (bytes) => {
@@ -544,51 +1079,745 @@ const AssignmentsTab = ({
           </button>
         </div>
 
-        {assignments.length === 0 ? (
+        {/* Tasks / Done Tasks Toggle */}
+        <div style={{ display: 'flex', gap: '0', marginBottom: '18px', background: '#f3f4f6', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
+          <button
+            onClick={() => setActiveTaskTab('tasks')}
+            style={{
+              padding: '7px 22px', borderRadius: '8px', border: 'none',
+              fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
+              transition: 'all 0.18s',
+              background: activeTaskTab === 'tasks' ? '#fff' : 'transparent',
+              color: activeTaskTab === 'tasks' ? '#111827' : '#6b7280',
+              boxShadow: activeTaskTab === 'tasks' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+            Tasks
+            <span style={{
+              marginLeft: '7px', fontSize: '12px', fontWeight: '700',
+              background: activeTaskTab === 'tasks' ? '#e0e7ff' : '#e5e7eb',
+              color: activeTaskTab === 'tasks' ? '#4338ca' : '#9ca3af',
+              padding: '1px 8px', borderRadius: '10px'
+            }}>
+              {assignments.filter(a => a.status !== 'completed' && (teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter)).length}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTaskTab('done')}
+            style={{
+              padding: '7px 22px', borderRadius: '8px', border: 'none',
+              fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
+              transition: 'all 0.18s',
+              background: activeTaskTab === 'done' ? '#fff' : 'transparent',
+              color: activeTaskTab === 'done' ? '#111827' : '#6b7280',
+              boxShadow: activeTaskTab === 'done' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Done Tasks
+            <span style={{
+              marginLeft: '7px', fontSize: '12px', fontWeight: '700',
+              background: activeTaskTab === 'done' ? '#dcfce7' : '#e5e7eb',
+              color: activeTaskTab === 'done' ? '#15803d' : '#9ca3af',
+              padding: '1px 8px', borderRadius: '10px'
+            }}>
+              {assignments.filter(a => a.status === 'completed' && (teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter)).length}
+            </span>
+          </button>
+        </div>
+
+        {/* Team Filter Toggle */}
+        {(() => {
+          // Derive which teams actually exist in the assignments list
+          const teams = [...new Set(assignments.map(a => a.team).filter(Boolean))].sort()
+          // Only show the toggle if there are 2+ distinct teams
+          if (teams.length < 2) return null
+          // Color palette — cycles for any number of teams
+          const palette = [
+            { bg: '#7c3aed', shadow: 'rgba(124,58,237,0.30)', dot: '#7c3aed' },
+            { bg: '#0284c7', shadow: 'rgba(2,132,199,0.30)',   dot: '#0284c7' },
+            { bg: '#059669', shadow: 'rgba(5,150,105,0.30)',   dot: '#059669' },
+            { bg: '#d97706', shadow: 'rgba(217,119,6,0.30)',   dot: '#d97706' },
+            { bg: '#dc2626', shadow: 'rgba(220,38,38,0.30)',   dot: '#dc2626' },
+            { bg: '#db2777', shadow: 'rgba(219,39,119,0.30)',  dot: '#db2777' },
+          ]
+          const filterOptions = [
+            { value: 'all', label: 'All Teams', color: null },
+            ...teams.map((t, i) => ({ value: t, label: t, color: palette[i % palette.length] }))
+          ]
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#6b7280', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
+              <div style={{ display: 'flex', gap: '0', background: '#f3f4f6', borderRadius: '10px', padding: '3px', flexWrap: 'wrap' }}>
+                {filterOptions.map(opt => {
+                  const isActive = teamFilter === opt.value
+                  const c = opt.color
+                  const activeBg = c && isActive ? c.bg : (isActive ? '#fff' : 'transparent')
+                  const activeColor = c && isActive ? '#fff' : (isActive ? '#111827' : '#6b7280')
+                  const activeShadow = c && isActive ? `0 2px 8px ${c.shadow}` : (isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none')
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setTeamFilter(opt.value)}
+                      style={{
+                        padding: '5px 16px', borderRadius: '8px', border: 'none',
+                        fontWeight: '600', fontSize: '12.5px', cursor: 'pointer',
+                        transition: 'all 0.18s',
+                        background: activeBg,
+                        color: activeColor,
+                        boxShadow: activeShadow,
+                        display: 'flex', alignItems: 'center', gap: '5px',
+                      }}
+                    >
+                      {c && (
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.7)' : c.dot, display: 'inline-block', flexShrink: 0 }} />
+                      )}
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Search Bar */}
+        <div style={{ margin: '0 0 16px 0', position: 'relative', maxWidth: '320px' }}>
+          <svg style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#c4c9d4', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              padding: '8px 28px 8px 28px',
+              border: '1.5px solid #e8eaed', borderRadius: '8px',
+              fontSize: '13.5px', color: '#374151',
+              outline: 'none', background: '#fff',
+              transition: 'border-color 0.15s',
+              boxShadow: 'none'
+            }}
+            onFocus={e => e.target.style.borderColor = '#c4c9d4'}
+            onBlur={e => e.target.style.borderColor = '#e8eaed'}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#c4c9d4', fontSize: '15px', lineHeight: 1, padding: '1px' }}
+            >×</button>
+          )}
+        </div>
+
+        {(() => {
+          const tabFiltered = assignments.filter(a => {
+            const tabMatch = activeTaskTab === 'done' ? a.status === 'completed' : a.status !== 'completed'
+            const teamMatch = teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter
+            return tabMatch && teamMatch
+          })
+          const filteredAssignments = searchQuery.trim()
+            ? tabFiltered.filter(a => {
+                const q = searchQuery.toLowerCase()
+                const matchesQuery = (text) => {
+                  if (!text) return false;
+                  const normText = String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                  const normQuery = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                  
+                  if (normText.includes(normQuery)) return true;
+                  
+                  // Michael/Micheal typo tolerance
+                  const altQuery = normQuery.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+                  if (normText.includes(altQuery)) return true;
+                  
+                  const altText = normText.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+                  if (altText.includes(normQuery) || altText.includes(altQuery)) return true;
+                  
+                  return false;
+                };
+
+                return (
+                  matchesQuery(a.title) ||
+                  matchesQuery(a.description) ||
+                  matchesQuery(a.team_leader_username) ||
+                  matchesQuery(a.team_leader_fullname) ||
+                  (a.assigned_member_details || []).some(m =>
+                    matchesQuery(m.fullName) ||
+                    matchesQuery(m.username)
+                  ) ||
+                  (a.attachments || []).some(f => 
+                    matchesQuery(f.original_name) ||
+                    matchesQuery(f.file_name) ||
+                    matchesQuery(f.folder_name)
+                  ) ||
+                  (a.submissions || a.recent_submissions || []).some(f => 
+                    matchesQuery(f.original_name) ||
+                    matchesQuery(f.file_name) ||
+                    matchesQuery(f.folder_name)
+                  )
+                )
+              })
+            : tabFiltered
+          return filteredAssignments.length === 0 ? (
           <div className="tl-empty-state">
-            <div className="tl-empty-state-icon">📋</div>
-            <h3>No tasks yet</h3>
-            <p>Create your first task to get started</p>
-            <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)}>
-              Create Task
-            </button>
+            <div className="tl-empty-state-icon">{activeTaskTab === 'done' ? '✅' : '📋'}</div>
+            <h3>{searchQuery ? 'No Results Found' : activeTaskTab === 'done' ? 'No completed tasks yet' : 'No tasks yet'}</h3>
+            <p>{searchQuery ? `No tasks match "${searchQuery}".` : activeTaskTab === 'done' ? 'Tasks marked as done will appear here.' : 'Create your first task to get started'}</p>
+            {!searchQuery && activeTaskTab === 'tasks' && (
+              <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)}>
+                Create Task
+              </button>
+            )}
           </div>
         ) : (
           <div className="tl-assignments-feed-container">
-            {assignments.map((assignment) => (
-              <PremiumTaskCard
+            {filteredAssignments.map((assignment) => (
+              <div
                 key={assignment.id}
-                task={{
-                  ...assignment,
-                  comment_count: commentCounts[assignment.id] !== undefined ? commentCounts[assignment.id] : assignment.comment_count
-                }}
-                role="teamleader"
-                onCommentClick={openCommentsModal}
-                onActionClick={(action, t) => {
-                  if (action === 'delete') {
-                    setAssignmentToDelete({ id: t.id, title: t.title });
-                    setShowDeleteConfirmation(true);
-                  }
-                  if (action === 'edit') handleEditAssignment(t);
-                  if (action === 'refresh') onRefreshAssignments?.();
-                }}
-                onPrimaryClick={(action, t) => {
-                  if (action === 'done') markAssignmentAsDone(t.id, t.title);
-                }}
-                onFileClick={(file) => { 
-                  setOpenedFileIds(prev => new Set([...prev, file.id])); 
-                  // For Team Leaders, clicking a submission opens the review modal
-                  if (openReviewModal) openReviewModal(file, 'approve');
-                }}
-                onReviewFolder={(name, files) => setFolderReviewModal({ folderName: name, folderFiles: files, assignmentId: assignment.id })}
-                onFileDelete={(file) => setRemoveAttachmentModal({ isOpen: true, attachmentId: file.id, attachmentName: file.original_name, assignmentId: assignment.id })}
-                onOpenPath={openFolderInExplorer}
-                openedFileIds={openedFileIds}
-                className="tl-task-card-margin"
-              />
+                id={`tl-assignment-${assignment.id}`}
+                className="tl-assignment-card"
+              >
+                <div className="tl-assignment-card-header">
+                  <div className="tl-assignment-header-left">
+                    <div className="tl-assignment-avatar" style={{ background: 'transparent' }}>
+                      <Avatar user={{
+                        username: assignment.team_leader_username,
+                        fullName: assignment.team_leader_fullname || assignment.team_leader_full_name,
+                        profile_picture: assignment.team_leader_profile_picture
+                      }} size="md" />
+                    </div>
+                    <div className="tl-assignment-header-info">
+                      <div className="tl-assignment-team-leader-info">
+                        <span className="tl-assignment-team-leader-name" style={{ fontWeight: '700' }}>
+                          {assignment.team_leader_fullname || assignment.team_leader_full_name || user.fullName || assignment.team_leader_username || 'KMTI Team Leader'}
+                        </span>
+                        <span className="tl-assignments-role-badge team-leader">TEAM LEADER</span>
+                        <span className="tl-assignment-assigned-to-text"> assigned to</span>
+                        <span className="tl-assignment-assigned-user-wrapper">
+                          {renderAssignedTo(assignment)}
+                        </span>
+                      </div>
+                      {(() => {
+                        try {
+                          const names = JSON.parse(assignment.checker_names || '[]')
+                          if (!names.length) return null
+                          return (
+                            <div style={{ fontSize: '15px', color: '#6b7280', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: '700', color: '#374151' }}>Check by:</span>
+                              {names.map((name, i) => (
+                                <span key={i} style={{ color: '#4f46e5', fontWeight: '700' }}>
+                                  {name}{i < names.length - 1 ? ',' : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )
+                        } catch { return null }
+                      })()}
+                      <div className="tl-assignment-created">
+                        📅 Assigned on: {formatDateTime(assignment.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="tl-assignment-header-right">
+                    {assignment.status === 'completed' ? (
+                      <div className="tl-assignment-status-badge completed">
+                        ✓ Completed
+                      </div>
+                    ) : assignment.status === 'checked' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        <div style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          ✓ Checked
+                        </div>
+                        {(() => {
+                          const checkerName = assignment.recent_submissions?.find(f => f.checked_by)?.checked_by;
+                          if (!checkerName) return null;
+                          return (
+                            <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
+                              Checked by : <span style={{ color: '#1D4ED8', fontWeight: '700' }}>{checkerName}</span>
+                            </div>
+                          );
+                        })()} 
+                      </div>
+                    ) : assignment.recent_submissions?.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                    <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                    For Checking
+                    </div>
+                    {(assignment.due_date || assignment.dueDate) && (
+                    <div className="tl-assignment-due-date" style={{ fontSize: '12px' }}>
+                    Due {formatDate(assignment.due_date || assignment.dueDate)}
+                    <span className="tl-assignment-days-left" style={{ color: getBusinessDaysColor(assignment.due_date || assignment.dueDate, assignment.ot_dates) }}>
+                    {' '}({formatBusinessDaysLeft(assignment.due_date || assignment.dueDate, assignment.ot_dates)})
+                    </span>
+                    </div>
+                    )}
+                        {assignment.due_date_edited ? (
+                          <div style={{ marginTop: '4px' }}>
+                            <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              ✎ Due Date Edited
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      (assignment.due_date || assignment.dueDate) && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                          <div className="tl-assignment-due-date">
+                            Due {formatDate(assignment.due_date || assignment.dueDate)}
+                            <span
+                              className="tl-assignment-days-left"
+                              style={{ color: getBusinessDaysColor(assignment.due_date || assignment.dueDate, assignment.ot_dates) }}
+                            >
+                              {' '}({formatBusinessDaysLeft(assignment.due_date || assignment.dueDate, assignment.ot_dates)})
+                            </span>
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              ✎ Due Date Edited
+                            </span>
+                          ) : null}
+                        </div>
+                      )
+                    )}
+                    </div>
+                    <div className="tl-assignment-card-menu">
+                      <button
+                        className="tl-assignment-menu-btn"
+                        onClick={() => setShowMenuForAssignment(showMenuForAssignment === assignment.id ? null : assignment.id)}
+                        title="More options"
+                      >
+                        ⋮
+                      </button>
+                      {showMenuForAssignment === assignment.id && (
+                        <div className="tl-assignment-menu-dropdown">
+                          <button
+                            className="tl-assignment-menu-item"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setAssignCheckerModal({ assignment })
+                              const existingIds = (() => { try { return new Set((JSON.parse(assignment.checker_ids || '[]')).map(String)) } catch { return new Set() } })()
+                              setSelectedCheckerIds(existingIds)
+                              setShowMenuForAssignment(null)
+                            }}
+                          >
+                            Assign Checker
+                          </button>
+                          <button
+                            className="tl-assignment-menu-item"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setMarkDoneConfirmModal({ isOpen: true, assignmentId: assignment.id, title: assignment.title })
+                              setShowMenuForAssignment(null)
+                            }}
+                            disabled={assignment.status === 'completed'}
+                          >
+                            {assignment.status === 'completed' ? '✓ Marked as Done' : 'Mark as Done'}
+                          </button>
+                          {assignment.status === 'completed' && (
+                            <button
+                              className="tl-assignment-menu-item"
+                              style={{ color: '#d97706' }}
+                              onClick={() => {
+                                setUndoConfirmModal({ isOpen: true, assignmentId: assignment.id, title: assignment.title })
+                                setShowMenuForAssignment(null)
+                              }}
+                            >
+                              ↩ Undo Mark as Done
+                            </button>
+                          )}
+                          <button
+                            className="tl-assignment-menu-item"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleEditAssignment(assignment)
+                              setShowMenuForAssignment(null)
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="tl-assignment-menu-item tl-assignment-delete-menu-item"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setAssignmentToDelete({ id: assignment.id, title: assignment.title })
+                              setShowDeleteConfirmation(true)
+                              setShowMenuForAssignment(null)
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                  </div>
+                </div>
+
+                <div className="tl-assignment-task-title-section">
+                  <div className="tl-assignment-title-with-team">
+                    <h3 className="tl-assignment-title">{assignment.title}</h3>
+                    {assignment.team && (
+                      <span className="tl-assignment-team-badge" data-team={assignment.team}>
+                        {assignment.team}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {assignment.description ? (
+                  <div className="tl-assignment-task-description-section">
+                    <p className="tl-assignment-description">{assignment.description}</p>
+                  </div>
+                ) : (
+                  <div className="tl-assignment-task-description-section">
+                    <p className="tl-assignment-no-description">No description</p>
+                  </div>
+                )}
+
+                {/* Unified Recursive Files Section */}
+                <div className="tl-assignment-attachment-section">
+                  {((assignment.attachments && assignment.attachments.length > 0) || (assignment.recent_submissions && assignment.recent_submissions.length > 0)) ? (
+                    <div className="tl-assignment-files-container">
+                      {(() => {
+                        const attachments = assignment.attachments || [];
+                        const submissions = assignment.recent_submissions || [];
+                        const revisionCount = submissions.filter(f => f.status === 'revision').length;
+                        
+                        const renderRecursiveSubmissions = (files, level = 0, parentKey = '', type = 'file', parentIsLastArr = []) => {
+                          const { subfolders, rootFiles } = recursiveGroupByPath(files);
+                          const items = [];
+                          const isReference = type === 'attachment';
+
+                          const subfolderEntries = Object.entries(subfolders);
+                          const totalSubfolders = subfolderEntries.length;
+                          const totalRootFiles = rootFiles.length;
+
+                          // 1. Render Subfolders
+                          subfolderEntries.forEach(([folderName, folderFiles], index) => {
+                            const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
+                            const currentKey = parentKey ? `${parentKey}__${folderName}` : `${type}__${folderName}`;
+                            const isExpanded = expandedAssignmentFolders[`${assignment.id}__${currentKey}`];
+                            
+                            items.push(
+                              <React.Fragment key={`folder-${currentKey}`}>
+                                <div className="tl-tree-container">
+                                  {parentIsLastArr.map((isLastParent, i) => (
+                                    <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                                  ))}
+                                  {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                                  <div
+                                    data-folder-key={`${assignment.id}__${currentKey}`}
+                                    className={`tl-assignment-file-item tl-folder-row ${level > 0 ? 'tl-in-tree' : ''}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const newKey = `${assignment.id}__${currentKey}`;
+                                      const newState = !expandedAssignmentFolders[newKey];
+                                      setExpandedAssignmentFolders(prev => ({ ...prev, [newKey]: newState }));
+                                      if (newState) prefetchFolderFiles(folderFiles.map(f => f.file || f), type);
+                                    }}
+                                    style={{ 
+                                      cursor: 'pointer', 
+                                      background: isExpanded ? 'linear-gradient(90deg, #eff6ff 0%, #ffffff 100%)' : '#f8fafc', 
+                                      padding: '14px 20px', 
+                                      marginBottom: '8px', 
+                                      borderRadius: '12px',
+                                      marginLeft: level === 0 ? '0px' : '0px', // We use tree lines now
+                                      boxShadow: isExpanded ? '0 2px 8px rgba(0, 0, 0, 0.08)' : 'none',
+                                      transition: 'all 0.2s ease',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      flex: 1
+                                    }}
+                                  >
+                                    <div style={{ 
+                                      fontSize: '30px', 
+                                      width: '44px', 
+                                      height: '44px', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      justifyContent: 'center',
+                                      background: isExpanded ? '#dbeafe' : '#f1f5f9',
+                                      color: isExpanded ? '#2563eb' : '#64748b',
+                                      borderRadius: '8px',
+                                      marginRight: '14px',
+                                      flexShrink: 0,
+                                      position: 'relative',
+                                      zIndex: 2
+                                    }}>
+                                      {isExpanded ? '📂' : '📁'}
+                                    </div>
+                                    <div className="tl-assignment-file-details">
+                                      <div className="tl-assignment-file-name" style={{ fontWeight: '700', fontSize: '15.5px', color: '#1e293b' }}>{folderName}</div>
+                                      <div className="tl-assignment-file-meta" style={{ fontSize: '12px' }}>
+                                        <span style={{ color: '#64748b', fontWeight: '500' }}>{folderFiles.length} items</span>
+                                        {!isReference && (() => {
+                                          const firstFile = folderFiles[0]?.file || folderFiles[0];
+                                          const submitter = firstFile?.fullName || firstFile?.username;
+                                          const submittedAt = firstFile?.submitted_at || firstFile?.uploaded_at;
+                                          return submitter ? (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', marginLeft: '6px' }}>
+                                              <span style={{ color: '#9ca3af' }}>•</span>
+                                              <span style={{ color: '#374151' }}>by <span style={{ fontWeight: '600', color: '#2563eb' }}>{submitter}</span></span>
+                                              {submittedAt && (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                                                  </svg>
+                                                  {formatDateTime(submittedAt)}
+                                                </span>
+                                              )}
+                                            </span>
+                                          ) : null;
+                                        })()}
+                                        {isReference && (() => {
+                                          const firstFile = folderFiles[0]?.file || folderFiles[0];
+                                          const uploadedAt = firstFile?.created_at || firstFile?.uploaded_at;
+                                          return uploadedAt ? (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280', marginLeft: '6px' }}>
+                                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                                              </svg>
+                                              {formatDateTime(uploadedAt)}
+                                            </span>
+                                          ) : null;
+                                        })()}
+                                        {isReference && <span className="tl-badge-reference" style={{ marginLeft: '8px' }}>Reference</span>}
+                                        {!isReference && folderFiles.some(f => (f.file?.status || f.status) === 'revision') && (
+                                          <span className="tl-badge-revision" style={{ marginLeft: '8px' }}>
+                                            Checked - Need to Edit ({folderFiles.filter(f => (f.file?.status || f.status) === 'revision').length})
+                                          </span>
+                                        )}
+                                        {!isReference && folderFiles.every(f => (f.file?.status || f.status) === 'checked') && (
+                                          <span style={{ marginLeft: '8px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
+                                            ✓ All Checked
+                                          </span>
+                                        )}
+                                        {!isReference && !folderFiles.every(f => (f.file?.status || f.status) === 'checked') && folderFiles.some(f => (f.file?.status || f.status) === 'checked') && (
+                                          <span style={{ marginLeft: '8px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
+                                            Checked ({folderFiles.filter(f => (f.file?.status || f.status) === 'checked').length})
+                                          </span>
+                                        )}
+                                        {!isReference && (() => {
+                                          const rejectedCount = folderFiles.filter(f => {
+                                            const s = f.file?.status || f.status;
+                                            return s === 'rejected' || s === 'rejected_by_team_leader' || s === 'rejected_by_admin';
+                                          }).length;
+                                          return rejectedCount > 0 ? (
+                                            <span style={{ marginLeft: '8px', background: '#FEE2E2', color: '#DC2626', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #FECACA' }}>
+                                              ✕ Rejected ({rejectedCount})
+                                            </span>
+                                          ) : null;
+                                        })()}
+                                        {!isReference && (() => {
+                                          const pendingAdminCount = folderFiles.filter(f => (f.file?.status || f.status) === 'team_leader_approved').length;
+                                          return pendingAdminCount > 0 ? (
+                                            <span style={{ marginLeft: '8px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #BFDBFE' }}>
+                                              Pending Admin ({pendingAdminCount})
+                                            </span>
+                                          ) : null;
+                                        })()}
+                                      </div>
+                                    </div>
+                                    <div className="tl-folder-menu-wrapper" style={{ marginLeft: 'auto' }}>
+                                      <FolderActionDropdown
+                                        assignment={assignment}
+                                        folderName={folderName}
+                                        folderFiles={folderFiles.map(f => f.file || f)}
+                                        handleDownloadFolder={handleDownloadFolder}
+                                        setFolderReviewModal={isReference ? null : setFolderReviewModal}
+                                        setFolderReviewComment={isReference ? null : setFolderReviewComment}
+                                        setToast={setToast}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                                {isExpanded && renderRecursiveSubmissions(folderFiles, level + 1, currentKey, type, [...parentIsLastArr, isLast])}
+                              </React.Fragment>
+                            );
+                          });
+
+                          // 2. Render root files
+                          rootFiles.forEach((item, index) => {
+                            const isLast = index === totalRootFiles - 1;
+                            const submission = item.file || item;
+                            const isViewed = isFileViewed(assignment.id, submission.id);
+                            
+                            items.push(
+                              <div className="tl-tree-container" key={submission.id}>
+                                {parentIsLastArr.map((isLastParent, i) => (
+                                  <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                                ))}
+                                {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                                <div
+                                  data-file-id={submission.file_id || submission.id}
+                                  className={`tl-assignment-file-item ${isViewed ? 'file-card-opened' : ''} ${level > 0 ? 'tl-in-tree' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!isReference) {
+                                      if (openReviewModal && submission.id) {
+                                        openReviewModal(submission, null, (fileId) => {
+                                          setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }));
+                                          markFileViewed(assignment.id, fileId);
+                                        });
+                                      }
+                                    } else {
+                                      setFileToOpen({ ...submission, isAttachment: true, assignmentId: assignment.id });
+                                      setShowOpenFileConfirmation(true);
+                                    }
+                                  }}
+                                  style={{ 
+                                    cursor: 'pointer', 
+                                    marginLeft: level === 0 ? '0px' : '0px', 
+                                    padding: '14px 20px', 
+                                    marginBottom: '8px',
+                                    flex: 1
+                                  }}
+                                >
+                                  <FileIcon
+                                    fileType={(submission.original_name || submission.file_name || '').split('.').pop()}
+                                    size="default"
+                                    style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px', position: 'relative', zIndex: 2 }}
+                                    className="tl-assignment-file-icon"
+                                  />
+                                  <div className="tl-assignment-file-details">
+                                    <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px', fontWeight: '500' }}>{submission.original_name || submission.file_name}</span>
+                                      {isViewed && <span className="tl-viewed-badge">✓ Viewed</span>}
+                                    </div>
+                                    <div className="tl-assignment-file-meta" style={{ fontSize: '12px' }}>
+                                      {isReference ? (
+                                        <span className="tl-badge-reference">Reference Attachment</span>
+                                      ) : (
+                                        <>
+                                          <span>by <span className="tl-assignment-file-submitter">{submission.fullName || submission.username || 'Unknown'}</span></span>
+                                          {submission.submitted_at || submission.uploaded_at ? (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                                              </svg>
+                                              {formatDateTime(submission.submitted_at || submission.uploaded_at)}
+                                            </span>
+                                          ) : null}
+                                          {submission.tag && <span className="tl-assignment-file-tag">🏷️ {submission.tag}</span>}
+                                          <span className={`tl-assignment-file-status ${submission.status}`}>
+                                            {submission.status === 'checked' ? '✓ Checked' :
+                                            submission.status === 'uploaded' ? 'New' : 
+                                            submission.status === 'under_revision' ? '✎ Revised' :
+                                            submission.status === 'revision' ? '⚠ Checked - Need to Edit' :
+                                            submission.status === 'team_leader_approved' ? 'Pending Admin' : 
+                                            submission.status === 'final_approved' ? '✓ Approved' : 
+                             (submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending'}
+                                          </span>
+                                          {submission.status === 'checked' && submission.checked_by && (
+                                            <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '500' }}>
+                                              Checked by : <span style={{ color: '#1D4ED8', fontWeight: '700' }}>{submission.checked_by}</span>
+                                            </span>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <FileViewersButton fileId={submission.id} externalCount={viewerCounts[submission.id]} fileSource={isReference ? 'attachment' : 'submission'} />
+
+                                  <div className="tl-folder-menu-wrapper" style={{ marginLeft: '4px' }} onClick={e => e.stopPropagation()}>
+                                    <FileActionDropdown
+                                      assignment={assignment}
+                                      submission={submission}
+                                      isReference={isReference}
+                                      handleDownloadFile={handleDownloadFile}
+                                      setToast={setToast}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          });
+
+                          return items;
+                        };
+
+                        const referenceItems = renderRecursiveSubmissions(attachments, 0, '', 'attachment', []);
+                        const submissionItems = renderRecursiveSubmissions(submissions, 0, '', 'file', []);
+                        
+                        const refLimit = expandedAttachments[assignment.id] ? referenceItems.length : 5;
+                        const subLimit = expandedSubmissions[assignment.id] ? submissionItems.length : 5;
+
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            {/* Section 1: Attached Files */}
+                            {attachments.length > 0 && (
+                              <div className="tl-assignment-attached-file">
+                                <div className="tl-assignment-file-label" style={{ color: '#2563eb', marginBottom: '12px' }}>
+                                  📎 Attached Files ({attachments.length})
+                                </div>
+                                {referenceItems.slice(0, refLimit)}
+                                {referenceItems.length > 5 && (
+                                  <div style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
+                                    onClick={() => toggleAttachments(assignment.id)}
+                                  >
+                                    <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
+                                      {expandedAttachments[assignment.id] ? 'See less' : `See more (${referenceItems.length - 5} more)`}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Section 2: Member Submissions */}
+                            {submissions.length > 0 && (
+                              <div className="tl-assignment-attached-file">
+                                <div className="tl-assignment-file-label" style={{ color: '#059669', marginBottom: '12px' }}>
+                                  📤 Member Submissions ({submissions.length})
+                                </div>
+                                {submissionItems.slice(0, subLimit)}
+                                {submissionItems.length > 5 && (
+                                  <div style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
+                                    onClick={() => toggleSubmissions(assignment.id)}
+                                  >
+                                    <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
+                                      {expandedSubmissions[assignment.id] ? 'See less' : `See more (${submissionItems.length - 5} more)`}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="tl-assignment-no-attachment">
+                      <span className="tl-assignment-no-attachment-icon">ℹ️</span>
+                      <div className="tl-assignment-no-attachment-text">
+                        <strong>No submissions yet.</strong>
+                        Waiting for team members to submit files.
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+
+                <div className="tl-assignment-comments-section">
+                  <button
+                    className="tl-assignment-comments-text"
+                    onClick={() => openCommentsModal(assignment)}
+                  >
+                    Comments ({commentCounts[assignment.id] || 0})
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
-        )}
+        )
+        })()
+      }
       </div>
 
       <CommentsModal
@@ -596,24 +1825,30 @@ const AssignmentsTab = ({
         onClose={closeCommentsModal}
         assignment={selectedAssignment}
         comments={comments}
-        loadingComments={loadingComments}
+        loading={loadingComments}
         newComment={newComment}
         setNewComment={setNewComment}
         onPostComment={postComment}
+        isPosting={isPostingComment}
         replyingTo={replyingTo}
         setReplyingTo={setReplyingTo}
         replyText={replyText}
         setReplyText={setReplyText}
         onPostReply={postReply}
+        isPostingReply={isPostingReply}
         onDeleteComment={deleteComment}
         onEditComment={editComment}
+        visibleReplies={visibleReplies}
+        setVisibleReplies={setVisibleReplies}
         onDeleteReply={deleteReply}
         onEditReply={editReply}
-        visibleReplies={visibleReplies}
+        user={user}
+        highlightUsername={highlightCommentBy}
+        highlightCommentId={highlightTargetCommentId}
         toggleRepliesVisibility={toggleRepliesVisibility}
         getInitials={getInitials}
         formatTimeAgo={formatRelativeTime}
-        user={user}
+        onRefreshAssignments={onRefreshAssignments}
       />
 
       {showMembersModal && (
@@ -627,8 +1862,8 @@ const AssignmentsTab = ({
               <div className="tl-modal-members-list">
                 {selectedMembers.map((member) => (
                   <div key={member.id} className="tl-modal-member-item">
-                    <div className="tl-modal-member-avatar">
-                      {(member.fullName || member.username).charAt(0).toUpperCase()}
+                    <div className="tl-modal-member-avatar" style={{ background: 'transparent' }}>
+                      <Avatar user={member} size="sm" />
                     </div>
                     <div className="tl-member-info">
                       <div className="tl-member-name">
@@ -699,9 +1934,7 @@ const AssignmentsTab = ({
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">TEAM:</span>
-                    <span className="detail-value">
-                      <TeamBadge team={folderReviewModal.folderFiles[0]?.user_team || folderReviewModal.folderFiles[0]?.team} size="sm" />
-                    </span>
+                    <span className="detail-value team-badge-inline">{folderReviewModal.folderFiles[0]?.user_team || folderReviewModal.folderFiles[0]?.team || 'Unknown'}</span>
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">STATUS:</span>
@@ -711,16 +1944,66 @@ const AssignmentsTab = ({
                         const approved = files.filter(f => f.status === 'final_approved').length
                         const tlApproved = files.filter(f => f.status === 'team_leader_approved').length
                         const rejected = files.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
-                        
-                        let status = 'uploaded';
-                        if (approved === files.length) status = 'final_approved';
-                        else if (rejected === files.length) status = 'rejected';
-                        else if (tlApproved + approved === files.length) status = 'team_leader_approved';
-                        
-                        return <StatusBadge status={status} size="sm" />;
+                        if (approved === files.length) return <span className="status-badge status-approved">All Approved</span>
+                        if (rejected === files.length) return <span className="status-badge status-rejected">All Rejected</span>
+                        if (tlApproved + approved === files.length) return <span className="status-badge status-pending">Pending Admin</span>
+                        return <span className="status-badge status-pending">Pending Team Leader</span>
                       })()}
                     </span>
                   </div>
+                </div>
+              </div>
+
+              <div className="folder-files-section" style={{ marginTop: '20px', borderTop: '1px solid #f3f4f6', paddingTop: '16px' }}>
+                <h4 className="section-title">Files in this Folder</h4>
+                <div className="folder-files-list" style={{ maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {folderReviewModal.folderFiles.map(file => {
+                    const isViewed = isFileViewed(folderReviewModal.assignmentId, file.id);
+                    return (
+                      <div 
+                        key={file.id} 
+                        className={`tl-assignment-file-item ${isViewed ? 'file-card-opened' : ''}`}
+                        style={{ padding: '8px 12px', marginBottom: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (openReviewModal && file.id) {
+                            openReviewModal(file, null, (fileId) => {
+                              setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }));
+                              markFileViewed(folderReviewModal.assignmentId, fileId);
+                            });
+                          }
+                        }}
+                      >
+                        <FileIcon fileType={(file.original_name || file.file_name || '').split('.').pop()} size="small" />
+                        <div className="tl-assignment-file-details" style={{ flex: 1, minWidth: 0 }}>
+                          <div className="tl-assignment-file-name" style={{ fontSize: '13.5px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name || file.file_name}</span>
+                            {isViewed && <span className="tl-viewed-badge">✓ Viewed</span>}
+                          </div>
+                          <div className="tl-assignment-file-meta" style={{ fontSize: '11px', color: '#6b7280' }}>
+                            <span className={`tl-assignment-file-status ${file.status}`}>
+                              {file.status === 'uploaded' ? 'New' : 
+                               file.status === 'under_revision' ? '✎ Revised' :
+                               file.status === 'revision' ? '⚠ Checked - Need to Edit' :
+                               file.status === 'checked' ? '✓ Checked' :
+                               file.status === 'team_leader_approved' ? 'Pending Admin' : 
+                               file.status === 'final_approved' ? '✓ Approved' : 
+                               (file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending Review'}
+                            </span>
+                            {file.status === 'checked' && file.checked_by && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#1D4ED8', fontWeight: '600', fontSize: '11px', background: '#EFF6FF', padding: '1px 7px', borderRadius: '8px', border: '1px solid #BFDBFE', marginLeft: '6px' }}>
+                                <svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 7l-7 7-3-3"/></svg>
+                                {file.checked_by}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                           <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} fileSource="submission" />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -763,7 +2046,6 @@ const AssignmentsTab = ({
                             team: user.team
                           })
                         })
-                        console.log('Bulk approve response:', JSON.stringify(data, null, 2))
                         if (data.success) {
                           if (data.results?.failed?.length > 0) {
                             alert(`⚠️ ${data.results.failed.length} file(s) could not be approved:\n${data.results.failed.map(f => `${f.fileName}: ${f.reason}`).join('\n')}`)
@@ -835,6 +2117,153 @@ const AssignmentsTab = ({
           </div>
         </div>
       )}
+
+      {/* Assign Checker Modal */}
+      {assignCheckerModal && (() => {
+        const { assignment } = assignCheckerModal
+        // Use all team members, including the team leader, as requested
+        const allMembers = teamMembers || []
+        const members = allMembers.length > 0 ? allMembers : (assignment.assigned_member_details || [])
+        const toggleMember = (id) => {
+          setSelectedCheckerIds(prev => {
+            const next = new Set(prev)
+            next.has(id) ? next.delete(id) : next.add(id)
+            return next
+          })
+        }
+        return (
+          <div
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+            onClick={() => setAssignCheckerModal(null)}
+          >
+            <div
+              style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.18)', width: '460px', maxWidth: '95vw', overflow: 'hidden' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: '#111827' }}>Assign Checker</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280' }}>{assignment.title}</p>
+                </div>
+                <button onClick={() => setAssignCheckerModal(null)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
+              </div>
+
+              {/* Body */}
+              <div style={{ padding: '20px 24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#374151' }}>Select one or more members to review the submitted files.</p>
+                  {selectedCheckerIds.size > 0 && (
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#4f46e5', background: '#eef2ff', padding: '2px 10px', borderRadius: '10px', whiteSpace: 'nowrap', marginLeft: '10px' }}>
+                      {selectedCheckerIds.size} selected
+                    </span>
+                  )}
+                </div>
+
+                {members.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '14px' }}>No assigned members found.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+                    {members.map(member => {
+                      const id = String(member.id)
+                      const isSelected = selectedCheckerIds.has(id)
+                      const existingIds = (() => { try { return new Set((JSON.parse(assignment.checker_ids || '[]')).map(String)) } catch { return new Set() } })()
+                      const isCurrent = existingIds.has(id)
+                      return (
+                        <div
+                          key={id}
+                          onClick={() => toggleMember(id)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '12px',
+                            padding: '12px 14px', borderRadius: '10px', cursor: 'pointer',
+                            border: `1.5px solid ${isSelected ? '#4f46e5' : '#e5e7eb'}`,
+                            background: isSelected ? '#eef2ff' : '#fafafa',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          {/* Checkbox */}
+                          <div style={{
+                            width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0,
+                            border: `2px solid ${isSelected ? '#4f46e5' : '#d1d5db'}`,
+                            background: isSelected ? '#4f46e5' : '#fff',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'all 0.15s'
+                          }}>
+                            {isSelected && (
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M20 6L9 17l-5-5"/>
+                              </svg>
+                            )}
+                          </div>
+                          {/* Avatar */}
+                          <div style={{ background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Avatar user={member} size="sm" />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{member.fullName || member.username}</div>
+                            <div style={{ fontSize: '12px', color: '#6b7280' }}>@{member.username}</div>
+                          </div>
+                          {isCurrent && (
+                            <span style={{ fontSize: '11px', color: '#059669', fontWeight: '600', background: '#d1fae5', padding: '2px 8px', borderRadius: '10px', flexShrink: 0 }}>Current</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '10px', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button
+                  onClick={() => setSelectedCheckerIds(new Set())}
+                  style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '13px', cursor: 'pointer', padding: '4px', textDecoration: 'underline' }}
+                >
+                  Clear all
+                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => setAssignCheckerModal(null)}
+                    style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={isAssigningChecker || members.length === 0}
+                    onClick={async () => {
+                      setIsAssigningChecker(true)
+                      try {
+                        const chosenMembers = members.filter(m => selectedCheckerIds.has(String(m.id)))
+                        const data = await apiFetch(`/api/assignments/${assignment.id}/assign-checker`, {
+                          method: 'PUT',
+                          body: JSON.stringify({
+                            checkerIds: chosenMembers.map(m => m.id),
+                            checkerNames: chosenMembers.map(m => m.fullName || m.username)
+                          })
+                        })
+                        if (data.success) {
+                          setToast({ isOpen: true, title: 'Success', message: data.message, type: 'success' })
+                          setAssignCheckerModal(null)
+                          if (onRefreshAssignments) onRefreshAssignments()
+                        } else {
+                          setToast({ isOpen: true, title: 'Error', message: data.message || 'Failed to assign checker', type: 'error' })
+                        }
+                      } catch (e) {
+                        setToast({ isOpen: true, title: 'Error', message: 'Failed to assign checker', type: 'error' })
+                      } finally {
+                        setIsAssigningChecker(false)
+                      }
+                    }}
+                    style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: isAssigningChecker ? '#a5b4fc' : '#4f46e5', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: isAssigningChecker ? 'not-allowed' : 'pointer' }}
+                  >
+                    {isAssigningChecker ? 'Saving...' : selectedCheckerIds.size === 0 ? 'Remove Checkers' : `Assign ${selectedCheckerIds.size} Checker${selectedCheckerIds.size > 1 ? 's' : ''}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Remove Attachment Confirmation Modal */}
       {removeAttachmentModal.isOpen && (
@@ -908,6 +2337,299 @@ const AssignmentsTab = ({
         type={toast.type}
       />
 
+      {/* Mark as Done Confirmation Modal */}
+      {markDoneConfirmModal.isOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            padding: '32px 36px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+            minWidth: '320px',
+            maxWidth: '420px',
+            textAlign: 'center'
+          }}>
+            {/* Icon */}
+            <div style={{
+              width: '60px', height: '60px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(22,163,74,0.3)',
+              flexShrink: 0
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+            </div>
+
+            {/* Text */}
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: '#111827', marginBottom: '8px' }}>Mark as Done?</div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>
+                Are you sure you want to mark
+                <span style={{ fontWeight: '600', color: '#374151' }}> "{markDoneConfirmModal.title}" </span>
+                as done? This will complete the task and clean up associated files.
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '4px' }}>
+              <button
+                onClick={() => setMarkDoneConfirmModal({ isOpen: false, assignmentId: null, title: '' })}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: '1.5px solid #e5e7eb',
+                  background: '#f9fafb',
+                  color: '#374151',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#d1d5db' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const { assignmentId, title } = markDoneConfirmModal
+                  setMarkDoneConfirmModal({ isOpen: false, assignmentId: null, title: '' })
+                  handleMarkAsDone(assignmentId, title)
+                }}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
+                  color: '#fff',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(22,163,74,0.3)',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Undo Mark as Done Confirmation Modal */}
+      {undoConfirmModal.isOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            padding: '32px 36px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+            minWidth: '320px',
+            maxWidth: '440px',
+            textAlign: 'center'
+          }}>
+            {/* Icon */}
+            <div style={{
+              width: '60px', height: '60px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(217,119,6,0.3)',
+              flexShrink: 0
+            }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7v6h6"/>
+                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+              </svg>
+            </div>
+
+            {/* Text */}
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: '#111827', marginBottom: '8px' }}>Undo Mark as Done?</div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>
+                This will move
+                <span style={{ fontWeight: '600', color: '#374151' }}> "{undoConfirmModal.title}" </span>
+                back to <strong>Active</strong> status.
+                <br/>
+                <span style={{ color: '#dc2626', fontWeight: '500' }}>Note:</span> Attachment files that were deleted when the task was marked as done cannot be restored.
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '4px' }}>
+              <button
+                onClick={() => setUndoConfirmModal({ isOpen: false, assignmentId: null, title: '' })}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: '1.5px solid #e5e7eb',
+                  background: '#f9fafb',
+                  color: '#374151',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#d1d5db' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const { assignmentId, title } = undoConfirmModal
+                  setUndoConfirmModal({ isOpen: false, assignmentId: null, title: '' })
+                  handleUndoMarkAsDone(assignmentId, title)
+                }}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+                  color: '#fff',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(217,119,6,0.3)',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
+              >
+                Undo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark as Done Loading Overlay */}
+      {markingDoneId !== null && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9998
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            padding: '36px 44px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px',
+            minWidth: '280px'
+          }}>
+            <div style={{
+              width: '56px', height: '56px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #16a34a, #22c55e)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(22,163,74,0.3)'
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ animation: 'markDoneSpin 1.2s linear infinite' }}>
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '17px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
+                Marking as Done…
+              </div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+                Completing task and cleaning up files.<br/>Please wait.
+              </div>
+            </div>
+            <div style={{ width: '100%', height: '4px', background: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: '2px',
+                background: 'linear-gradient(90deg, #16a34a, #22c55e)',
+                animation: 'markDoneBar 1.5s ease-in-out infinite alternate'
+              }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Undo Mark as Done Loading Overlay */}
+      {undoingDoneId !== null && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9998
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            padding: '36px 44px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px',
+            minWidth: '280px'
+          }}>
+            <div style={{
+              width: '56px', height: '56px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #d97706, #f59e0b)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(217,119,6,0.3)'
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ animation: 'markDoneSpin 1.2s linear infinite' }}>
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '17px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
+                Undoing Mark as Done…
+              </div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+                Moving task back to active.<br/>Please wait.
+              </div>
+            </div>
+            <div style={{ width: '100%', height: '4px', background: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: '2px',
+                background: 'linear-gradient(90deg, #d97706, #f59e0b)',
+                animation: 'markDoneBar 1.5s ease-in-out infinite alternate'
+              }} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Download Success Toast */}
       {downloadToast.show && (
         <div
@@ -970,6 +2692,14 @@ const AssignmentsTab = ({
       )}
 
       <style>{`
+        @keyframes markDoneSpin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        @keyframes markDoneBar {
+          from { width: 20%; }
+          to   { width: 90%; }
+        }
         @keyframes tlSlideInRight {
           from { opacity: 0; transform: translateX(40px); }
           to   { opacity: 1; transform: translateX(0); }
@@ -980,6 +2710,67 @@ const AssignmentsTab = ({
         }
       `}</style>
 
+      {/* File Open Modal */}
+      <FileOpenModal
+        isOpen={showOpenFileConfirmation}
+        onClose={() => {
+          setShowOpenFileConfirmation(false)
+          setFileToOpen(null)
+        }}
+        onConfirm={async () => {
+          if (!fileToOpen) return
+          
+          // Close immediately to improve perceived responsiveness
+          const file = { ...fileToOpen };
+          const fileId = file.id;
+          setShowOpenFileConfirmation(false);
+          setFileToOpen(null);
+          
+          setToast({ isOpen: true, title: 'Opening', message: `Opening ${file.original_name}...`, type: 'success' });
+
+          try {
+            // Check if running in Electron and has capability to open files locally
+            if (window.electron && window.electron.openFileInApp) {
+              // Get the absolute file path from server
+              const type = file.isAttachment ? 'attachment' : 'file';
+              const data = await apiFetch(`/api/files/${file.id}/path?type=${type}`);
+
+              if (data.success && data.filePath) {
+                const result = await window.electron.openFileInApp(data.filePath);
+
+                if (!result.success) {
+                  alert('Failed to open file locally: ' + (result.error || 'Unknown error'));
+                } else {
+                  markFileViewed(file.assignmentId, fileId)
+                  recordView(fileId, file.isAttachment)
+                }
+              } else {
+                alert('Could not retrieve file path');
+              }
+            } else {
+              // Web fallback: Open file in new tab/download
+              let fileUrl = file.file_path;
+              if (file.status === 'final_approved' && file.public_network_url) {
+                if (file.public_network_url.startsWith('http')) {
+                  fileUrl = file.public_network_url;
+                } else {
+                  fileUrl = `${API_BASE_URL}${file.file_path}`;
+                }
+              } else {
+                fileUrl = `${API_BASE_URL}${file.file_path}`;
+              }
+
+              window.open(fileUrl, '_blank', 'noopener,noreferrer');
+              markFileViewed(file.assignmentId, fileId)
+              recordView(fileId, file.isAttachment)
+            }
+          } catch (error) {
+            console.error('Error opening file:', error);
+            alert('Failed to open file. Please try again.');
+          }
+        }}
+        file={fileToOpen}
+      />
     </div>
   )
 }

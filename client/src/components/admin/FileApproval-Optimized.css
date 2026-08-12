@@ -296,7 +296,7 @@
 }
 
 .file-approval-section .file-row.nested-file td:first-child {
-  padding-left: 60px;
+  padding-left: 1rem !important;
 }
 
 .file-approval-section .file-row.nested-file td:first-child::before {
@@ -423,6 +423,11 @@
 .file-approval-section .status-rejected {
   border: 1px solid #ef4444;
   color: #ef4444;
+}
+
+.file-approval-section .status-revision {
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
 }
 
 /* Simplified button - removed transform on hover for performance */
@@ -1045,4 +1050,82 @@
 
 .date-header-icon {
   font-size: 0.8rem;
+}
+
+/* Tree layout and connection lines */
+.file-approval-section .tl-tree-container {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  flex: 1;
+}
+
+.file-approval-section .tl-tree-line-vertical {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.file-approval-section .tl-tree-line-vertical::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -24px;
+  bottom: -24px;
+  width: 2px;
+  background-color: #cbd5e1;
+}
+
+.file-approval-section .tl-tree-line-empty {
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.file-approval-section .tl-tree-line-connector {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.file-approval-section .tl-tree-line-connector::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -24px;
+  bottom: -24px;
+  width: 2px;
+  background-color: #cbd5e1;
+}
+
+.file-approval-section .tl-tree-line-connector.last-item::before {
+  height: calc(50% + 24px);
+  bottom: auto;
+}
+
+.file-approval-section .tl-tree-line-connector::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  width: 15px;
+  height: 2px;
+  background-color: #cbd5e1;
+}
+
+.file-approval-section .file-row.nested-file td:first-child::before {
+  display: none !important; /* Hide old simple nested line */
+}
+
+/* Notification deep-link highlight */
+@keyframes highlight-pulse {
+  0%   { box-shadow: inset 0 0 0 2px #3b82f6, 0 0 0 4px rgba(59, 130, 246, 0.15); }
+  50%  { box-shadow: inset 0 0 0 2px #2563eb, 0 0 0 8px rgba(59, 130, 246, 0.25); }
+  100% { box-shadow: inset 0 0 0 2px #3b82f6, 0 0 0 4px rgba(59, 130, 246, 0.15); }
+}
+
+.file-approval-section .file-row.highlighted-row {
+  background-color: #eff6ff !important;
+  animation: highlight-pulse 1.2s ease-in-out 2;
+  position: relative;
+  z-index: 1;
 }

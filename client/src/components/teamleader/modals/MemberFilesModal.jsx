@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
-import { FileOpenModal, FileIcon, UserPerformanceCard, StatusBadge } from '../../shared'
+import { FileOpenModal, FileIcon } from '../../shared'
 import '../css/FileCollectionTab.css'
+
+import { recursiveGroupByPath } from '@utils/folderUtils'
 
 
 const MemberFilesModal = ({
@@ -49,6 +51,37 @@ const MemberFilesModal = ({
     }
   }
 
+  const getStatusDisplayName = (status) => {
+    switch (status) {
+      case 'uploaded':
+      case 'submitted': return 'Pending Team Leader'
+      case 'team_leader_approved': return 'Pending Admin'
+      case 'final_approved':
+      case 'approved': return 'Approved'
+      case 'rejected_by_team_leader': return 'Rejected by Team Leader'
+      case 'rejected_by_admin': return 'Rejected by Admin'
+      case 'rejected': return 'Rejected'
+      case 'revision': return 'Checked - Need to Edit'
+      case 'under_revision': return 'Revised'
+      default: return 'Pending Review'
+    }
+  }
+
+  const getStatusLabel = (file) => {
+    return file.status === 'uploaded' ? 'New' : 
+           file.status === 'under_revision' ? '✎ Revised' :
+           file.status === 'revision' ? '⚠ Checked - Need to Edit' :
+           file.status === 'team_leader_approved' ? 'Pending Admin' : 
+           file.status === 'final_approved' ? '✓ Approved' : 
+           (file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending Review'
+  }
+
+  const getStatusClass = (file) => {
+    if (file.status === 'approved' || file.status === 'final_approved') return 'approved'
+    if (file.status === 'rejected' || file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') return 'rejected'
+    if (file.status === 'revision' || file.status === 'under_revision') return 'revision'
+    return 'pending'
+  }
 
   const formatDateTime = (dateStr) => {
     const d = new Date(dateStr)
@@ -89,25 +122,33 @@ const MemberFilesModal = ({
     ...(totalFolders > 0 ? [{ key: 'folders', label: 'Folders', count: totalFolders }] : []),
   ]
 
-  const FileRow = ({ file, isNested = false }) => {
-    const { date, time } = formatDateTime(file.uploaded_at || file.created_at)
-    return (
-      <tr
-        key={file.id}
-        onClick={() => setPreviewFile(file)}
-        style={{ cursor: 'pointer' }}
-        className="tl-clickable-row"
-        title={`View ${file.original_name}`}
-      >
-        <td>
-          <div className="tl-file-name-cell" style={{ paddingLeft: isNested ? '2rem' : '0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <FileIcon
-              file={file}
-              size="small"
-            />
-            <strong style={{ fontSize: '13px', fontWeight: isNested ? '500' : '600' }}>{file.original_name}</strong>
-          </div>
-        </td>
+    const FileRow = ({ file, isNested = false, indentationLevel = 0, isLast = false, parentIsLastArr = [] }) => {
+      const { date, time } = formatDateTime(file.uploaded_at || file.created_at)
+      
+      return (
+        <tr
+          key={file.id}
+          onClick={() => setPreviewFile(file)}
+          style={{ cursor: 'pointer' }}
+          className="tl-clickable-row"
+          title={`View ${file.original_name}`}
+        >
+          <td>
+            <div className="tl-tree-container" style={{ paddingLeft: '0.75rem' }}>
+              {parentIsLastArr.map((isLastParent, i) => (
+                <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+              ))}
+              {indentationLevel > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+              <div className="tl-file-name-cell" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FileIcon
+                  fileType={file.original_name?.split('.').pop()?.toLowerCase()}
+                  size="small"
+                  style={{ width: '18px', height: '18px' }}
+                />
+                <strong style={{ fontSize: '14.5px', fontWeight: isNested ? '500' : '600', color: '#1e293b' }}>{file.original_name}</strong>
+              </div>
+            </div>
+          </td>
         <td>
           <div className="tl-date-time-cell">
             <div>{date}</div>
@@ -119,35 +160,103 @@ const MemberFilesModal = ({
         </td>
         <td>{formatFileSize(file.file_size)}</td>
         <td>
-          <StatusBadge status={file.status || file.current_stage} size="sm" />
+          <span className={`status-badge status-${getStatusClass(file)}`}>
+            {getStatusLabel(file)}
+          </span>
         </td>
       </tr>
     )
   }
 
-  const SectionTable = ({ files, isNested = false }) => (
-    <table className="tl-member-files-table" style={{ margin: 0, tableLayout: 'fixed', width: '100%' }}>
-      <colgroup>
-        <col style={{ width: '32%' }} />
-        <col style={{ width: '20%' }} />
-        <col style={{ width: '9%' }} />
-        <col style={{ width: '11%' }} />
-        <col style={{ width: '28%' }} />
-      </colgroup>
-      <thead>
-        <tr>
-          <th>FILE NAME</th>
-          <th>DATE &amp; TIME</th>
-          <th>TYPE</th>
-          <th>SIZE</th>
-          <th>STATUS</th>
-        </tr>
-      </thead>
-      <tbody>
-        {files.map(file => <FileRow key={file.id} file={file} isNested={isNested} />)}
-      </tbody>
-    </table>
-  )
+  const SectionTable = ({ files, isNested = false, level = 0, parentKey = '', parentIsLastArr = [] }) => {
+    const { subfolders, rootFiles } = recursiveGroupByPath(files);
+
+    const subfolderEntries = Object.entries(subfolders).sort();
+    const totalSubfolders = subfolderEntries.length;
+    const totalRootFiles = rootFiles.length;
+
+    return (
+      <table className="tl-member-files-table" style={{ margin: 0, tableLayout: 'fixed', width: '100%' }}>
+        <colgroup>
+          <col style={{ width: '40%' }} />
+          <col style={{ width: '20%' }} />
+          <col style={{ width: '10%' }} />
+          <col style={{ width: '15%' }} />
+          <col style={{ width: '15%' }} />
+        </colgroup>
+        <tbody>
+          {/* 1. Render Subfolders */}
+          {subfolderEntries.map(([folderName, folderFiles], index) => {
+            const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
+            const currentKey = parentKey ? `${parentKey}__${folderName}` : folderName;
+            const isExpanded = expandedFolders[currentKey];
+            const firstFile = folderFiles[0].file || folderFiles[0];
+            const { date, time } = formatDateTime(firstFile.uploaded_at || firstFile.created_at);
+
+            return (
+              <React.Fragment key={`folder-${currentKey}`}>
+                <tr 
+                  className="tl-clickable-row tl-folder-row"
+                  onClick={() => toggleFolder(currentKey)}
+                  style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#f8fafc' : '#ffffff' }}
+                >
+                  <td>
+                    <div className="tl-tree-container" style={{ paddingLeft: '0.75rem' }}>
+                      {parentIsLastArr.map((isLastParent, i) => (
+                        <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                      ))}
+                      {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                      <div className="tl-file-name-cell" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ fontSize: '24px' }}>{isExpanded ? '📂' : '📁'}</div>
+                        <strong style={{ fontSize: '14.5px', fontWeight: '600', color: '#1e293b' }}>{folderName}</strong>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>({folderFiles.length})</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="tl-date-time-cell">
+                      <div>{date}</div>
+                      <div className="tl-time-text">{time}</div>
+                    </div>
+                  </td>
+                  <td><div className="tl-file-type-badge">DIR</div></td>
+                  <td>-</td>
+                  <td>
+                    <span className="status-badge status-pending">Folder</span>
+                  </td>
+                </tr>
+                {isExpanded && (
+                  <tr>
+                    <td colSpan="5" style={{ padding: 0 }}>
+                      <SectionTable 
+                        files={folderFiles} 
+                        isNested={true} 
+                        level={level + 1} 
+                        parentKey={currentKey} 
+                        parentIsLastArr={[...parentIsLastArr, isLast]}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}
+
+          {/* 2. Render root files */}
+          {rootFiles.map((item, index) => (
+            <FileRow 
+              key={item.file?.id || item.id || index} 
+              file={item.file || item} 
+              isNested={isNested} 
+              indentationLevel={level} 
+              isLast={index === rootFiles.length - 1} 
+              parentIsLastArr={parentIsLastArr}
+            />
+          ))}
+        </tbody>
+      </table>
+    );
+  }
 
   return (
     <>
@@ -233,11 +342,6 @@ const MemberFilesModal = ({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               
-              {/* Performance Section */}
-              <div className="performance-section-modal">
-                <UserPerformanceCard user={selectedMember} isCollapsible={true} />
-              </div>
-
               {/* ── FOLDERS ── */}
               {displayedFolders.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -294,7 +398,7 @@ const MemberFilesModal = ({
                         </div>
 
                         {/* Expanded file list */}
-                        {isExpanded && <SectionTable files={files} isNested={true} />}
+                        {isExpanded && <SectionTable files={files} isNested={true} parentFolder={folderName} />}
                       </div>
                     )
                   })}

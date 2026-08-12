@@ -5,18 +5,20 @@
  */
 
 const path = require('path');
-const { query } = require('../../database/config');
+const { query } = require('../config/database');
 
 let watcher = null;
 let isStarted = false;
 let watchPathsList = [];
-let watcherLog = [];  // keep last 50 events for debug endpoint
+const watcherLog = [];  // keep last 50 events for debug endpoint
 
 function logEvent(msg) {
   const entry = `[${new Date().toISOString()}] ${msg}`;
   console.log(entry);
   watcherLog.push(entry);
-  if (watcherLog.length > 50) watcherLog.shift();
+  if (watcherLog.length > 50) {
+    watcherLog.shift();
+  }
 }
 
 function getStatus() {
@@ -38,7 +40,9 @@ function relPart(p) {
   const n = norm(p);
   for (const seg of ['uploads/', 'user_approvals/', 'projects/']) {
     const idx = n.indexOf(seg);
-    if (idx !== -1) return n.slice(idx + seg.length);
+    if (idx !== -1) {
+      return n.slice(idx + seg.length);
+    }
   }
   return n;
 }
@@ -49,14 +53,43 @@ function relPart(p) {
 async function handleFileDeletion(deletedPath) {
   const fileName    = path.basename(deletedPath);
   const fileNameLow = fileName.toLowerCase().trim();
-  const relDeleted  = relPart(deletedPath);   // e.g. "kmti user/test test/case study no. 2.pdf"
+  const relDeleted  = relPart(deletedPath);
+
+  // ── Office temp-file guard ─────────────────────────────────────────────────
+  // Word/Excel/PowerPoint create temp files (starting with ~ or ending in .tmp)
+  // during save operations. Ignore those events — they are noise.
+  if (fileName.startsWith('~') || /\.tmp$/i.test(fileName) || /^~/.test(fileName)) {
+    logEvent(`⏭️  Ignored Office temp file event: ${fileName}`);
+    return;
+  }
+
+  // ── Projects-folder guard ──────────────────────────────────────────────────
+  // The "projects/" directory stores user-submitted files linked to tasks.
+  // When a team leader opens and saves a file in this folder, the Office
+  // application briefly deletes the original (triggering this event) before
+  // writing the saved copy back.  We must NEVER delete DB records for these
+  // files — the physical file will reappear within seconds.
+  const normPath = norm(deletedPath);
+  if (normPath.includes('/projects/') || normPath.includes('\\projects\\')) {
+    logEvent(`⏭️  Ignored deletion in projects/ folder (Office save pattern): ${deletedPath}`);
+    return;
+  }
 
   logEvent(`🗑️ File deleted: ${deletedPath} | relPart=${relDeleted}`);
 
+  // ── Debounce: wait 5 s before acting — gives Office time to restore the file ─
+  // If the file reappears on disk within 5 seconds we treat it as a save-cycle
+  // (not a real deletion) and abort the DB removal.
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
+  const fs = require('fs');
+  if (fs.existsSync(deletedPath)) {
+    logEvent(`⏭️  File reappeared after 5 s — skipping DB removal (Office save cycle): ${deletedPath}`);
+    return;
+  }
+
   try {
     /* ── 1. Match files table ─────────────────────────────────────────── */
-    // Pull ALL rows whose original_name or filename matches — then filter
-    // by path so we don't accidentally delete a same-named file in another folder.
     const fileRows = await query(
       `SELECT id, original_name, filename, file_path, public_network_url, status
        FROM files
@@ -66,28 +99,31 @@ async function handleFileDeletion(deletedPath) {
     );
 
     const matchedFiles = (fileRows || []).filter(row => {
-      // Build the relative portion stored in DB
       const storedRel = relPart(row.public_network_url || row.file_path || '');
-
-      // If we have a stored relative path, both sides must share the same
-      // relative suffix (covers encoding differences between stored vs deleted).
-      if (!storedRel) return true;   // no path info → match by name only
+      if (!storedRel) {
+        return true;
+      }
       return storedRel === relDeleted ||
              relDeleted.endsWith(storedRel) ||
              storedRel.endsWith(relDeleted);
     });
 
     for (const file of matchedFiles) {
-      // NEVER delete records for approved files — they have been moved to NAS.
-      // The deletion event from the staging folder (uploads/) is expected.
+      // NEVER delete records for approved files
       if (file.status === 'final_approved') {
         console.log(`ℹ️  [Watcher] Skipping deletion for approved file: ${file.original_name} (ID: ${file.id})`);
         continue;
       }
 
+      // Double-check: if the physical file now exists (Office restored it), skip.
+      const physPath = file.public_network_url || file.file_path || '';
+      if (physPath && fs.existsSync(physPath)) {
+        logEvent(`⏭️  Physical file exists — skipping DB removal for ID ${file.id} (${file.original_name})`);
+        continue;
+      }
+
       console.log(`  ↳ Removing file ID ${file.id} (${file.original_name})`);
 
-      // Nullify any assignment_members references first (FK)
       await query(
         `UPDATE assignment_members
          SET file_id = NULL, status = 'pending', submitted_at = NULL
@@ -95,11 +131,11 @@ async function handleFileDeletion(deletedPath) {
         [file.id]
       ).catch(() => {});
 
-      await query(`DELETE FROM assignment_submissions  WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM notifications           WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM file_comments           WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM file_status_history     WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM files                   WHERE id      = ?`, [file.id]);
+      await query('DELETE FROM assignment_submissions  WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM notifications           WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM file_comments           WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM file_status_history     WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM files                   WHERE id      = ?', [file.id]);
 
       logEvent(`✅ File ID ${file.id} (${file.original_name}) removed from DB`);
     }
@@ -121,7 +157,11 @@ async function handleFileDeletion(deletedPath) {
         storedRel.endsWith(relDeleted);
 
       if (matches) {
-        await query(`DELETE FROM assignment_attachments WHERE id = ?`, [att.id]);
+        if (att.file_path && fs.existsSync(att.file_path)) {
+          logEvent(`⏭️  Physical attachment exists — skipping DB removal for attachment ID ${att.id}`);
+          continue;
+        }
+        await query('DELETE FROM assignment_attachments WHERE id = ?', [att.id]);
         console.log(`  ✅ Attachment ID ${att.id} (${att.original_name}) removed from DB`);
       }
     }
@@ -137,25 +177,27 @@ async function handleFileDeletion(deletedPath) {
 
 /**
  * Called when chokidar fires 'unlinkDir' (an entire folder was deleted).
- * FIX #8 — replaced leading-wildcard LIKE queries (full table scan) with
- * exact segment matching. We extract the normalized basename of the deleted
- * directory and match it against folder_name first; fall back to a
- * RIGHT-anchored LIKE only on the last path segment, which *can* use an
- * index prefix on columns like relative_path that are indexed.
  */
 async function handleDirectoryDeletion(dirPath) {
-  const relDir      = relPart(dirPath);          // e.g. "kmti user/test test"
-  const dirBasename = path.basename(dirPath).toLowerCase().trim();
+  const relDir = relPart(dirPath);
   console.log(`🗑️  [Watcher] Directory deleted: ${dirPath}`);
 
+  // ── Projects-folder guard ──────────────────────────────────────────────────
+  // Never auto-delete DB records for the projects/ directory — these are
+  // user-submitted task files. Folder removal in this path is handled explicitly
+  // by the server (e.g. when a task is deleted), not by the watcher.
+  const normDir = norm(dirPath);
+  if (normDir.includes('/projects/') || normDir.includes('\\projects\\')) {
+    logEvent(`⏭️  Ignored directory deletion in projects/ folder: ${dirPath}`);
+    return;
+  }
+
   try {
-    // Match by folder_name (exact, indexable) OR by last segment of relative path.
-    // We no longer use a leading-wildcard LIKE on the full path.
     const fileRows = await query(
       `SELECT id, original_name, status FROM files
-       WHERE LOWER(TRIM(COALESCE(folder_name,''))) = ?
-          OR LOWER(TRIM(COALESCE(folder_name,''))) = ?`,
-      [dirBasename, relDir.split('/').pop()]
+       WHERE LOWER(REPLACE(COALESCE(file_path,''), '\\\\', '/'))         LIKE ?
+          OR LOWER(REPLACE(COALESCE(public_network_url,''), '\\\\', '/')) LIKE ?`,
+      [`%${relDir}%`, `%${relDir}%`]
     );
 
     for (const file of (fileRows || [])) {
@@ -163,30 +205,29 @@ async function handleDirectoryDeletion(dirPath) {
         console.log(`ℹ️  [Watcher] Skipping folder deletion for approved file: ${file.original_name} (ID: ${file.id})`);
         continue;
       }
-      await query(`UPDATE assignment_members SET file_id = NULL, status = 'pending', submitted_at = NULL WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM assignment_submissions  WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM notifications           WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM file_comments           WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM file_status_history     WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM files                   WHERE id      = ?`, [file.id]).catch(() => {});
+      await query('UPDATE assignment_members SET file_id = NULL, status = \'pending\', submitted_at = NULL WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM assignment_submissions  WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM notifications           WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM file_comments           WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM file_status_history     WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM files                   WHERE id      = ?', [file.id]).catch(() => {});
     }
 
     const attRows = await query(
       `SELECT id FROM assignment_attachments
-       WHERE LOWER(TRIM(COALESCE(folder_name,''))) = ?
-          OR LOWER(TRIM(COALESCE(folder_name,''))) = ?`,
-      [dirBasename, relDir.split('/').pop()]
+       WHERE LOWER(REPLACE(COALESCE(file_path,''), '\\\\', '/')) LIKE ?`,
+      [`%${relDir}%`]
     ).catch(() => []);
 
     for (const att of (attRows || [])) {
-      await query(`DELETE FROM assignment_attachments WHERE id = ?`, [att.id]).catch(() => {});
+      await query('DELETE FROM assignment_attachments WHERE id = ?', [att.id]).catch(() => {});
     }
 
     const total = (fileRows || []).length + (attRows || []).length;
     console.log(`  ✅ Removed ${total} DB record(s) for deleted directory "${path.basename(dirPath)}"`);
 
   } catch (err) {
-    console.error(`  ❌ [Watcher] Directory deletion error:`, err.message);
+    console.error('  ❌ [Watcher] Directory deletion error:', err.message);
   }
 }
 
@@ -211,7 +252,11 @@ function startWatcher(watchPaths) {
 
   const fs = require('fs');
   const validPaths = watchPaths.filter(p => {
-    try { return fs.existsSync(p); } catch (_) { return false; }
+    try {
+      return fs.existsSync(p);
+    } catch (_) {
+      return false;
+    }
   });
 
   if (validPaths.length === 0) {
@@ -225,18 +270,18 @@ function startWatcher(watchPaths) {
   watcher = chokidar.watch(validPaths, {
     persistent: true,
     ignoreInitial: true,
-    usePolling: true,        // Required for NAS/UNC network paths
-    interval: 15000,         // FIX #3 — was 3s; 15s is sufficient for deletion detection and reduces NAS I/O by 80%
-    binaryInterval: 30000,
+    usePolling: false,
+    interval: 10000,
+    binaryInterval: 15000,
     awaitWriteFinish: {
-      stabilityThreshold: 2000,
-      pollInterval: 500,
+      stabilityThreshold: 3000,
+      pollInterval: 1000
     },
     ignored: [
       /(^|[\/\\])\../,       // hidden/dot files
-      /temp_\d+_[a-z0-9]+$/, // multer temp files
+      /temp_\d+_[a-z0-9]+$/ // multer temp files
     ],
-    depth: 15,
+    depth: 15
   });
 
   watcher
@@ -245,7 +290,6 @@ function startWatcher(watchPaths) {
     .on('error', (err) => {
       console.error('❌ [Watcher] Error:', err.message);
       isStarted = false;
-      // Restart after 30s (handles NAS disconnects)
       setTimeout(() => {
         stopWatcher().then(() => startWatcher(watchPathsList));
       }, 30000);

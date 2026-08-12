@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { networkDataPath } = require('./database');
 
 // FIXED: Import async file utilities
@@ -22,16 +23,11 @@ console.log(`📁 Team Leader directory configured: ${teamLeaderDir}`);
 // Configure multer storage with optimizations for large files
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Lazily create uploads directory at upload time (not at server startup)
-    // This avoids blocking when NAS is temporarily unreachable on startup
-    fs.mkdir(uploadsDir, { recursive: true }, (mkdirErr) => {
-      if (mkdirErr && mkdirErr.code !== 'EEXIST') {
-        console.error('❌ Cannot create uploads directory:', mkdirErr.message);
-        console.error('   Path:', uploadsDir);
-        console.error('   💡 Check network connection to NAS and folder permissions.');
-      }
-      cb(null, uploadsDir);
-    });
+    // REVERT to local OS temp dir.
+    // Writing directly to NAS over SMB in small chunks (multer behavior)
+    // can be very slow due to network latency. Writing to local disk is faster.
+    // We then move the completed file to the NAS in one fast operation.
+    cb(null, os.tmpdir());
   },
   filename: function (req, file, cb) {
     // Save with a simple temp name (no special characters)
@@ -62,26 +58,30 @@ function setupMiddleware(app) {
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for React
         scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for React
-        imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'", "http://localhost:*", "http://192.168.*.*"], // Allow local network
-        fontSrc: ["'self'", "data:"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        connectSrc: ["'self'", 'http://localhost:*', 'http://192.168.*.*'], // Allow local network
+        fontSrc: ["'self'", 'data:'],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
         frameSrc: ["'none'"]
       }
     },
     crossOriginEmbedderPolicy: false, // Disable for file uploads
-    crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin for local network
+    crossOriginResourcePolicy: { policy: 'cross-origin' } // Allow cross-origin for local network
   }));
 
   // CORS configuration with UTF-8 support
   app.use(cors({
     origin: function (origin, callback) {
       // Allow requests with no origin (like mobile apps, curl, or Electron file://)
-      if (!origin) return callback(null, true);
+      if (!origin) {
+        return callback(null, true);
+      }
 
       // Allow file:// protocol
-      if (origin === 'file://') return callback(null, true);
+      if (origin === 'file://') {
+        return callback(null, true);
+      }
 
       // Allow localhost and local network IPs
       const allowedOrigins = [
@@ -110,13 +110,12 @@ function setupMiddleware(app) {
 
   // JSON parsing with extended options to handle UTF-8 special characters
   app.use(express.json({
-    extended: true,
-    limit: '50gb' // Increase limit for larger payloads
+    limit: '10mb' // JSON payloads are never large; files go through multer
   }));
 
   app.use(express.urlencoded({
     extended: true,
-    limit: '50gb',
+    limit: '10mb',
     parameterLimit: 50000
   }));
 

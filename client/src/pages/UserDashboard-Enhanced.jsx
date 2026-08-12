@@ -1,11 +1,20 @@
-import { useState, useEffect, Suspense, lazy, useCallback, useMemo, startTransition, memo } from 'react'
+import { useState, useEffect, Suspense, lazy, useCallback, useMemo, startTransition } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import useStore from '../store/useStore'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
-import { AlertMessage, Sidebar } from '../components/shared'
+import { AlertMessage } from '../components/shared'
+import OnlineMembersPanel from '../components/shared/OnlineMembersPanel'
+
+// Sync unread count to Electron taskbar badge + icon flash
+const syncElectronBadge = (count) => {
+  if (!window.electron) return
+  if (typeof window.electron.setBadge === 'function') window.electron.setBadge(count)
+  if (typeof window.electron.flashFrame === 'function') window.electron.flashFrame(count > 0)
+}
 
 // Eagerly import critical components that are always visible
+import Sidebar from '../components/user/Sidebar'
 import DashboardTab from '../components/user/DashboardTab'
 import FileModal from '../components/user/FileModal'
 
@@ -15,25 +24,19 @@ const MyFilesTab = lazy(() => import('../components/user/MyFilesTab'))
 const NotificationTab = lazy(() => import('../components/user/NotificationTab-RealTime'))
 const TasksTab = lazy(() => import('../components/user/TasksTab-Enhanced'))
 
-const EMPTY_ARRAY = [];
-
-const UserDashboard = memo(({ user, onLogout }) => {
+const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  
-  // STABILIZED: Use selectors only for critical structural data
-  const setFilesCache = useStore(state => state.setFilesCache)
-  // Removed notificationCount and filesCache subscriptions from here to prevent re-renders
-  
-  const [isLoading, setIsLoading] = useState(false) // Initialized as false, fetchUserFiles will handle it
+  const [files, setFiles] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
   const [showFileModal, setShowFileModal] = useState(false)
   const [fileComments, setFileComments] = useState([])
+  const [notificationCount, setNotificationCount] = useState(0)
 
-  // Stable callback for unread count updates from children
+  // Wrap in startTransition so badge updates never block scroll/interaction
   const handleUpdateUnreadCount = useCallback((count) => {
-    useStore.getState().setGlobalUnreadCount(count)
+    startTransition(() => setNotificationCount(count))
   }, [])
 
   // Fetch unread count directly — used by SSE and initial load
@@ -41,25 +44,25 @@ const UserDashboard = memo(({ user, onLogout }) => {
     try {
       const data = await apiFetch(`/api/notifications/user/${user.id}/unread-count`)
       if (data.success) {
-        useStore.getState().setGlobalUnreadCount(data.count || 0)
+        startTransition(() => setNotificationCount(data.count || 0))
       }
     } catch (_) {}
   }, [user.id])
 
-
-
   // SSE — instant badge + flash when a new notification arrives (runs regardless of active tab)
   useEffect(() => {
-    // Pause global SSE if the notification tab is active, because PremiumNotificationCenter
-    // handles its own SSE + fetching, preventing double connections/lag.
-    if (activeTab === 'notification') return;
+    fetchUnreadCount() // get initial count on mount
+
+    // Fetch full user profile to ensure ledTeams are updated in the store
+    apiFetch('/api/users/profile').then(data => {
+      if (data.success && data.user) {
+        useStore.getState().updateUser(data.user)
+      }
+    }).catch(err => console.error('Failed to fetch user profile:', err))
 
     let es
     let reconnectTimer
-    let isMounted = true
-
     const connect = () => {
-      if (!isMounted) return;
       const { token } = useStore.getState()
       const url = `${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${token}` : ''}`
       es = new EventSource(url)
@@ -68,31 +71,28 @@ const UserDashboard = memo(({ user, onLogout }) => {
       }
       es.onerror = () => {
         es.close()
-        if (isMounted) {
-          reconnectTimer = setTimeout(connect, 5000)
-        }
+        reconnectTimer = setTimeout(connect, 5000)
       }
     }
     connect()
     return () => {
-      isMounted = false;
       if (es) es.close()
       clearTimeout(reconnectTimer)
     }
-  }, [user.id, fetchUnreadCount, activeTab])
+  }, [user.id, fetchUnreadCount])
 
   // Smart Navigation State
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
   const [highlightedFileId, setHighlightedFileId] = useState(null)
+  const [highlightedFileStatus, setHighlightedFileStatus] = useState(null)
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
 
   const fetchUserFiles = useCallback(async () => {
-    const currentFiles = useStore.getState().filesCache[user.id]
-    if (!currentFiles) setIsLoading(true)
+    setIsLoading(true)
     try {
       const data = await apiFetch(`/api/files/user/${user.id}`)
       if (data.success) {
-        setFilesCache(user.id, data.files || [])
+        setFiles(data.files || [])
       } else {
         setError('Failed to fetch your files')
       }
@@ -104,15 +104,8 @@ const UserDashboard = memo(({ user, onLogout }) => {
     }
   }, [user.id])
 
-  // Initial data load
-  useEffect(() => {
-    fetchUnreadCount()
-    fetchUserFiles()
-  }, [fetchUnreadCount, fetchUserFiles])
-
   const handleTabChange = useCallback((tab) => {
     setActiveTab(tab)
-    setSidebarOpen(false)
   }, [])
 
   const clearMessages = useCallback(() => {
@@ -131,11 +124,14 @@ const UserDashboard = memo(({ user, onLogout }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }, [])
 
-  // Initial load effect handled above
-  // Removed redundant useEffect to prevent duplicate calls
+  useEffect(() => {
+    fetchUserFiles()
+  }, [fetchUserFiles])
 
-  // Sync unread badge + flash to Electron taskbar moved to App.jsx for performance
-
+  // Sync unread badge + flash to Electron taskbar whenever count changes
+  useEffect(() => {
+    syncElectronBadge(notificationCount)
+  }, [notificationCount])
 
   const openFileModal = useCallback(async (file) => {
     setSelectedFile(file)
@@ -176,6 +172,8 @@ const UserDashboard = memo(({ user, onLogout }) => {
     }
   }, [])
 
+  const [taskInitialTab, setTaskInitialTab] = useState(null) // 'for-checking' | null
+
   const handleSmartNavigation = useCallback((tab, context) => {
     const storedAssignmentId = sessionStorage.getItem('highlightAssignmentId')
     const storedFileId = sessionStorage.getItem('highlightFileId')
@@ -191,13 +189,12 @@ const UserDashboard = memo(({ user, onLogout }) => {
     setActiveTab(tab)
 
     if (mergedContext) {
+      if (mergedContext.forChecking || mergedContext.initialTab === 'for-checking') setTaskInitialTab('for-checking')
       if (mergedContext.assignmentId) setHighlightedAssignmentId(mergedContext.assignmentId)
       if (mergedContext.fileId) setHighlightedFileId(mergedContext.fileId)
+      if (mergedContext.fileStatus) setHighlightedFileStatus(mergedContext.fileStatus)
       if (mergedContext.shouldOpenComments || mergedContext.expandAllReplies) {
         setNotificationCommentContext(mergedContext)
-      }
-      if (tab === 'my-files' && mergedContext.fileId) {
-        openFileByIdFromNotification(mergedContext.fileId)
       }
     }
 
@@ -205,7 +202,7 @@ const UserDashboard = memo(({ user, onLogout }) => {
     sessionStorage.removeItem('highlightFileId')
     sessionStorage.removeItem('notificationContext')
     sessionStorage.removeItem('fromNotificationId')
-  }, [openFileByIdFromNotification])
+  }, [])
 
   const handleToastNavigation = useCallback(async (tabName, contextData) => {
     if (tabName === 'my-files' && contextData) {
@@ -220,20 +217,20 @@ const UserDashboard = memo(({ user, onLogout }) => {
 
   // Stable callbacks for clearing highlights — created once
   const clearHighlight = useCallback(() => setHighlightedAssignmentId(null), [])
-  const clearFileHighlight = useCallback(() => setHighlightedFileId(null), [])
+  const clearFileHighlight = useCallback(() => {
+    setHighlightedFileId(null)
+    setHighlightedFileStatus(null)
+  }, [])
   const clearNotificationContext = useCallback(() => setNotificationCommentContext(null), [])
 
-  // STABILIZED: userNavItems no longer depends on notificationCount/filesCount
-  // These will be injected by the Sidebar itself to prevent UserDashboard re-renders
-  const userNavItems = useMemo(() => [
-    { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { id: 'notification', label: 'Notifications', icon: 'notifications', type: 'notification' },
-    { id: 'my-files', label: 'My Files', icon: 'files', type: 'files' },
-    { id: 'tasks', label: 'My Tasks', icon: 'tasks' },
-    { id: 'team-files', label: 'Team Tasks', icon: 'team' }
-  ], []);
-
-  const files = useStore(state => state.filesCache[user.id] || EMPTY_ARRAY);
+  // filesCount derived without recreating on every render
+  const filesCount = useMemo(() =>
+    files.filter(f =>
+      f.status === 'uploaded' ||
+      f.status === 'team_leader_approved' ||
+      f.status === 'final_approved'
+    ).length
+  , [files])
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -261,6 +258,8 @@ const UserDashboard = memo(({ user, onLogout }) => {
               formatFileSize={formatFileSize}
               files={files}
               user={user}
+              highlightFileId={highlightedFileId}
+              onClearFileHighlight={clearFileHighlight}
             />
           </Suspense>
         )
@@ -283,10 +282,13 @@ const UserDashboard = memo(({ user, onLogout }) => {
               user={user}
               highlightedAssignmentId={highlightedAssignmentId}
               highlightedFileId={highlightedFileId}
+              highlightedFileStatus={highlightedFileStatus}
               notificationCommentContext={notificationCommentContext}
               onClearHighlight={clearHighlight}
               onClearFileHighlight={clearFileHighlight}
               onClearNotificationContext={clearNotificationContext}
+              initialTab={taskInitialTab}
+              onClearInitialTab={() => setTaskInitialTab(null)}
             />
           </Suspense>
         )
@@ -305,25 +307,23 @@ const UserDashboard = memo(({ user, onLogout }) => {
 
   return (
     <Suspense fallback={<SkeletonLoader type="dashboard" />}>
-      <div className="user-layout">
+      <div className="minimal-dashboard user-dashboard">
         <Sidebar
-          user={user}
-          items={userNavItems}
           activeTab={activeTab}
-          onTabChange={handleTabChange}
+          setActiveTab={handleTabChange}
+          filesCount={filesCount}
+          notificationCount={notificationCount}
           onLogout={handleLogout}
-          isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
+          user={user}
         />
 
         {/* Main Content */}
-        <div 
-          className="main-content"
-          style={{ 
-            marginLeft: '80px',
-            width: 'calc(100% - 80px)'
-          }}
-        >
+        <div className="main-content">
+          {/* Online Members Panel — top right */}
+          <div style={{ position: 'fixed', top: '16px', right: '24px', zIndex: 1000 }}>
+            <OnlineMembersPanel user={user} />
+          </div>
+
           <div className="dashboard-content">
             <AlertMessage
               type="error"
@@ -352,6 +352,6 @@ const UserDashboard = memo(({ user, onLogout }) => {
       </div>
     </Suspense>
   )
-});
+}
 
 export default UserDashboard

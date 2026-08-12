@@ -1,8 +1,8 @@
 import React, { memo, useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { apiFetch } from '@/config/api';
+import Avatar from './Avatar';
 import './CommentsModal.css';
-import { RoleBadge } from './index';
 
 // Renders text with @mention highlights
 const renderTextWithMentions = (text, users = []) => {
@@ -37,6 +37,13 @@ const computeInitials = (name) => {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0][0].toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+// Role badge colour map
+const ROLE_BADGE_STYLE = {
+  ADMIN:       { background: '#fee2e2', color: '#dc2626' },
+  TEAM_LEADER: { background: '#dbeafe', color: '#1877f2' },
+  USER:        { background: '#d3f1d8', color: '#1a7f37' },
 };
 
 // ─── @Mention Picker Hook ─────────────────────────────────────────────────────
@@ -170,7 +177,7 @@ function buildHTML(text, users = []) {
 
 // ─── MentionInput — contentEditable with live @mention highlighting ──────────
 const MentionInput = memo((
-  { value, onChange, onSubmit, placeholder, mentionableUsers, autoFocus },
+  { value, onChange, onSubmit, placeholder, mentionableUsers, autoFocus, disabled },
 ) => {
   const editorRef = useRef(null);
   const isComposingRef = useRef(false);
@@ -248,8 +255,8 @@ const MentionInput = memo((
     <div className="mention-input-container">
       <div
         ref={editorRef}
-        className={`mention-input-editor${!value ? ' is-empty' : ''}`}
-        contentEditable
+        className={`mention-input-editor${!value ? ' is-empty' : ''}${disabled ? ' is-disabled' : ''}`}
+        contentEditable={!disabled}
         suppressContentEditableWarning
         data-placeholder={placeholder}
         onInput={handleInput}
@@ -272,6 +279,7 @@ const MentionInput = memo((
         >
           {filtered.map((u, i) => {
             const role = u.role?.toUpperCase().replace(/[\s_]/g, '_');
+            const badgeStyle = ROLE_BADGE_STYLE[role] || ROLE_BADGE_STYLE.USER;
             const isEveryone = u.id === 'everyone';
             
             return (
@@ -285,7 +293,7 @@ const MentionInput = memo((
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
                     </svg>
-                  ) : computeInitials(u.fullName || u.username)}
+                  ) : <Avatar user={u} size="sm" />}
                 </div>
                 <div className="mention-picker-info">
                   <span className="mention-picker-name">{isEveryone ? '@everyone' : (u.fullName || u.username)}</span>
@@ -305,7 +313,7 @@ const MentionInput = memo((
 MentionInput.displayName = 'MentionInput';
 
 // ─── Three-dot menu ───────────────────────────────────────────────────────────
-const MoreMenu = memo(({ onEdit, onDelete }) => {
+const MoreMenu = memo(({ onEdit, onDelete, disabled }) => {
   const [open, setOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef(null);
@@ -328,6 +336,7 @@ const MoreMenu = memo(({ onEdit, onDelete }) => {
 
   const handleToggle = useCallback((e) => {
     e.stopPropagation();
+    if (disabled) return;
     setOpen(prev => {
       if (!prev && btnRef.current) {
         const rect = btnRef.current.getBoundingClientRect();
@@ -335,17 +344,21 @@ const MoreMenu = memo(({ onEdit, onDelete }) => {
       }
       return !prev;
     });
-  }, []);
+  }, [disabled]);
 
   const handleEdit = useCallback(() => { setOpen(false); onEdit(); }, [onEdit]);
   const handleDelete = useCallback(() => { setOpen(false); onDelete(); }, [onDelete]);
 
   return (
-    <div className="more-menu-wrapper">
-      <button ref={btnRef} className="more-menu-btn" onClick={handleToggle} title="More options">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
-        </svg>
+    <div className={`more-menu-wrapper ${disabled ? 'disabled' : ''}`}>
+      <button ref={btnRef} className="more-menu-btn" onClick={handleToggle} title="More options" disabled={disabled}>
+        {disabled ? (
+          <div className="menu-spinner" />
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+          </svg>
+        )}
       </button>
       {open && ReactDOM.createPortal(
         <div ref={ref} className="more-menu-dropdown" style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left }}>
@@ -374,18 +387,43 @@ MoreMenu.displayName = 'MoreMenu';
 // ─── Inline edit input ────────────────────────────────────────────────────────
 const EditInput = memo(({ initialText, onSave, onCancel }) => {
   const [text, setText] = useState(initialText);
+  const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
   const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSave(text); }
-    if (e.key === 'Escape') onCancel();
-  }, [text, onSave, onCancel]);
+    if (e.key === 'Enter' && !e.shiftKey) { 
+      e.preventDefault(); 
+      if (text.trim() && !isSaving) handleSave();
+    }
+    if (e.key === 'Escape' && !isSaving) onCancel();
+  }, [text, isSaving, onCancel]);
+
+  const handleSave = async () => {
+    if (!text.trim() || isSaving) return;
+    setIsSaving(true);
+    try {
+      await onSave(text);
+    } catch (err) {
+      console.error('Failed to save edit:', err);
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <div className="edit-input-wrapper">
-      <input ref={inputRef} className="edit-input" value={text} onChange={e => setText(e.target.value)} onKeyDown={handleKeyDown} />
+    <div className={`edit-input-wrapper ${isSaving ? 'is-saving' : ''}`}>
+      <input 
+        ref={inputRef} 
+        className="edit-input" 
+        value={text} 
+        onChange={e => setText(e.target.value)} 
+        onKeyDown={handleKeyDown} 
+        disabled={isSaving}
+      />
       <div className="edit-input-actions">
-        <button className="edit-save-btn" onClick={() => onSave(text)} disabled={!text.trim()}>Save</button>
-        <button className="edit-cancel-btn" onClick={onCancel}>Cancel</button>
+        <button className="edit-save-btn" onClick={handleSave} disabled={!text.trim() || isSaving}>
+          {isSaving ? 'Saving...' : 'Save'}
+        </button>
+        <button className="edit-cancel-btn" onClick={onCancel} disabled={isSaving}>Cancel</button>
       </div>
     </div>
   );
@@ -397,20 +435,37 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
   const MAX_REPLY_LENGTH = 150;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const isLong = reply.reply.length > MAX_REPLY_LENGTH;
   const isOwner = useMemo(() => String(reply.user_id) === String(currentUserId), [reply.user_id, currentUserId]);
-  const initials = useMemo(() => computeInitials(reply.user_fullname || reply.fullName || reply.username), [reply.user_fullname, reply.fullName, reply.username]);
   const displayName = useMemo(() => reply.user_fullname || reply.fullName || reply.username, [reply.user_fullname, reply.fullName, reply.username]);
+  const roleCls = useMemo(() => `role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`, [reply.user_role]);
   const renderedText = useMemo(() => {
     const content = isLong && !isExpanded ? reply.reply.substring(0, MAX_REPLY_LENGTH) + '...' : reply.reply;
     return renderTextWithMentions(content, mentionableUsers);
   }, [reply.reply, isLong, isExpanded, mentionableUsers]);
+
   const handleReply = useCallback(() => { if (onReplyToReply) onReplyToReply(parentCommentId, displayName); }, [displayName, onReplyToReply, parentCommentId]);
-  const handleSaveEdit = useCallback((newText) => { onEditReply(assignmentId, parentCommentId, reply.id, newText); setIsEditing(false); }, [onEditReply, assignmentId, parentCommentId, reply.id]);
+  
+  const handleSaveEdit = async (newText) => { 
+    // isSaving state is handled inside EditInput, but we handle closing the edit mode here
+    await onEditReply(assignmentId, parentCommentId, reply.id, newText); 
+    setIsEditing(false); 
+  };
+
+  const handleDelete = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await onDeleteReply(assignmentId, parentCommentId, reply.id);
+    } catch (err) {
+      setIsProcessing(false);
+    }
+  };
 
   return (
-    <div className="reply-item">
-      <div className="reply-avatar">{initials}</div>
+    <div className={`reply-item ${isProcessing ? 'is-processing' : ''}`}>
+      <Avatar user={{ fullName: displayName, profile_picture: reply.user_profile_picture }} size="sm" />
       <div className="reply-content">
         {isEditing ? (
           <EditInput initialText={reply.reply} onSave={handleSaveEdit} onCancel={() => setIsEditing(false)} />
@@ -419,8 +474,12 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
             <div className="reply-bubble">
               <div className="reply-header">
                 <span className="reply-author">{displayName}</span>
-                <RoleBadge role={reply.user_role} size="sm" />
-                {isOwner && <div className="bubble-menu-wrap"><MoreMenu onEdit={() => setIsEditing(true)} onDelete={() => onDeleteReply(assignmentId, parentCommentId, reply.id)} /></div>}
+                <span className={roleCls}>{reply.user_role || 'USER'}</span>
+                {isOwner && (
+                  <div className="bubble-menu-wrap">
+                    <MoreMenu onEdit={() => setIsEditing(true)} onDelete={handleDelete} disabled={isProcessing} />
+                  </div>
+                )}
               </div>
               <div className="reply-text">
                 {renderedText}
@@ -429,7 +488,7 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
             </div>
             <div className="reply-meta-row">
               <span className="reply-time">{reply._timeAgo}{reply.updated_at && reply.updated_at !== reply.created_at ? ' · edited' : ''}</span>
-              {onReplyToReply && <button className="reply-button" onClick={handleReply}>Reply</button>}
+              {onReplyToReply && <button className="reply-button" onClick={handleReply} disabled={isProcessing}>Reply</button>}
             </div>
           </>
         )}
@@ -440,7 +499,7 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
 ReplyItem.displayName = 'ReplyItem';
 
 // ─── ReplyInputBox ────────────────────────────────────────────────────────────
-const ReplyInputBox = memo(({ comment, initialText, onPostReply, userInitials, mentionableUsers }) => {
+const ReplyInputBox = memo(({ comment, initialText, onPostReply, user, mentionableUsers, isProcessing }) => {
   const [text, setText] = useState(initialText || '');
   const prevInitial = useRef(initialText);
 
@@ -456,18 +515,21 @@ const ReplyInputBox = memo(({ comment, initialText, onPostReply, userInitials, m
   }, [onPostReply, comment.id, text]);
 
   return (
-    <div className="reply-input-box">
-      <div className="reply-avatar">{userInitials}</div>
+    <div className={`reply-input-box ${isProcessing ? 'is-processing' : ''}`}>
+      <Avatar user={user} size="sm" />
       <div className="comment-input-wrapper">
         <MentionInput
           value={text}
           onChange={setText}
           onSubmit={handleSubmit}
-          placeholder="Write a reply... (@ to mention)"
+          placeholder={isProcessing ? 'Posting...' : 'Write a reply... (@ to mention)'}
           mentionableUsers={mentionableUsers}
+          disabled={isProcessing}
           autoFocus
         />
-        <button className="comment-submit-btn" onClick={handleSubmit} disabled={!text.trim()}>➤</button>
+        <button className="comment-submit-btn" onClick={handleSubmit} disabled={!text.trim() || isProcessing}>
+          {isProcessing ? '...' : '➤'}
+        </button>
       </div>
     </div>
   );
@@ -478,29 +540,61 @@ ReplyInputBox.displayName = 'ReplyInputBox';
 const CommentItem = memo(({
   comment, assignmentId, isReplying, mentionText, repliesVisible,
   onReply, onToggleReplies, onPostReply, onEditComment, onDeleteComment,
-  onEditReply, onDeleteReply, userInitials, highlightUsername, currentUserId, mentionableUsers,
+  onEditReply, onDeleteReply, user, highlightUsername, highlightCommentId, currentUserId, mentionableUsers,
 }) => {
   const MAX_LEN = 150;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const commentRef = useRef(null);
   const isLong = comment.comment.length > MAX_LEN;
   const isOwner = useMemo(() => String(comment.user_id) === String(currentUserId), [comment.user_id, currentUserId]);
-  const initials = useMemo(() => computeInitials(comment.user_fullname || comment.fullName || comment.username), [comment.user_fullname, comment.fullName, comment.username]);
   const displayName = useMemo(() => comment.user_fullname || comment.fullName || comment.username, [comment.user_fullname, comment.fullName, comment.username]);
-  const isHighlighted = useMemo(() => !!(highlightUsername && (comment.username === highlightUsername || comment.user_fullname === highlightUsername)), [highlightUsername, comment.username, comment.user_fullname]);
+  const roleCls = useMemo(() => `role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`, [comment.user_role]);
+  
+  const isHighlighted = useMemo(() => {
+    if (highlightCommentId) {
+      return String(comment.id) === String(highlightCommentId);
+    }
+    return !!(highlightUsername && (comment.username === highlightUsername || comment.user_fullname === highlightUsername));
+  }, [highlightCommentId, highlightUsername, comment.id, comment.username, comment.user_fullname]);
+
   const renderedText = useMemo(() => {
     const content = isLong && !isExpanded ? comment.comment.substring(0, MAX_LEN) + '...' : comment.comment;
     return renderTextWithMentions(content, mentionableUsers);
   }, [comment.comment, isLong, isExpanded, mentionableUsers]);
   const replyCount = useMemo(() => comment.replies?.length ?? 0, [comment.replies]);
+  
+  useEffect(() => {
+    if (isHighlighted && commentRef.current) {
+      setTimeout(() => {
+        commentRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+  }, [isHighlighted]);
+
   const handleReplyClick = useCallback(() => onReply(comment.id, displayName), [comment.id, displayName, onReply]);
   const handleToggleReplies = useCallback(() => onToggleReplies(comment.id), [comment.id, onToggleReplies]);
-  const handleSaveEdit = useCallback((newText) => { onEditComment(assignmentId, comment.id, newText); setIsEditing(false); }, [onEditComment, assignmentId, comment.id]);
+  
+  const handleSaveEdit = async (newText) => { 
+    await onEditComment(assignmentId, comment.id, newText); 
+    setIsEditing(false); 
+  };
+
+  const handleDelete = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await onDeleteComment(assignmentId, comment.id);
+    } catch (err) {
+      setIsProcessing(false);
+    }
+  };
 
   return (
-    <div className={isHighlighted ? 'comment-thread highlight-comment' : 'comment-thread'} data-comment-id={comment.id}>
+    <div ref={commentRef} className={`${isHighlighted ? 'comment-thread highlight-comment' : 'comment-thread'} ${isProcessing ? 'is-processing' : ''}`} data-comment-id={comment.id}>
       <div className="comment-item">
-        <div className="comment-avatar">{initials}</div>
+        <Avatar user={{ fullName: displayName, profile_picture: comment.user_profile_picture }} size="md" />
         <div className="comment-content">
           {isEditing ? (
             <EditInput initialText={comment.comment} onSave={handleSaveEdit} onCancel={() => setIsEditing(false)} />
@@ -509,8 +603,12 @@ const CommentItem = memo(({
               <div className="comment-bubble">
                 <div className="comment-header">
                   <span className="comment-author">{displayName}</span>
-                  <RoleBadge role={comment.user_role} size="sm" />
-                  {isOwner && <div className="bubble-menu-wrap"><MoreMenu onEdit={() => setIsEditing(true)} onDelete={() => onDeleteComment(assignmentId, comment.id)} /></div>}
+                  <span className={roleCls}>{comment.user_role || 'USER'}</span>
+                  {isOwner && (
+                    <div className="bubble-menu-wrap">
+                      <MoreMenu onEdit={() => setIsEditing(true)} onDelete={handleDelete} disabled={isProcessing} />
+                    </div>
+                  )}
                 </div>
                 <div className="comment-text">
                   {renderedText}
@@ -519,9 +617,9 @@ const CommentItem = memo(({
               </div>
               <div className="comment-actions">
                 <span className="comment-time">{comment._timeAgo}{comment.updated_at && comment.updated_at !== comment.created_at ? ' · edited' : ''}</span>
-                <button className="reply-button" onClick={handleReplyClick}>Reply</button>
+                <button className="reply-button" onClick={handleReplyClick} disabled={isProcessing}>Reply</button>
                 {replyCount > 0 && (
-                  <button className="view-replies-button" onClick={handleToggleReplies}>
+                  <button className="view-replies-button" onClick={handleToggleReplies} disabled={isProcessing}>
                     {repliesVisible ? 'Hide' : 'View'} {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
                   </button>
                 )}
@@ -554,8 +652,9 @@ const CommentItem = memo(({
           comment={comment}
           initialText={mentionText}
           onPostReply={onPostReply}
-          userInitials={userInitials}
+          user={user}
           mentionableUsers={mentionableUsers}
+          isProcessing={isProcessing}
         />
       )}
     </div>
@@ -569,7 +668,8 @@ const CommentsModal = memo(({
   newComment, setNewComment, onPostComment, onPostReply,
   onEditComment, onDeleteComment, onEditReply, onDeleteReply,
   visibleReplies, toggleRepliesVisibility,
-  getInitials, formatTimeAgo, user, highlightUsername = null,
+  getInitials, formatTimeAgo, user, highlightUsername = null, highlightCommentId = null,
+  isPostingComment = false, isPostingReply = false,
 }) => {
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyMentionText, setReplyMentionText] = useState('');
@@ -606,7 +706,6 @@ const CommentsModal = memo(({
     }));
   }, [comments, formatTimeAgo]);
 
-  const userInitials = useMemo(() => computeInitials(user.username || user.fullName), [user.username, user.fullName]);
 
   const handleSetReplyingTo = useCallback((commentId, authorName) => {
     setReplyingTo(prev => {
@@ -638,12 +737,12 @@ const CommentsModal = memo(({
         </div>
 
         <div className="comments-modal-body">
-          {loadingComments ? (
+          {loadingComments && !stampedComments?.length ? (
             <div className="loading-comments"><div className="spinner" /><p>Loading comments...</p></div>
-          ) : !stampedComments?.length ? (
+          ) : !stampedComments?.length && !loadingComments ? (
             <div className="no-comments"><p>💬 No comments yet. Be the first to comment!</p></div>
           ) : (
-            <div className="comments-list">
+            <div className={`comments-list ${loadingComments ? 'refreshing' : ''}`}>
               {stampedComments.map(comment => (
                 <CommentItem
                   key={comment.id}
@@ -659,8 +758,9 @@ const CommentsModal = memo(({
                   onDeleteComment={onDeleteComment}
                   onEditReply={onEditReply}
                   onDeleteReply={onDeleteReply}
-                  userInitials={userInitials}
+                  user={user}
                   highlightUsername={highlightUsername}
+                  highlightCommentId={highlightCommentId}
                   currentUserId={user.id}
                   mentionableUsers={mentionableUsers}
                 />
@@ -671,16 +771,19 @@ const CommentsModal = memo(({
 
         <div className="comments-modal-footer">
           <div className="add-comment">
-            <div className="comment-avatar">{userInitials}</div>
-            <div className="comment-input-wrapper">
+            <Avatar user={user} size="md" />
+            <div className={`comment-input-wrapper ${isPostingComment ? 'is-processing' : ''}`}>
               <MentionInput
                 value={newComment}
                 onChange={setNewComment}
                 onSubmit={onPostComment}
-                placeholder="Write a comment... (@ to mention)"
+                placeholder={isPostingComment ? 'Posting...' : 'Write a comment... (@ to mention)'}
                 mentionableUsers={mentionableUsers}
+                disabled={isPostingComment}
               />
-              <button className="comment-submit-btn" onClick={onPostComment} disabled={!newComment.trim()}>➤</button>
+              <button className="comment-submit-btn" onClick={onPostComment} disabled={!newComment.trim() || isPostingComment}>
+                {isPostingComment ? '...' : '➤'}
+              </button>
             </div>
           </div>
         </div>

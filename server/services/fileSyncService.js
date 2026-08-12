@@ -6,7 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { query } = require('../../database/config');
+const { query } = require('../config/database');
 
 function norm(p) {
   return (p || '').replace(/\\/g, '/').toLowerCase().trim();
@@ -49,12 +49,12 @@ function resolveFilePath(row, uploadsDir, networkDataPath) {
  * Delete all DB records for a file ID (cascading cleanup).
  */
 async function deleteFileRecord(fileId) {
-  await query(`UPDATE assignment_members SET file_id = NULL, status = 'pending', submitted_at = NULL WHERE file_id = ?`, [fileId]).catch(() => {});
-  await query(`DELETE FROM assignment_submissions WHERE file_id = ?`, [fileId]).catch(() => {});
-  await query(`DELETE FROM notifications WHERE file_id = ?`, [fileId]).catch(() => {});
-  await query(`DELETE FROM file_comments WHERE file_id = ?`, [fileId]).catch(() => {});
-  await query(`DELETE FROM file_status_history WHERE file_id = ?`, [fileId]).catch(() => {});
-  await query(`DELETE FROM files WHERE id = ?`, [fileId]);
+  await query('UPDATE assignment_members SET file_id = NULL, status = \'pending\', submitted_at = NULL WHERE file_id = ?', [fileId]).catch(() => {});
+  await query('DELETE FROM assignment_submissions WHERE file_id = ?', [fileId]).catch(() => {});
+  await query('DELETE FROM notifications WHERE file_id = ?', [fileId]).catch(() => {});
+  await query('DELETE FROM file_comments WHERE file_id = ?', [fileId]).catch(() => {});
+  await query('DELETE FROM file_status_history WHERE file_id = ?', [fileId]).catch(() => {});
+  await query('DELETE FROM files WHERE id = ?', [fileId]);
 }
 
 /**
@@ -66,7 +66,7 @@ async function syncDeletedFiles(uploadsDir, networkDataPath) {
 
   // ── 1. Sync files table ───────────────────────────────────────────
   const files = await query(
-    `SELECT id, original_name, filename, file_path, public_network_url, status FROM files`
+    'SELECT id, original_name, filename, file_path, public_network_url, status FROM files'
   );
 
   for (const row of (files || [])) {
@@ -106,13 +106,15 @@ async function syncDeletedFiles(uploadsDir, networkDataPath) {
 
   // ── 2. Sync assignment_attachments table ─────────────────────────
   const attachments = await query(
-    `SELECT id, original_name, filename, file_path FROM assignment_attachments`
+    'SELECT id, original_name, filename, file_path FROM assignment_attachments'
   ).catch(() => []);
 
   for (const row of (attachments || [])) {
     summary.checked++;
     const absPath = resolveFilePath(row, uploadsDir, networkDataPath);
-    if (!absPath) continue;
+    if (!absPath) {
+      continue;
+    }
 
     let exists = false;
     try {
@@ -124,7 +126,7 @@ async function syncDeletedFiles(uploadsDir, networkDataPath) {
 
     if (!exists) {
       try {
-        await query(`DELETE FROM assignment_attachments WHERE id = ?`, [row.id]);
+        await query('DELETE FROM assignment_attachments WHERE id = ?', [row.id]);
         summary.removed++;
         summary.removedFiles.push({ id: row.id, name: row.original_name, path: absPath, type: 'attachment' });
         console.log(`🗑️  [Sync] Removed orphan attachment ID ${row.id}: ${row.original_name}`);

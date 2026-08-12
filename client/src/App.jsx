@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from 'react'
+import React, { lazy, Suspense, useEffect, useState, useRef } from 'react'
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
@@ -6,6 +6,7 @@ import './css/App.css'
 import { createLogger } from './utils/secureLogger'
 import useStore from './store/useStore'
 import { queryClient } from './config/queryClient'
+import { API_BASE_URL } from './config/api'
 
 // Eager load (always needed)
 import Login from './components/Login'
@@ -19,38 +20,68 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 
 const logger = createLogger('App')
 
-// Sync unread count to Electron taskbar badge + icon flash
-const syncElectronBadge = (count) => {
-  if (!window.electron) return
-  if (typeof window.electron.setBadge === 'function') window.electron.setBadge(count)
-  if (typeof window.electron.flashFrame === 'function') window.electron.flashFrame(count > 0)
-}
-
 function App() {
-  // STABILIZED: Use selectors to prevent App re-rendering on every store change (e.g. notification counts)
-  const user = useStore(state => state.user);
-  const login = useStore(state => state.login);
-  const logout = useStore(state => state.logout);
-  const _hasHydrated = useStore(state => state._hasHydrated);
-  const notificationCount = useStore(state => state.globalUnreadCount);
+  // Use Zustand store instead of local state
+  const { user, login, logout, _hasHydrated } = useStore()
 
-  // Log user session restoration and navigation
+  // ── DB-ready gate ──────────────────────────────────────────────────────
+  // Poll /api/health until MySQL is connected before letting the dashboard
+  // fire any API calls. This prevents every tab simultaneously hitting 503
+  // and waiting on independent retry timers.
+  const [dbReady, setDbReady] = useState(false)
+  const dbPollRef = useRef(null)
+
   useEffect(() => {
-    if (user && _hasHydrated) {
-      logger.info('User session restored from store')
-      logger.logNavigation('login', `${user.panelType}-dashboard`)
+    if (!user || !_hasHydrated) return // only poll when logged in
+
+    let cancelled = false
+
+    const poll = async () => {
+      while (!cancelled) {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/health`, { cache: 'no-store' })
+          const data = await res.json()
+          if (data.dbReady) {
+            if (!cancelled) setDbReady(true)
+            return
+          }
+        } catch (_) {
+          // server not yet responding — keep polling
+        }
+        await new Promise(r => setTimeout(r, 600))
+      }
     }
-  }, [user?.id, user?.panelType, _hasHydrated])
 
-  // Sync unread badge + flash to Electron taskbar
+    poll()
+    return () => { cancelled = true }
+  }, [user, _hasHydrated])
+
+  // Reset dbReady on logout so next login re-polls
   useEffect(() => {
-    syncElectronBadge(notificationCount)
-  }, [notificationCount])
+    if (!user) setDbReady(false)
+  }, [user])
+  // ───────────────────────────────────────────────────────────────────────
+
+  // Handle window resizing based on auth state and log session restoration
+  useEffect(() => {
+    if (_hasHydrated) {
+      if (user) {
+        logger.info('User session restored from store');
+        if (window.electron?.windowControl) {
+          window.electron.windowControl.resizeForDashboard();
+        }
+      } else {
+        if (window.electron?.windowControl) {
+          window.electron.windowControl.resizeForLogin();
+        }
+      }
+    }
+  }, [user, _hasHydrated])
 
   // Don't render until persisted store is rehydrated — prevents 401s from
   // components firing apiFetch before the token is available
   if (!_hasHydrated) {
-    return <LoadingSpinner message="Loading..." />
+    return <LoadingSpinner message="Loading..." fullPage={true} />
   }
 
   // Handle login
@@ -60,15 +91,33 @@ function App() {
     logger.logStateUpdate('User authenticated and saved')
   }
 
-  // Handle logout
-  const handleLogout = () => {
+  // Handle logout — mark offline BEFORE clearing the token so the DELETE request is authenticated
+  const handleLogout = async () => {
     logger.logLogout()
+    const { token } = useStore.getState()
+    if (token) {
+      try {
+        await fetch(`${API_BASE_URL}/api/presence/ping`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          keepalive: true, // ensures the request completes even if the page navigates away
+        })
+      } catch { /* non-critical */ }
+    }
     logout()
   }
 
   // Get the appropriate dashboard component based on user's panel type
   const getDashboardComponent = () => {
     if (!user) return null
+
+    // Show a brief connecting screen until MySQL is ready.
+    // This ensures all tabs load together instead of hammering 503s independently.
+    if (!dbReady) {
+      return <LoadingSpinner message="Connecting to database..." fullPage={true} />
+    }
+
+    logger.logNavigation('login', `${user.panelType}-dashboard`)
 
     switch (user.panelType) {
       case 'user':
@@ -85,12 +134,12 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Router>
         <div className="app">
           {/* Toast notifications - handles ALL notifications including updates */}
           <ToastContainer />
 
-          <Suspense fallback={<LoadingSpinner message="Loading dashboard..." />}>
+          <Suspense fallback={<LoadingSpinner message="Loading dashboard..." fullPage={true} />}>
             <Routes>
               <Route
                 path="/login"

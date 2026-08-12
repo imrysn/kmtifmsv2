@@ -363,11 +363,66 @@
   justify-content: flex-start;
 }
 
+.team-text {
+  font-size: 13px;
+  color: #1d1d1f;
+  font-weight: 600;
+  padding: 6px 12px;
+  background: #f5f5f7;
+  border-radius: 6px;
+  border: 1px solid #e5e5ea;
+}
+
 /* Column - Status */
 .col-status {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 18px;
+  border-radius: 50px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  text-align: center;
+  border: 1.5px solid;
+  min-width: 170px;
+}
+
+.status-tag.status-pending {
+  color: #d97706;
+  border-color: #d97706;
+  background: transparent;
+}
+
+.status-tag.status-revised {
+  color: #eab308;
+  border-color: #eab308;
+  background: transparent;
+}
+
+.status-tag.status-approved {
+  color: #10b981;
+  border-color: #10b981;
+  background: transparent;
+}
+
+.status-tag.status-rejected {
+  color: #ef4444;
+  border-color: #ef4444;
+  background: transparent;
+}
+
+.status-tag.status-checked {
+  color: #6366f1;
+  border-color: #6366f1;
+  background: transparent;
 }
 
 /* Empty State */
@@ -540,6 +595,12 @@
   .file-row-new {
     grid-template-columns: 2fr 180px 120px 180px 80px;
     gap: 16px;
+  }
+
+  .status-tag {
+    font-size: 11px;
+    padding: 6px 14px;
+    min-width: 150px;
   }
 }
 
@@ -860,6 +921,17 @@
   animation: spin 0.8s linear infinite;
 }
 
+@keyframes sortDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -890,4 +962,94 @@
   to {
     transform: rotate(360deg);
   }
+}
+/* Hierarchy Tree Lines */
+.tl-tree-container {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  width: 100%;
+}
+
+.tl-tree-line-vertical {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-vertical::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -24px; /* Connect to previous row */
+  bottom: -24px; /* Connect to next row */
+  width: 2px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-empty {
+  width: 30px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   File-row highlight: triggered from notification click
+   ============================================================ */
+@keyframes fileRowPulse {
+  0%   { background-color: #fffbea; box-shadow: 0 0 0 3px #f59e0b55; }
+  30%  { background-color: #fef3c7; box-shadow: 0 0 0 5px #f59e0b44; }
+  70%  { background-color: #fef9ee; box-shadow: 0 0 0 3px #f59e0b22; }
+  100% { background-color: transparent; box-shadow: none; }
+}
+
+.file-row-new.file-row-highlighted {
+  animation: fileRowPulse 3s ease forwards;
+  border-radius: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.tl-tree-line-connector {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-connector::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -24px;
+  bottom: -24px;
+  width: 2px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-connector::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  width: 15px;
+  height: 2px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-connector.last-item::before {
+  height: calc(50% + 24px);
+  bottom: auto;
+}
+
+/* Adjustments for MyFilesTab specific layout */
+.file-row-new.folder-row .tl-tree-line-vertical::before,
+.file-row-new.folder-row .tl-tree-line-connector::before,
+.file-row-new.folder-row .tl-tree-line-connector::after,
+.file-row-new .tl-tree-line-vertical::before,
+.file-row-new .tl-tree-line-connector::before,
+.file-row-new .tl-tree-line-connector::after {
+  background-color: #cbd5e1;
+}
+
+.file-row-new .col-filename {
+  padding-left: 0 !important;
 }

@@ -1481,3 +1481,145 @@ textarea:focus {
   background-color: #fecaca;
   color: #b91c1c;
 }
+
+/* Hierarchy Tree Lines */
+.tl-tree-container {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  width: 100%;
+}
+
+.tl-tree-line-vertical {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-vertical::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -7px; /* Connect to previous item */
+  bottom: -7px; /* Connect to next item */
+  width: 2px;
+  background-color: #cbd5e1; /* slate-300 */
+}
+
+.tl-tree-line-empty {
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.tl-tree-line-connector {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-connector::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -7px;
+  bottom: -7px;
+  width: 2px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-connector::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  width: 15px;
+  height: 2px;
+  background-color: #cbd5e1;
+}
+
+/* For the last item in a folder, stop the vertical line at the horizontal connector */
+.tl-tree-line-connector.last-item::before {
+  height: calc(50% + 7px);
+  bottom: auto;
+}
+
+/* ============================================
+   SMART NAVIGATION — HIGHLIGHT ANIMATIONS
+   Applied by useSmartNavigation when navigating
+   from a notification click.
+   ============================================ */
+
+/* Assignment card highlight — indigo pulse */
+.user-assignment-highlighted {
+  animation: userHighlightPulse 1.5s ease-in-out;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3) !important;
+}
+
+@keyframes userHighlightPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+    border-color: #6366f1;
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.4);
+    border-color: #4f46e5;
+  }
+}
+
+/* File row highlight — neutral indigo (default) */
+.user-assignment-file-highlighted {
+  animation: userFileHighlightPulse 1.5s ease-in-out;
+  background: rgba(99, 102, 241, 0.08) !important;
+  border: 2px solid #6366f1 !important;
+  border-radius: 8px;
+}
+
+@keyframes userFileHighlightPulse {
+  0%, 100% {
+    background: rgba(99, 102, 241, 0.08);
+    border-color: #6366f1;
+  }
+  50% {
+    background: rgba(99, 102, 241, 0.16);
+    border-color: #4f46e5;
+  }
+}
+
+/* File row highlight — red (rejected files) */
+.user-assignment-file-highlighted-rejected {
+  animation: userFileHighlightRejected 1.5s ease-in-out;
+  background: rgba(220, 38, 38, 0.08) !important;
+  border: 2px solid #dc2626 !important;
+  border-radius: 8px;
+}
+
+@keyframes userFileHighlightRejected {
+  0%, 100% {
+    background: rgba(220, 38, 38, 0.08);
+    border-color: #dc2626;
+  }
+  50% {
+    background: rgba(220, 38, 38, 0.16);
+    border-color: #b91c1c;
+  }
+}
+
+/* File row highlight — amber (revision / for editing files) */
+.user-assignment-file-highlighted-revision {
+  animation: userFileHighlightRevision 1.5s ease-in-out;
+  background: rgba(245, 158, 11, 0.08) !important;
+  border: 2px solid #f59e0b !important;
+  border-radius: 8px;
+}
+
+@keyframes userFileHighlightRevision {
+  0%, 100% {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: #f59e0b;
+  }
+  50% {
+    background: rgba(245, 158, 11, 0.16);
+    border-color: #d97706;
+  }
+}

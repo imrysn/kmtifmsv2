@@ -115,26 +115,23 @@ body {
 }
 
 .tl-brand {
-  padding: var(--spacing-lg);
+  padding: 16px 12px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: hidden;
+  min-height: 80px;
 }
 
-.tl-brand-logo {
-  width: 36px;
-  height: 36px;
-  aspect-ratio: 1;
-  background: var(--text-primary);
-  border-radius: var(--radius-md);
-  color: white;
+/* Avatar wrapper — always visible, replaces the old TL logo */
+.tl-brand-avatar {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
+  position: relative;
+  z-index: 10;
 }
 
 .tl-brand-name {
@@ -151,7 +148,7 @@ body {
 }
 
 .tl-sidebar:hover .tl-brand-name {
-  max-width: 200px;
+  max-width: 160px;
   opacity: 1;
 }
 

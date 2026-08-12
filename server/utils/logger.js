@@ -58,14 +58,18 @@ function resolveLogsDir() {
 
   // Try the local path first (works in dev / win-unpacked)
   try {
-    if (!fs.existsSync(localLogs)) fs.mkdirSync(localLogs, { recursive: true });
+    if (!fs.existsSync(localLogs)) {
+      fs.mkdirSync(localLogs, { recursive: true });
+    }
     // Quick write-access test
     fs.accessSync(localLogs, fs.constants.W_OK);
     return localLogs;
   } catch (_) {
     // Fall back to AppData (always writable)
     try {
-      if (!fs.existsSync(appDataLogs)) fs.mkdirSync(appDataLogs, { recursive: true });
+      if (!fs.existsSync(appDataLogs)) {
+        fs.mkdirSync(appDataLogs, { recursive: true });
+      }
     } catch (_2) {}
     return appDataLogs;
   }

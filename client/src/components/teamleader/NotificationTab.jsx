@@ -1,13 +1,493 @@
-import { PremiumNotificationCenter } from '../shared';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { apiFetch, API_BASE_URL } from '@/config/api';
+import useStore from '@/store/useStore';
+import './css/NotificationTab.css';
+import FileIcon from '../shared/FileIcon';
+import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
+import { parseNotification } from '../shared/SmartNavigation';
+
+// Memoized notification item to prevent unnecessary re-renders
+const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNotification, NotificationIcon, formatTimeAgo }) => {
+  return (
+    <div
+      className={`tl-notification-item ${!notification.is_read ? 'unread' : ''}`}
+      onClick={() => onNotificationClick(notification)}
+    >
+      <div className="tl-notification-icon">
+        <NotificationIcon type={notification.type} />
+      </div>
+
+      <div className="tl-notification-content">
+        <div className="tl-notification-title">
+          {notification.title}
+          {!notification.is_read && <span className="tl-unread-badge">New</span>}
+        </div>
+        <div className="tl-notification-message">{notification.message}</div>
+
+        <div className="tl-notification-meta">
+          <span className="tl-notification-author">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style={{marginRight: '4px', verticalAlign: 'middle', flexShrink: 0}}>
+              <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+            </svg>
+            {notification.action_by_username} ({notification.action_by_role === 'TEAM_LEADER' ? 'Team Leader' : notification.action_by_role})
+          </span>
+          {notification.assignment_title && (
+            <span className="tl-notification-assignment">
+              Assignment: {notification.assignment_title}
+            </span>
+          )}
+          {notification.file_name && (
+            <span className="tl-notification-file">
+              {notification.file_name}
+            </span>
+          )}
+          {notification.assignment_due_date && (
+            <span className="tl-notification-due-date">
+              Due: {new Date(notification.assignment_due_date).toLocaleDateString()}
+            </span>
+          )}
+        </div>
+
+        <div className="tl-notification-time">
+          {formatTimeAgo(notification.created_at)}
+        </div>
+      </div>
+
+      <button
+        className="tl-notification-delete"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDeleteNotification(notification.id);
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+});
+
+NotificationItem.displayName = 'NotificationItem';
 
 const NotificationTab = ({ user, onNavigate, onRead }) => {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const limit = 20;
+
+  // Keep latest notifications in a ref so SSE/poll closures never see stale state
+  const notificationsRef = useRef([]);
+  useEffect(() => { notificationsRef.current = notifications; }, [notifications]);
+
+  const observerRef = useRef(null);
+  const loadMoreRef = useRef(null);
+
+  useTaskbarFlash(unreadCount);
+
+  // ── Core fetch — useCallback so it's stable and safe in effect deps ───────
+  const fetchNotifications = useCallback(async (pageNum, isInitial = false, isSilentRefresh = false) => {
+    try {
+      if (isInitial && !isSilentRefresh) setLoading(true);
+      else if (!isSilentRefresh) setLoadingMore(true);
+
+      const data = await apiFetch(`/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}`);
+
+      if (data.success) {
+        const incoming = data.notifications || [];
+
+        if (isSilentRefresh) {
+          // Only prepend genuinely new items — read from ref to avoid stale closure
+          const existingIds = new Set(notificationsRef.current.map(n => n.id));
+          const brandNew = incoming.filter(n => !existingIds.has(n.id));
+          if (brandNew.length > 0) {
+            setNotifications(prev => [...brandNew, ...prev]);
+          }
+        } else if (isInitial) {
+          setNotifications(incoming);
+          setPage(1);
+        } else {
+          setNotifications(prev => [...prev, ...incoming]);
+          setPage(pageNum);
+        }
+
+        setUnreadCount(data.unreadCount || 0);
+        if ((data.unreadCount || 0) === 0) onRead?.();
+        setTotalCount(data.totalCount || 0);
+        setHasMore(data.hasMore || false);
+      } else {
+        if (!isSilentRefresh) setError('Failed to fetch notifications');
+      }
+    } catch (err) {
+      console.error('Error fetching TL notifications:', err);
+      if (!isSilentRefresh) setError('Failed to fetch notifications');
+    } finally {
+      if (isInitial && !isSilentRefresh) setLoading(false);
+      else if (!isSilentRefresh) setLoadingMore(false);
+    }
+  }, [user.id, onRead]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Initial load + 30s fallback poll ──────────────────────────────────────
+  useEffect(() => {
+    fetchNotifications(1, true);
+    const interval = setInterval(() => fetchNotifications(1, true, true), 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  // ── SSE — instant push the moment a notification is created ───────────────
+  useEffect(() => {
+    let es;
+    let reconnectTimer;
+
+    const connect = () => {
+      const { token } = useStore.getState();
+      const url = `${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+      es = new EventSource(url);
+
+      es.onmessage = (event) => {
+        if (event.data === 'ping') {
+          fetchNotifications(1, true, true);
+        }
+      };
+
+      es.onerror = () => {
+        es.close();
+        reconnectTimer = setTimeout(connect, 5000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      if (es) es.close();
+      clearTimeout(reconnectTimer);
+    };
+  }, [user.id, fetchNotifications]);
+
+  // ── Infinite scroll ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (loading || loadingMore || !hasMore) return;
+
+    const options = { root: null, rootMargin: '100px', threshold: 0.1 };
+    observerRef.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasMore && !loadingMore) {
+        fetchNotifications(page + 1, false);
+      }
+    }, options);
+
+    if (loadMoreRef.current) observerRef.current.observe(loadMoreRef.current);
+    return () => { if (observerRef.current) observerRef.current.disconnect(); };
+  }, [loading, loadingMore, hasMore, page, fetchNotifications]);
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+  const markAsRead = useCallback(async (notificationId) => {
+    try {
+      const data = await apiFetch(`/api/notifications/${notificationId}/read`, { method: 'PUT' });
+      if (data.success) {
+        setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (err) { console.error('Error marking notification as read:', err); }
+  }, []);
+
+  const markAllAsRead = useCallback(async () => {
+    try {
+      const data = await apiFetch(`/api/notifications/user/${user.id}/read-all`, { method: 'PUT' });
+      if (data.success) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        setUnreadCount(0);
+        onRead?.();
+      }
+    } catch (err) { console.error('Error marking all as read:', err); }
+  }, [user.id, onRead]);
+
+  const deleteNotification = useCallback(async (notificationId) => {
+    try {
+      const data = await apiFetch(`/api/notifications/${notificationId}`, { method: 'DELETE' });
+      if (data.success) {
+        const deleted = notificationsRef.current.find(n => n.id === notificationId);
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        setTotalCount(prev => prev - 1);
+        if (deleted && !deleted.is_read) setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (err) { console.error('Error deleting notification:', err); }
+  }, []);
+
+  const confirmDeleteAll = useCallback(async () => {
+    setIsDeleting(true);
+    try {
+      const data = await apiFetch(`/api/notifications/user/${user.id}/delete-all`, { method: 'DELETE' });
+      if (data.success) {
+        setNotifications([]);
+        setUnreadCount(0);
+        setTotalCount(0);
+        setHasMore(false);
+        setShowDeleteModal(false);
+        onRead?.();
+      }
+    } catch (err) {
+      console.error('Error deleting all notifications:', err);
+      setError('Failed to delete all notifications');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [user.id, onRead]);
+
+  const handleNotificationClick = useCallback(async (notification) => {
+    if (!notification.is_read) markAsRead(notification.id);
+
+    // for_editing / revision_request — route to assignments with amber file highlight
+    if (notification.type === 'for_editing' || notification.type === 'revision_request') {
+      const assignmentId = notification.assignment_id || null;
+      if (assignmentId && onNavigate) {
+        let fileId = notification.file_id || null;
+        let fileStatus = 'revision';
+        if (!fileId) {
+          try {
+            const res = await apiFetch(`/api/assignments/${assignmentId}/revision-file`);
+            if (res.success && res.file_id) {
+              fileId = res.file_id;
+              fileStatus = res.file_status || 'revision';
+            }
+          } catch (_) {}
+        }
+        onNavigate('assignments', { assignmentId, fileId, fileStatus });
+        return;
+      }
+    }
+
+    // file_submitted (New / Revised File Submission) — route to assignments and
+    // open the folder containing the submitted file.
+    // If file_id is null (old notifications pre-fix), look up the most recently
+    // submitted file for this assignment as a fallback.
+    if (notification.type === 'file_submitted' || notification.type === 'submission') {
+      const assignmentId = notification.assignment_id || null;
+      if (assignmentId && onNavigate) {
+        let fileId = notification.file_id || null;
+        if (!fileId) {
+          try {
+            const res = await apiFetch(`/api/assignments/${assignmentId}/latest-submission`);
+            if (res.success && res.file_id) fileId = res.file_id;
+          } catch (_) {}
+        }
+        onNavigate('assignments', { assignmentId, fileId, fileStatus: null });
+        return;
+      }
+    }
+
+    const { targetTab, context } = parseNotification(notification, 'teamleader');
+    if (targetTab && onNavigate) onNavigate(targetTab, context);
+  }, [markAsRead, onNavigate]);
+
+  // Notification icon component — original implementation using FileIcon
+  const NotificationIcon = useCallback(({ type }) => {
+    return (
+      <FileIcon
+        fileType={type}
+        size="medium"
+        altText={`${type} notification icon`}
+        className="tl-notification-type-icon"
+      />
+    );
+  }, []);
+
+  const formatTimeAgo = useCallback((timestamp) => {
+    const now = new Date();
+    const created = new Date(timestamp);
+    const diffInSeconds = Math.floor((now - created) / 1000);
+    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    return created.toLocaleDateString();
+  }, []);
+
+  // Skeleton loader component
+  const NotificationSkeleton = () => (
+    <div className="tl-notification-skeleton">
+      {[1, 2, 3, 4, 5].map(i => (
+        <div key={i} className="tl-notification-skeleton-item">
+          <div className="tl-skeleton-icon"></div>
+          <div className="tl-skeleton-content">
+            <div className="tl-skeleton-line tl-skeleton-line-title"></div>
+            <div className="tl-skeleton-line tl-skeleton-line-message"></div>
+            <div className="tl-skeleton-line tl-skeleton-line-meta"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div className="tl-notifications-page">
+        <div className="tl-notifications-header">
+          <div>
+            <h2>Notifications</h2>
+            <p className="tl-notifications-subtitle">Stay updated with your file approvals and system messages</p>
+          </div>
+        </div>
+        <NotificationSkeleton />
+      </div>
+    );
+  }
+
   return (
-    <PremiumNotificationCenter 
-      user={user}
-      role="teamleader"
-      onNavigate={onNavigate}
-      onUpdateUnreadCount={onRead}
-    />
+    <div className={`tl-notifications-page ${loading ? 'loading-cursor' : ''}`}>
+      <div className="tl-notifications-header">
+        <div>
+          <h2>Notifications</h2>
+          <p className="tl-notifications-subtitle">Stay updated with your file approvals and system messages</p>
+        </div>
+        <div className="tl-notifications-actions">
+          {unreadCount > 0 && (
+            <button className="tl-btn-mark-all-read" onClick={markAllAsRead}>
+              Mark All as Read
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button className="tl-btn-delete-all" onClick={() => setShowDeleteModal(true)}>
+              Delete All
+            </button>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div className="tl-error-message">{error}</div>
+      )}
+
+      <div className="tl-notifications-stats">
+        {totalCount} total • {unreadCount} unread
+      </div>
+
+      {notifications.length === 0 ? (
+        <div className="tl-no-notifications">
+          <div className="tl-no-notifications-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </div>
+          <h3>No notifications</h3>
+          <p>You're all caught up! Check back later for updates.</p>
+        </div>
+      ) : (
+        <>
+          <div className="tl-notifications-list">
+            {notifications.map((notification) => (
+              <NotificationItem
+                key={notification.id}
+                notification={notification}
+                onNotificationClick={handleNotificationClick}
+                onDeleteNotification={deleteNotification}
+                NotificationIcon={NotificationIcon}
+                formatTimeAgo={formatTimeAgo}
+              />
+            ))}
+          </div>
+
+          {/* Load More Skeleton */}
+          {loadingMore && (
+            <div className="tl-notifications-loading-more">
+              <div className="tl-notification-skeleton-item">
+                <div className="tl-skeleton-icon"></div>
+                <div className="tl-skeleton-content">
+                  <div className="tl-skeleton-line tl-skeleton-line-title"></div>
+                  <div className="tl-skeleton-line tl-skeleton-line-message"></div>
+                </div>
+              </div>
+              <div className="tl-notification-skeleton-item">
+                <div className="tl-skeleton-icon"></div>
+                <div className="tl-skeleton-content">
+                  <div className="tl-skeleton-line tl-skeleton-line-title"></div>
+                  <div className="tl-skeleton-line tl-skeleton-line-message"></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Infinite Scroll Trigger */}
+          {hasMore && !loadingMore && (
+            <div ref={loadMoreRef} className="tl-load-more-trigger" />
+          )}
+
+          {/* End of List Message */}
+          {!hasMore && notifications.length >= limit && (
+            <div className="tl-end-of-list">
+              <p>You've reached the end of your notifications</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Delete All Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="custom-modal-overlay" onClick={() => !isDeleting && setShowDeleteModal(false)}>
+          <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="custom-modal-header">
+              <h3>Delete All Notifications?</h3>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="custom-modal-close"
+                disabled={isDeleting}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="custom-modal-body">
+              <div className="delete-warning">
+                <span className="warning-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="24" height="24">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </span>
+                <div className="warning-content">
+                  <h4>Are you sure you want to delete all notifications?</h4>
+                  <div className="item-info">
+                    <div className="item-name">{totalCount} notification{totalCount !== 1 ? 's' : ''}</div>
+                    <div className="item-details">Including {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</div>
+                  </div>
+                  <p className="warning-text">
+                    This action cannot be undone. All notifications will be permanently removed from your account.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="custom-modal-footer">
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  className="modal-cancel-btn"
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteAll}
+                  className="modal-confirm-btn"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete All'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

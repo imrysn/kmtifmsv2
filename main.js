@@ -1,10 +1,13 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, nativeTheme } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
 const updaterWindow = require('./updater-window');
 const updater = require('./updater'); // Import updater module for window registration
+
+// Let the OS handle the theme (this brings back the black titlebar in Windows Dark Mode)
+nativeTheme.themeSource = 'system';
 
 let mainWindow;
 let splashWindow;
@@ -290,12 +293,13 @@ function checkViteConnection() {
 
 /*** Create and show splash window - SHOWS IMMEDIATELY, NO BLOCKING */
 function createSplashWindow() {
-  // Get primary display dimensions for fullscreen splash
-  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+  // Create a compact frameless splash screen
+  const splashWidth = 500;
+  const splashHeight = 400;
 
   splashWindow = new BrowserWindow({
-    width: screenWidth,
-    height: screenHeight,
+    width: splashWidth,
+    height: splashHeight,
     frame: false,
     alwaysOnTop: true,
     center: true,
@@ -563,17 +567,17 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
 
-  const windowWidth = Math.floor(screenWidth * 0.8);
-  const windowHeight = Math.floor(screenHeight * 0.8);
   const shouldAutoMaximize = screenWidth <= 1920 || screenHeight <= 1080;
 
   log(LogLevel.DEBUG, `Screen detected: ${screenWidth}x${screenHeight}`);
-  log(LogLevel.DEBUG, `Window size: ${windowWidth}x${windowHeight}`);
-  log(LogLevel.DEBUG, `Auto-maximize: ${shouldAutoMaximize ? 'Yes' : 'No'}`);
+  log(LogLevel.DEBUG, `Auto-maximize on login: ${shouldAutoMaximize ? 'Yes' : 'No'}`);
 
   mainWindow = new BrowserWindow({
-    width: windowWidth,
-    height: windowHeight,
+    width: 850,
+    height: 650,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     backgroundColor: '#ffffff',
     show: false,
     icon: path.join(__dirname, 'client/src/assets/fms-icon.png'),
@@ -593,10 +597,9 @@ function createWindow() {
     },
   });
 
-  if (shouldAutoMaximize) {
-    mainWindow.maximize();
-    log(LogLevel.DEBUG, 'Window auto-maximized');
-  }
+  // Do NOT maximize on initial launch (login screen)
+  // mainWindow.maximize();
+  log(LogLevel.DEBUG, 'Window started in compact login mode');
 
   mainWindow.setMenuBarVisibility(false);
 
@@ -889,46 +892,54 @@ async function startServer() {
 
     // Free port before loading server module (prevents EADDRINUSE)
     await new Promise((resolvePort) => {
-      const { exec } = require('child_process');
-      const net = require('net');
+    const { exec } = require('child_process');
+    const net = require('net');
 
-      function getPids(cb) {
-        exec(`netstat -ano | findstr :${SERVER_PORT}`, (err, stdout) => {
-          if (err || !stdout) { cb(new Set()); return; }
-          const pids = new Set();
-          stdout.split('\n').forEach(line => {
-            if (line.toUpperCase().includes('LISTENING')) {
+    // Fast check — no netstat needed
+    function isPortFree(cb) {
+    const tester = net.createServer();
+    tester.once('error', () => cb(false));
+    tester.once('listening', () => { tester.close(); cb(true); });
+    tester.listen(SERVER_PORT, '127.0.0.1');
+    }
+
+    function getPids(cb) {
+    exec(`netstat -ano | findstr :${SERVER_PORT}`, (err, stdout) => {
+    if (err || !stdout) { cb(new Set()); return; }
+    const pids = new Set();
+      stdout.split('\n').forEach(line => {
+          if (line.toUpperCase().includes('LISTENING')) {
               const parts = line.trim().split(/\s+/);
-              const pid = parseInt(parts[parts.length - 1]);
-              if (!isNaN(pid) && pid !== process.pid) pids.add(pid);
-            }
-          });
-          cb(pids);
-        });
+            const pid = parseInt(parts[parts.length - 1]);
+          if (!isNaN(pid) && pid !== process.pid) pids.add(pid);
+        }
+      });
+      cb(pids);
+      });
       }
 
-      function isPortFree(cb) {
-        const tester = net.createServer();
-        tester.once('error', () => cb(false));
-        tester.once('listening', () => { tester.close(); cb(true); });
-        tester.listen(SERVER_PORT, '127.0.0.1');
-      }
+    function killAndWait(attempt) {
+    if (attempt > 10) { log(LogLevel.WARN, `Port ${SERVER_PORT} still busy after retries — proceeding anyway`); resolvePort(); return; }
 
-      function killAndWait(attempt) {
-        if (attempt > 10) { log(LogLevel.WARN, `Port ${SERVER_PORT} still busy after retries — proceeding anyway`); resolvePort(); return; }
-        getPids((pids) => {
-          const killAll = (cb) => {
-            if (pids.size === 0) { cb(); return; }
-            let n = pids.size;
-            pids.forEach(pid => exec(`taskkill /PID ${pid} /F`, () => { if (--n === 0) cb(); }));
-          };
-          killAll(() => {
-            setTimeout(() => {
-              isPortFree((free) => {
-                if (free) { resolvePort(); }
+    // FAST PATH: check if port is already free before touching netstat
+    isPortFree((free) => {
+    if (free) { resolvePort(); return; }
+
+    // Port is busy — only now use netstat to find PIDs
+    getPids((pids) => {
+    const killAll = (cb) => {
+    if (pids.size === 0) { cb(); return; }
+    let n = pids.size;
+    pids.forEach(pid => exec(`taskkill /PID ${pid} /F`, () => { if (--n === 0) cb(); }));
+    };
+      killAll(() => {
+          setTimeout(() => {
+              isPortFree((nowFree) => {
+                  if (nowFree) { resolvePort(); }
                 else { killAndWait(attempt + 1); }
-              });
-            }, 500);
+                });
+              }, 500);
+            });
           });
         });
       }
@@ -1145,8 +1156,8 @@ if (app) {
             ...details.responseHeaders,
             'Content-Security-Policy': [
               isDev
-                ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com http: https:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
-                : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com http: https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+                ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: http://localhost:*; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com http: https:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+                : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: http://localhost:*; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com http: https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
             ]
           }
         });
@@ -1360,6 +1371,7 @@ if (ipcMain) {
   });
 
   ipcMain.handle('file:openInApp', async (event, filePath) => {
+    log(LogLevel.INFO, `IPC: file:openInApp - Received path: ${filePath}`);
     try {
       // SECURITY: Validate input
       if (!filePath || typeof filePath !== 'string') {
@@ -1374,9 +1386,20 @@ if (ipcMain) {
       const isUNCPath = normalizedPath.startsWith('\\\\') || filePath.startsWith('\\\\');
 
       if (isUNCPath) {
-        // For UNC/network paths, skip fs.existsSync (unreliable on network drives)
-        // and go straight to shell.openPath — Windows will handle the error if missing
-        log(LogLevel.DEBUG, `Opening UNC/network file directly: ${normalizedPath}`);
+        log(LogLevel.DEBUG, `Opening UNC/network file: ${normalizedPath}`);
+        
+        // Try to check if it's a directory even for UNC paths
+        try {
+          const stats = await fs.promises.stat(normalizedPath);
+          if (stats.isDirectory()) {
+            log(LogLevel.WARN, 'UNC path is a directory, opening in explorer instead of app');
+            await shell.openPath(normalizedPath);
+            return { success: true, method: 'explorer-fallback' };
+          }
+        } catch (e) {
+          log(LogLevel.WARN, 'Could not stat UNC path, proceeding with openPath');
+        }
+
         const result = await shell.openPath(normalizedPath);
         if (result) {
           log(LogLevel.ERROR, 'Error opening UNC file:', result);
@@ -1448,24 +1471,112 @@ if (ipcMain) {
   });
 
   ipcMain.handle('folder:openInExplorer', async (event, folderPath) => {
+    log(LogLevel.INFO, `IPC: folder:openInExplorer - Received path: ${folderPath}`);
     try {
       if (!folderPath || typeof folderPath !== 'string') {
         return { success: false, error: 'Invalid folder path' };
       }
 
       const normalizedPath = path.normalize(folderPath);
+      const isUNC = normalizedPath.startsWith('\\\\');
 
-      if (!fs.existsSync(normalizedPath)) {
+      // For UNC/network paths skip fs.existsSync — unreliable on NAS drives.
+      if (!isUNC && !fs.existsSync(normalizedPath)) {
+        // Path not found — try opening the parent directory instead
+        const parentDir = path.dirname(normalizedPath);
+        if (parentDir && parentDir !== normalizedPath && fs.existsSync(parentDir)) {
+          log(LogLevel.DEBUG, `Target not found, opening parent: ${parentDir}`);
+          shell.showItemInFolder(parentDir);
+          return { success: true };
+        }
         return { success: false, error: 'Folder not found' };
       }
 
       log(LogLevel.DEBUG, `Opening in Explorer: ${normalizedPath}`);
-      // shell.showItemInFolder opens Explorer with the item highlighted in its parent.
-      // Works correctly for both files AND folders — no need to dirname first.
-      shell.showItemInFolder(normalizedPath);
+      
+      // Determine if the path is a directory
+      let isDirectory = false;
+      try {
+        const stats = fs.statSync(normalizedPath);
+        isDirectory = stats.isDirectory();
+      } catch (e) {
+        // Fallback for UNC or missing file: if it ends with slash or has no extension, assume dir
+        isDirectory = normalizedPath.endsWith(path.sep) || !path.extname(normalizedPath);
+      }
+
+      if (isDirectory) {
+        // Open the folder directly so user is INSIDE it
+        shell.openPath(normalizedPath);
+      } else {
+        // Highlight the file in its parent folder
+        shell.showItemInFolder(normalizedPath);
+      }
+      
       return { success: true };
     } catch (error) {
       log(LogLevel.ERROR, 'Error opening folder:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Download a folder as a real folder (not zip) into the user's Downloads directory.
+  // fileInfoList: [{ id, name, relativePath }]  — resolved on the server side.
+  ipcMain.handle('folder:download', async (event, { folderName, fileInfoList }) => {
+    log(LogLevel.INFO, `IPC: folder:download - folderName="${folderName}", files=${fileInfoList?.length}`);
+    try {
+      if (!folderName || !Array.isArray(fileInfoList) || fileInfoList.length === 0) {
+        return { success: false, error: 'Invalid arguments' };
+      }
+
+      const downloadsDir = app.getPath('downloads');
+      // Build a safe folder name for the filesystem (replace characters Windows forbids)
+      const safeFolderName = folderName.replace(/[<>:"/\\|?*]/g, '_');
+      let destFolder = path.join(downloadsDir, safeFolderName);
+
+      // If the folder already exists, add a numeric suffix
+      let suffix = 1;
+      while (fs.existsSync(destFolder)) {
+        destFolder = path.join(downloadsDir, `${safeFolderName} (${suffix++})`);
+      }
+      fs.mkdirSync(destFolder, { recursive: true });
+
+      let copied = 0;
+      const failed = [];
+
+      for (const fileInfo of fileInfoList) {
+        const { srcPath, relativePath, name } = fileInfo;
+        if (!srcPath) { failed.push(name || 'unknown'); continue; }
+
+        const normalizedSrc = path.normalize(srcPath);
+        try {
+          // Determine dest path — preserve subfolder structure if relativePath provided
+          let relParts = (relativePath || '').replace(/\\/g, '/').split('/').filter(Boolean);
+          // Drop the top-level folder name if it matches folderName
+          if (relParts.length > 0 && relParts[0] === folderName) relParts = relParts.slice(1);
+          const destFile = relParts.length > 0
+            ? path.join(destFolder, ...relParts)
+            : path.join(destFolder, name || path.basename(normalizedSrc));
+
+          fs.mkdirSync(path.dirname(destFile), { recursive: true });
+          fs.copyFileSync(normalizedSrc, destFile);
+          copied++;
+        } catch (e) {
+          log(LogLevel.WARN, `folder:download - failed to copy ${normalizedSrc}: ${e.message}`);
+          failed.push(name || path.basename(normalizedSrc));
+        }
+      }
+
+      if (copied === 0) {
+        // Clean up empty folder
+        try { fs.rmdirSync(destFolder); } catch (_) {}
+        return { success: false, error: `No files could be copied. ${failed.length} failed.` };
+      }
+
+      // Highlight the folder in its parent folder (Downloads) in Explorer
+      shell.showItemInFolder(destFolder);
+      return { success: true, destFolder, copied, failed };
+    } catch (error) {
+      log(LogLevel.ERROR, 'folder:download failed:', error.message);
       return { success: false, error: error.message };
     }
   });
@@ -1576,6 +1687,36 @@ if (ipcMain) {
       fs.writeFileSync(filePath, JSON.stringify(data), 'utf8');
       return true;
     } catch { return false; }
+  });
+
+  // ── Window Resizing for Login / Dashboard ───────────────────────────────────
+  ipcMain.on('window:resizeForDashboard', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setResizable(true);
+      mainWindow.setMaximizable(true);
+      mainWindow.setFullScreenable(true);
+      
+      const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
+      // Unconditionally set the restored size to 80% of the screen so when
+      // the user clicks "Restore Down", it doesn't shrink to the 850x650 login size.
+      // We no longer auto-maximize, leaving it up to the user to maximize if they want.
+      mainWindow.setSize(Math.floor(sw * 0.8), Math.floor(sh * 0.8));
+      mainWindow.center();
+      
+      log(LogLevel.INFO, 'Window resized for dashboard mode');
+    }
+  });
+
+  ipcMain.on('window:resizeForLogin', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.unmaximize();
+      mainWindow.setSize(850, 650);
+      mainWindow.center();
+      mainWindow.setResizable(false);
+      mainWindow.setMaximizable(false);
+      mainWindow.setFullScreenable(false);
+      log(LogLevel.INFO, 'Window resized for compact login mode');
+    }
   });
 }
 // Handle opening external links

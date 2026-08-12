@@ -51,7 +51,7 @@ async function groupFilesByAssignment() {
 
         // Use the assignment title as the folder name
         const folderName = files[0].assignment_title || `Assignment_${assignmentId}`;
-        
+
         console.log(`📁 Creating folder "${folderName}" with ${files.length} files`);
 
         // Update all files in this assignment
@@ -78,7 +78,7 @@ async function groupFilesByAssignment() {
       }
 
       console.log('✅ Migration complete!');
-      console.log(`📊 Stats:`);
+      console.log('📊 Stats:');
       console.log(`   - ${totalFolders} folders created`);
       console.log(`   - ${totalUpdated} files updated`);
 

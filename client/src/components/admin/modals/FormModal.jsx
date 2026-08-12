@@ -25,12 +25,21 @@ const FormModal = ({
   size = 'medium',
   children
 }) => {
+  React.useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isOpen])
+
   if (!isOpen) return null
 
   const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget && !isLoading) {
-      onClose()
-    }
+    if (e.target === e.currentTarget) onClose()
   }
 
   const handleSubmit = (e) => {

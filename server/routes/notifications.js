@@ -13,22 +13,34 @@ router.use(authenticateToken);
 const sseClients = new Map();
 
 const addClient = (userId, res) => {
-  if (!sseClients.has(userId)) sseClients.set(userId, new Set());
+  if (!sseClients.has(userId)) {
+    sseClients.set(userId, new Set());
+  }
   sseClients.get(userId).add(res);
 };
 
 const removeClient = (userId, res) => {
   const set = sseClients.get(userId);
-  if (set) { set.delete(res); if (set.size === 0) sseClients.delete(userId); }
+  if (set) {
+    set.delete(res); if (set.size === 0) {
+      sseClients.delete(userId);
+    }
+  }
 };
 
 // Push a ping to a specific user so the client refetches immediately
 const pushToUser = (userId) => {
   const set = sseClients.get(String(userId));
-  if (!set || set.size === 0) return;
-  const payload = `data: ping\n\n`;
+  if (!set || set.size === 0) {
+    return;
+  }
+  const payload = 'data: ping\n\n';
   for (const res of set) {
-    try { res.write(payload); } catch (_) { removeClient(String(userId), res); }
+    try {
+      res.write(payload);
+    } catch {
+      removeClient(String(userId), res);
+    }
   }
 };
 
@@ -43,7 +55,11 @@ router.get('/user/:userId/stream', (req, res) => {
 
   // Send a heartbeat every 25s to keep the connection alive through proxies
   const heartbeat = setInterval(() => {
-    try { res.write(': heartbeat\n\n'); } catch (_) { clearInterval(heartbeat); }
+    try {
+      res.write(': heartbeat\n\n');
+    } catch {
+      clearInterval(heartbeat);
+    }
   }, 25000);
 
   addClient(userId, res);
@@ -91,37 +107,58 @@ const createNotification = async (userId, fileId, type, title, message, actionBy
 };
 
 // Helper function to notify all admins
-// FIX #7 — single batch INSERT instead of N sequential INSERTs
 const createAdminNotification = async (fileId, type, title, message, actionById, actionByUsername, actionByRole, assignmentId = null) => {
   try {
+    console.log('📢 Broadcasting admin notification:', { type, title });
+
+    // 1. Get all admin users
     const admins = await query('SELECT id FROM users WHERE role = ?', ['ADMIN']);
-    if (!admins || admins.length === 0) return 0;
 
-    const targets = admins.filter(a => !actionById || a.id !== parseInt(actionById, 10));
-    if (targets.length === 0) return 0;
-
-    const placeholders = targets.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)').join(', ');
-    const params = [];
-    for (const admin of targets) {
-      params.push(
-        admin.id, fileId ?? null, assignmentId ?? null,
-        type ?? null, title ?? null, message ?? null,
-        actionById ?? null, actionByUsername ?? 'System', actionByRole ?? 'ADMIN'
-      );
-      pushToUser(admin.id);
+    if (!admins || admins.length === 0) {
+      console.log('⚠️ No admins found to notify');
+      return 0;
     }
 
-    await query(
-      `INSERT INTO notifications
-         (user_id, file_id, assignment_id, type, title, message,
-          action_by_id, action_by_username, action_by_role, created_at)
-       VALUES ${placeholders}`,
-      params
-    );
+    console.log(`found ${admins.length} admins to notify`);
 
-    return targets.length;
+    // 2. Create notification for each admin
+    let count = 0;
+    for (const admin of admins) {
+      // Don't notify the admin who performed the action (if applicable)
+      if (actionById && admin.id === parseInt(actionById, 10)) {
+        console.log(`ℹ️ Skipped notifying admin ${admin.id} (${admin.username || 'unknown'}) - they performed the action`);
+        continue;
+      }
+
+      console.log(`🔔 Creating notification for admin ${admin.id} (${admin.username || 'unknown'})`);
+      await query(
+        `INSERT INTO notifications (
+          user_id, file_id, type, title, message, assignment_id,
+          action_by_id, action_by_username, action_by_role
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          admin.id,
+          fileId ?? null,
+          type ?? null,
+          title ?? null,
+          message ?? null,
+          assignmentId ?? null,
+          actionById ?? null,
+          actionByUsername ?? 'System',
+          actionByRole ?? 'ADMIN'
+        ]
+      );
+      // Push real-time ping to the admin
+      pushToUser(admin.id);
+      count++;
+    }
+
+    console.log(`✅ Admin notifications created: ${count}`);
+    return count;
+
   } catch (error) {
     console.error('❌ Error creating admin notifications:', error);
+    // Don't throw, just log error so main flow doesn't break
     return 0;
   }
 };
@@ -132,13 +169,17 @@ router.get('/user/:userId', async (req, res) => {
     const { userId } = req.params;
     const { unreadOnly, page = 1, limit = 20 } = req.query;
 
-    // Ownership check: Users can only see their own notifications, ADMINs can see any
-    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+    // Ownership check: users can only see their own notifications; ADMIN can see any
+    // Use loose == comparison so string userId from URL matches integer req.user.id from JWT
+    const isOwner = req.user.id === parseInt(userId, 10);
+    const isAdmin = req.user.role === 'ADMIN';
+    console.log(`📬 Notifications fetch: reqUser.id=${req.user.id}(${typeof req.user.id}) userId=${userId}(${typeof userId}) isOwner=${isOwner} role=${req.user.role}`);
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({ success: false, message: 'Access denied: You can only view your own notifications' });
     }
 
-    const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 20));
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
 
     console.log(`📬 Fetching notifications for user ${userId}, page: ${pageNum}, limit: ${limitNum}`);
@@ -163,8 +204,10 @@ router.get('/user/:userId', async (req, res) => {
       FROM notifications n
       LEFT JOIN files f ON n.file_id = f.id
       LEFT JOIN assignments a ON n.assignment_id = a.id
-      LEFT JOIN assignment_comments ac ON n.comment_id = ac.id 
-        AND n.type = 'comment'
+      LEFT JOIN assignment_comments ac ON n.assignment_id = ac.assignment_id 
+        AND n.type IN ('comment', 'mention', 'reply')
+        AND n.created_at <= DATE_ADD(ac.created_at, INTERVAL 1 SECOND)
+        AND n.created_at >= DATE_SUB(ac.created_at, INTERVAL 1 SECOND)
       WHERE n.user_id = ?
     `;
 
@@ -212,8 +255,8 @@ router.get('/user/:userId/unread-count', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Ownership check
-    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+    // Ownership check (loose == to handle string/int mismatch between URL param and JWT)
+    if (req.user.id !== parseInt(userId, 10) && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
@@ -267,8 +310,8 @@ router.put('/user/:userId/read-all', async (req, res) => {
     const { userId } = req.params;
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-    // Ownership check
-    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+    // Ownership check (loose == to handle string/int mismatch between URL param and JWT)
+    if (req.user.id !== parseInt(userId, 10) && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
@@ -323,8 +366,8 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Ownership check
-    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+    // Ownership check (loose == to handle string/int mismatch between URL param and JWT)
+    if (req.user.id !== parseInt(userId, 10) && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
